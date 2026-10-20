@@ -11,6 +11,10 @@
 # BlueJ files
 *.ctxt
 
+*.idea
+
+mitochondria/*
+
 # Mobile Tools for Java (J2ME)
 .mtj.tmp/
 
@@ -70,4 +74,3 @@ gradle-app.setting
 *.hprof
 
 # End of https://www.toptal.com/developers/gitignore/api/java,linux,gradle
-

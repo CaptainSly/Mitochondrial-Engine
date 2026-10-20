@@ -6,6 +6,7 @@ import com.duckcraftian.upf.system.event.EventBus;
 import com.duckcraftian.upf.system.registries.PluginRegistryManager;
 import com.duckcraftian.upf.system.registries.RegistryManager;
 import com.duckcraftian.upf.utils.Input;
+import com.google.gson.GsonBuilder;
 import org.lwjgl.opengl.GL;
 import org.lwjgl.sdl.*;
 import org.tinylog.Logger;
@@ -41,6 +42,8 @@ public class Engine {
         UPF.REGISTRY_MANAGER = registryManager;
 
         pluginLoader = new PluginLoader(UPF.getEngineFolder("mods"), UPF.PLUGIN_REGISTRY_MANAGER, UPF.REGISTRY_MANAGER);
+
+        UPF.GSON = new GsonBuilder().setPrettyPrinting().create();
 
         eventBus = new EventBus();
         UPF.EVENT_BUS = eventBus;

@@ -1,0 +1,227 @@
+[
+ {
+  "path": "FMV1/FMV000.STR",
+  "lba": 101705,
+  "iso_size": 3074048,
+  "sectors": 1501,
+  "mode": "raw2352",
+  "bytes": 3530352,
+  "sha1": "5459f1a52b05be825b4ddafecb9c9cf4e729681c"
+ },
+ {
+  "path": "FMV1/FMV001.STR",
+  "lba": 189742,
+  "iso_size": 42584064,
+  "sectors": 20793,
+  "mode": "raw2352",
+  "bytes": 48905136,
+  "sha1": "6807b02f9eef81e069d2a9ab8ad82ed514767ca8"
+ },
+ {
+  "path": "FMV1/FMV002.STR",
+  "lba": 103206,
+  "iso_size": 20955136,
+  "sectors": 10232,
+  "mode": "raw2352",
+  "bytes": 24065664,
+  "sha1": "82ad6c67f8f59df1b96660ac06468f20385afb85"
+ },
+ {
+  "path": "FMV1/FMV003.STR",
+  "lba": 113438,
+  "iso_size": 24150016,
+  "sectors": 11792,
+  "mode": "raw2352",
+  "bytes": 27734784,
+  "sha1": "4c39fa329cdc0b158dd2d0d37f67427c773ea10a"
+ },
+ {
+  "path": "FMV1/FMV004.STR",
+  "lba": 125230,
+  "iso_size": 12025856,
+  "sectors": 5872,
+  "mode": "raw2352",
+  "bytes": 13810944,
+  "sha1": "79a970e9faa16364c4e56f41074b20ceeeb7fb35"
+ },
+ {
+  "path": "FMV1/FMV005.STR",
+  "lba": 131102,
+  "iso_size": 5259264,
+  "sectors": 2568,
+  "mode": "raw2352",
+  "bytes": 6039936,
+  "sha1": "72cb4e3f36a817d8fb964738198f3032fd04df4b"
+ },
+ {
+  "path": "FMV1/FMV006.STR",
+  "lba": 133670,
+  "iso_size": 15908864,
+  "sectors": 7768,
+  "mode": "raw2352",
+  "bytes": 18270336,
+  "sha1": "8e6b64f92a5090a7e6ceece0b6899500823e5f81"
+ },
+ {
+  "path": "FMV1/FMV006C.STR",
+  "lba": 141438,
+  "iso_size": 4374528,
+  "sectors": 2136,
+  "mode": "raw2352",
+  "bytes": 5023872,
+  "sha1": "7512545bc5ddf11a18eaab493eccee10907ad9b5"
+ },
+ {
+  "path": "FMV1/FMV007.STR",
+  "lba": 143574,
+  "iso_size": 9601024,
+  "sectors": 4688,
+  "mode": "raw2352",
+  "bytes": 11026176,
+  "sha1": "d99e206f4cb4aad98e6ed976cc1888680d81184c"
+ },
+ {
+  "path": "FMV1/FMV008.STR",
+  "lba": 148262,
+  "iso_size": 4718592,
+  "sectors": 2304,
+  "mode": "raw2352",
+  "bytes": 5419008,
+  "sha1": "8632ac63a5b537f4a4e2a031654270756ef5a8c9"
+ },
+ {
+  "path": "FMV1/FMV009.STR",
+  "lba": 150566,
+  "iso_size": 5799936,
+  "sectors": 2832,
+  "mode": "raw2352",
+  "bytes": 6660864,
+  "sha1": "d4c5f4fef754eb36ab1a2b84083b00d87aaabd65"
+ },
+ {
+  "path": "FMV1/FMV010.STR",
+  "lba": 153398,
+  "iso_size": 10567680,
+  "sectors": 5160,
+  "mode": "raw2352",
+  "bytes": 12136320,
+  "sha1": "8f84c14c7455e0b3a450994faf3a92a620da961d"
+ },
+ {
+  "path": "FMV1/FMV011.STR",
+  "lba": 158558,
+  "iso_size": 11763712,
+  "sectors": 5744,
+  "mode": "raw2352",
+  "bytes": 13509888,
+  "sha1": "686c258a87cdeb48fbcd305396d7f76b019fa320"
+ },
+ {
+  "path": "FMV1/FMV012.STR",
+  "lba": 164302,
+  "iso_size": 7913472,
+  "sectors": 3864,
+  "mode": "raw2352",
+  "bytes": 9088128,
+  "sha1": "8ee0173c30fe6db35dda8f19d4422f5a5745a215"
+ },
+ {
+  "path": "FMV1/FMV013.STR",
+  "lba": 168166,
+  "iso_size": 8208384,
+  "sectors": 4008,
+  "mode": "raw2352",
+  "bytes": 9426816,
+  "sha1": "bd60656960c1d4ba4ff8907ffb19d9d8ab1773fb"
+ },
+ {
+  "path": "FMV1/FMV014.STR",
+  "lba": 172174,
+  "iso_size": 9256960,
+  "sectors": 4520,
+  "mode": "raw2352",
+  "bytes": 10631040,
+  "sha1": "ff4e67d1068710f9944e325633e06d8788c7d1e3"
+ },
+ {
+  "path": "FMV1/FMV015.STR",
+  "lba": 176694,
+  "iso_size": 7487488,
+  "sectors": 3656,
+  "mode": "raw2352",
+  "bytes": 8598912,
+  "sha1": "33172104178346f3e5638a5f1eeb80537b5f6140"
+ },
+ {
+  "path": "FMV1/FMV016A.STR",
+  "lba": 180350,
+  "iso_size": 2523136,
+  "sectors": 1232,
+  "mode": "raw2352",
+  "bytes": 2897664,
+  "sha1": "c421ea3e4b7743d8f1992b3e02d3fd83aafffd59"
+ },
+ {
+  "path": "FMV1/FMV016B.STR",
+  "lba": 181582,
+  "iso_size": 2392064,
+  "sectors": 1168,
+  "mode": "raw2352",
+  "bytes": 2747136,
+  "sha1": "dc0c3f9475f2f060e8819c3001bf41cd2932244e"
+ },
+ {
+  "path": "FMV1/FMV017A.STR",
+  "lba": 182750,
+  "iso_size": 9863168,
+  "sectors": 4816,
+  "mode": "raw2352",
+  "bytes": 11327232,
+  "sha1": "b11fc37e0f8e8ac1366d7e2562ec3987769823bc"
+ },
+ {
+  "path": "FMV1/FMV017B.STR",
+  "lba": 187566,
+  "iso_size": 4456448,
+  "sectors": 2176,
+  "mode": "raw2352",
+  "bytes": 5117952,
+  "sha1": "857c4b73a6ea463e6ba1db5ffa7d3307aafdd0ac"
+ },
+ {
+  "path": "FMV1/PEDISC01.IDF",
+  "lba": 101704,
+  "iso_size": 40,
+  "sectors": 1,
+  "mode": "data2048",
+  "bytes": 40,
+  "sha1": "8ba5293b2edf7ec5ec7a52054695c87a89bb2779"
+ },
+ {
+  "path": "PE.IMG",
+  "lba": 1013,
+  "iso_size": 206213120,
+  "sectors": 100690,
+  "mode": "data2048",
+  "bytes": 206213120,
+  "sha1": "146c0ce7308bf9fdc2ba5a84230e198db0663f3b"
+ },
+ {
+  "path": "SLUS_006.62",
+  "lba": 24,
+  "iso_size": 2025472,
+  "sectors": 989,
+  "mode": "data2048",
+  "bytes": 2025472,
+  "sha1": "452fb033f2eaa4b18aa20a5bca60b8125af3a37b"
+ },
+ {
+  "path": "SYSTEM.CNF",
+  "lba": 23,
+  "iso_size": 60,
+  "sectors": 1,
+  "mode": "data2048",
+  "bytes": 60,
+  "sha1": "75d642193d4c134d057296ae52f06a101c08c765"
+ }
+]

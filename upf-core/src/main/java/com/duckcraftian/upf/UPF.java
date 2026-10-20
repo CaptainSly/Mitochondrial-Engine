@@ -5,6 +5,7 @@ import com.duckcraftian.upf.engine.system.Window;
 import com.duckcraftian.upf.system.event.EventBus;
 import com.duckcraftian.upf.system.registries.PluginRegistryManager;
 import com.duckcraftian.upf.system.registries.RegistryManager;
+import com.google.gson.Gson;
 
 import java.io.File;
 import java.nio.file.Path;
@@ -14,7 +15,7 @@ public class UPF {
     public static final String WINDOW_TITLE = "Mitochondrial Engine";
     public static final String MAJOR = "0";
     public static final String MINOR = "1";
-    public static final String BUGFIX = "0";
+    public static final String BUGFIX = "2";
     public static final String CODENAME = "Resonance";
 
     // ------------ COLORS -------------
@@ -47,10 +48,12 @@ public class UPF {
         return Path.of(ENGINE_PATH.toString(), path);
     }
 
+    public static Gson GSON;
 
     public static Window WINDOW;
     public static PluginRegistryManager PLUGIN_REGISTRY_MANAGER;
     public static RegistryManager REGISTRY_MANAGER;
     public static EventBus EVENT_BUS;
+
 
 }

@@ -1,8 +1,10 @@
 package com.duckcraftian.upf.utils;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.Normalizer;
 import java.util.Locale;
@@ -61,6 +63,11 @@ public class FileUtils {
             noExtension = path.substring(0, dotIndex);
 
         return noExtension.toLowerCase().replace(' ', '_');
+    }
+
+    public static String readString(String fileName) throws URISyntaxException, IOException {
+        File f = resolveAssetFile(fileName);
+        return Files.readString(f.toPath());
     }
 
     public static File getLocalFile(String fileName) throws URISyntaxException {

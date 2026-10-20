@@ -4,7 +4,22 @@ import org.joml.Vector2f;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
 
+import java.util.HexFormat;
+
 public class Utils {
+
+    public static String toHex(byte[] bytes) {
+        return HexFormat.of().formatHex(bytes);
+    }
+
+    public static String stringMultiplier(String str, int multiplier) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < multiplier; i++) {
+            sb.append(str);
+        }
+
+        return sb.toString();
+    }
 
 
     public static float[] convertVec2ArrayToFloatArray(Vector2f[] array) {

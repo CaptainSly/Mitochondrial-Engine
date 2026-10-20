@@ -1,0 +1,281 @@
+[
+ {
+  "path": "FMV2/FMV018.STR",
+  "lba": 101706,
+  "iso_size": 15826944,
+  "sectors": 7728,
+  "mode": "raw2352",
+  "bytes": 18176256,
+  "sha1": "2d6e1203cc54a72e2cbc6783a0bacc1bc1a20b39"
+ },
+ {
+  "path": "FMV2/FMV019.STR",
+  "lba": 109434,
+  "iso_size": 7487488,
+  "sectors": 3656,
+  "mode": "raw2352",
+  "bytes": 8598912,
+  "sha1": "1d60e31180d208bfefd213cd311efed015c054e1"
+ },
+ {
+  "path": "FMV2/FMV020A.STR",
+  "lba": 113090,
+  "iso_size": 11763712,
+  "sectors": 5744,
+  "mode": "raw2352",
+  "bytes": 13509888,
+  "sha1": "4f55a943d571f365fb7c8c050f2151a194529b5b"
+ },
+ {
+  "path": "FMV2/FMV020B.STR",
+  "lba": 118834,
+  "iso_size": 23068672,
+  "sectors": 11264,
+  "mode": "raw2352",
+  "bytes": 26492928,
+  "sha1": "01fa45d0677b83745d1c0de419a2a301482f7671"
+ },
+ {
+  "path": "FMV2/FMV021.STR",
+  "lba": 130098,
+  "iso_size": 4194304,
+  "sectors": 2048,
+  "mode": "raw2352",
+  "bytes": 4816896,
+  "sha1": "26de5159d05d7116098516a07ea727b4c5408268"
+ },
+ {
+  "path": "FMV2/FMV023A.STR",
+  "lba": 132146,
+  "iso_size": 8306688,
+  "sectors": 4056,
+  "mode": "raw2352",
+  "bytes": 9539712,
+  "sha1": "acf856c34978827ebb6fb1392785e45733b2cd38"
+ },
+ {
+  "path": "FMV2/FMV023B.STR",
+  "lba": 136202,
+  "iso_size": 11370496,
+  "sectors": 5552,
+  "mode": "raw2352",
+  "bytes": 13058304,
+  "sha1": "32414dda567b2528538440514c699bc6e491db28"
+ },
+ {
+  "path": "FMV2/FMV024A.STR",
+  "lba": 141754,
+  "iso_size": 1392640,
+  "sectors": 680,
+  "mode": "raw2352",
+  "bytes": 1599360,
+  "sha1": "d5bd33f2023e53d98994fa33d9eacba472af1751"
+ },
+ {
+  "path": "FMV2/FMV024B1.STR",
+  "lba": 142434,
+  "iso_size": 12320768,
+  "sectors": 6016,
+  "mode": "raw2352",
+  "bytes": 14149632,
+  "sha1": "2eecead153a0a9514e680b36c4cfbcc098d8016e"
+ },
+ {
+  "path": "FMV2/FMV024B3.STR",
+  "lba": 148450,
+  "iso_size": 1064960,
+  "sectors": 520,
+  "mode": "raw2352",
+  "bytes": 1223040,
+  "sha1": "741f721ade48abf9d905094201406eee32df3281"
+ },
+ {
+  "path": "FMV2/FMV024C.STR",
+  "lba": 148970,
+  "iso_size": 2703360,
+  "sectors": 1320,
+  "mode": "raw2352",
+  "bytes": 3104640,
+  "sha1": "a5d9df00cd45efbffb9a221bae2bd4231ab7d3ed"
+ },
+ {
+  "path": "FMV2/FMV024C2.STR",
+  "lba": 150290,
+  "iso_size": 1622016,
+  "sectors": 792,
+  "mode": "raw2352",
+  "bytes": 1862784,
+  "sha1": "0473b54b3bdbfb86a19e440ad58b4c12ff13afc2"
+ },
+ {
+  "path": "FMV2/FMV024E.STR",
+  "lba": 151082,
+  "iso_size": 3424256,
+  "sectors": 1672,
+  "mode": "raw2352",
+  "bytes": 3932544,
+  "sha1": "1444b9ebccabc4ce41a4e231005cf7fa45ed5258"
+ },
+ {
+  "path": "FMV2/FMV024F.STR",
+  "lba": 152754,
+  "iso_size": 13877248,
+  "sectors": 6776,
+  "mode": "raw2352",
+  "bytes": 15937152,
+  "sha1": "df4c4762025b559c8bf987c81bba3bbe8e1db072"
+ },
+ {
+  "path": "FMV2/FMV025.STR",
+  "lba": 159530,
+  "iso_size": 7684096,
+  "sectors": 3752,
+  "mode": "raw2352",
+  "bytes": 8824704,
+  "sha1": "74dedce6f7c30fecd857a58c661faad7d513944d"
+ },
+ {
+  "path": "FMV2/FMV026.STR",
+  "lba": 163282,
+  "iso_size": 6488064,
+  "sectors": 3168,
+  "mode": "raw2352",
+  "bytes": 7451136,
+  "sha1": "76b8be8337f466f8acfe127078185efcaac05e0d"
+ },
+ {
+  "path": "FMV2/FMV027.STR",
+  "lba": 166450,
+  "iso_size": 10649600,
+  "sectors": 5200,
+  "mode": "raw2352",
+  "bytes": 12230400,
+  "sha1": "b3e257249f3168af716b85442fca12053a70e9c0"
+ },
+ {
+  "path": "FMV2/FMV028.STR",
+  "lba": 171650,
+  "iso_size": 2523136,
+  "sectors": 1232,
+  "mode": "raw2352",
+  "bytes": 2897664,
+  "sha1": "f89418f12daa64aaebbad5e16e297174b0d0e046"
+ },
+ {
+  "path": "FMV2/FMV029.STR",
+  "lba": 172882,
+  "iso_size": 9224192,
+  "sectors": 4504,
+  "mode": "raw2352",
+  "bytes": 10593408,
+  "sha1": "9aeca0ca032ff087a41aa5ac0dd31898e3756924"
+ },
+ {
+  "path": "FMV2/FMV030.STR",
+  "lba": 177386,
+  "iso_size": 6209536,
+  "sectors": 3032,
+  "mode": "raw2352",
+  "bytes": 7131264,
+  "sha1": "d041241ccef41bcc5bf1d21119ab0f1a7333a1f5"
+ },
+ {
+  "path": "FMV2/FMV031.STR",
+  "lba": 180418,
+  "iso_size": 9732096,
+  "sectors": 4752,
+  "mode": "raw2352",
+  "bytes": 11176704,
+  "sha1": "18070ce23647bd1c902b2eefb43a020029f6ac74"
+ },
+ {
+  "path": "FMV2/FMV032.STR",
+  "lba": 185170,
+  "iso_size": 4816896,
+  "sectors": 2352,
+  "mode": "raw2352",
+  "bytes": 5531904,
+  "sha1": "cccd356d87ba8eabe4cecdde12fb7231c2615305"
+ },
+ {
+  "path": "FMV2/FMV033A.STR",
+  "lba": 187522,
+  "iso_size": 5472256,
+  "sectors": 2672,
+  "mode": "raw2352",
+  "bytes": 6284544,
+  "sha1": "b1e8ed2bd63bef93eb4dfa868c97615a06940643"
+ },
+ {
+  "path": "FMV2/FMV033B.STR",
+  "lba": 190194,
+  "iso_size": 10043392,
+  "sectors": 4904,
+  "mode": "raw2352",
+  "bytes": 11534208,
+  "sha1": "8ce58767f8dfcfb307d74fa5f1781b802109bab6"
+ },
+ {
+  "path": "FMV2/FMV034.STR",
+  "lba": 195098,
+  "iso_size": 4491264,
+  "sectors": 2193,
+  "mode": "raw2352",
+  "bytes": 5157936,
+  "sha1": "77c0dedb1908075ebaebd4d0b9199e6a78ce5458"
+ },
+ {
+  "path": "FMV2/FMV035.STR",
+  "lba": 197291,
+  "iso_size": 14827520,
+  "sectors": 7240,
+  "mode": "raw2352",
+  "bytes": 17028480,
+  "sha1": "f0ef43402075d9e280d6931eafe72340707c8b4b"
+ },
+ {
+  "path": "FMV2/PEDISC02.IDF",
+  "lba": 101705,
+  "iso_size": 40,
+  "sectors": 1,
+  "mode": "data2048",
+  "bytes": 40,
+  "sha1": "e0eb7858ee0e2297ff6f2dc208953faf8ddab6f4"
+ },
+ {
+  "path": "PE.IMG",
+  "lba": 1013,
+  "iso_size": 206213120,
+  "sectors": 100690,
+  "mode": "data2048",
+  "bytes": 206213120,
+  "sha1": "146c0ce7308bf9fdc2ba5a84230e198db0663f3b"
+ },
+ {
+  "path": "SLUS_006.68",
+  "lba": 24,
+  "iso_size": 2025472,
+  "sectors": 989,
+  "mode": "data2048",
+  "bytes": 2025472,
+  "sha1": "452fb033f2eaa4b18aa20a5bca60b8125af3a37b"
+ },
+ {
+  "path": "SYSTEM.CNF",
+  "lba": 23,
+  "iso_size": 60,
+  "sectors": 1,
+  "mode": "data2048",
+  "bytes": 60,
+  "sha1": "eee84961c68ac7562801cb8752930f3aaed2eefc"
+ },
+ {
+  "path": "XASTREAM/CREDITS.XA",
+  "lba": 204531,
+  "iso_size": 144080896,
+  "sectors": 70352,
+  "mode": "raw2352",
+  "bytes": 165467904,
+  "sha1": "b807f04ea378c6133406bb97468e917e3354e43e"
+ }
+]
