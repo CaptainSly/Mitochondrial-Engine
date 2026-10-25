@@ -1,12 +1,11 @@
 package com.duckcraftian.upf.pe;
 
 import com.duckcraftian.upf.UPF;
-import com.duckcraftian.upf.ps1.disc.DiscConstants;
 import com.duckcraftian.upf.ps1.disc.DiscEntry;
 import com.duckcraftian.upf.ps1.disc.DiscFileSystem;
 import com.duckcraftian.upf.ps1.disc.RawDiscEntry;
-import com.duckcraftian.upf.utils.FileUtils;
-import com.duckcraftian.upf.utils.Utils;
+import com.duckcraftian.upf.system.FileUtils;
+import com.duckcraftian.upf.system.Utils;
 import com.google.gson.GsonBuilder;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -40,7 +39,7 @@ public class PEDFSTest {
     }
 
     @BeforeAll
-    void createFileSystem() throws IOException, NoSuchAlgorithmException {
+    void createFileSystem() throws IOException, NoSuchAlgorithmException, URISyntaxException {
         fileSystem = new DiscFileSystem("pe_disc_1");
 
         UPF.GSON = new GsonBuilder().setPrettyPrinting().create();

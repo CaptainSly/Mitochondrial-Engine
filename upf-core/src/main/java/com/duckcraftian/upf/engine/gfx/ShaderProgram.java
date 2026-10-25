@@ -1,11 +1,9 @@
 package com.duckcraftian.upf.engine.gfx;
 
 import com.duckcraftian.upf.impl.IDisposable;
-import com.duckcraftian.upf.utils.FileUtils;
-import com.duckcraftian.upf.utils.Utils;
-import org.joml.Matrix4f;
-import org.joml.Vector2f;
-import org.joml.Vector3f;
+import com.duckcraftian.upf.system.FileUtils;
+import com.duckcraftian.upf.system.Utils;
+import org.joml.*;
 import org.lwjgl.opengl.GL30;
 import org.lwjgl.system.MemoryStack;
 
@@ -154,6 +152,26 @@ public class ShaderProgram implements IDisposable {
     public void set(String uniformName, Vector2f value) {
         int location = getUniform(uniformName);
         glUniform2f(location, value.x, value.y);
+    }
+
+    public void set(String uniformName, Vector2i value) {
+        int location = getUniform(uniformName);
+        glUniform2i(location, value.x, value.y);
+    }
+
+    public void set(String uniformName, Vector3i value) {
+        int location = getUniform(uniformName);
+        glUniform3i(location, value.x, value.y, value.z);
+    }
+
+    public void set(String uniformName, Vector2i[] value) {
+        int location = getUniform(uniformName);
+        glUniform2iv(location, Utils.convertVec2ArrayToIntArray(value));
+    }
+
+    public void set(String uniformName, Vector3i[] value) {
+        int location = getUniform(uniformName);
+        glUniform3iv(location, Utils.convertVec3ArrayToIntArray(value));
     }
 
     public void set(String uniformName, float x, float y) {

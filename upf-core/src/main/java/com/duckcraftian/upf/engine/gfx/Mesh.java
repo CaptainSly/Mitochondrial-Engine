@@ -1,7 +1,7 @@
 package com.duckcraftian.upf.engine.gfx;
 
 import com.duckcraftian.upf.impl.IDisposable;
-import com.duckcraftian.upf.utils.Utils;
+import com.duckcraftian.upf.system.Utils;
 import org.joml.Vector2f;
 import org.joml.Vector3f;
 import org.lwjgl.opengl.GL15;

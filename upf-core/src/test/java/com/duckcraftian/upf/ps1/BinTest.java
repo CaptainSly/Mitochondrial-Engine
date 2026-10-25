@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.util.HexFormat;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -17,7 +18,7 @@ public class BinTest {
     BinLoader binLoader;
 
     @BeforeAll
-    void createBinLoader() throws IOException {
+    void createBinLoader() throws IOException, URISyntaxException {
         binLoader = new BinLoader("pe_disc_1");
     }
 

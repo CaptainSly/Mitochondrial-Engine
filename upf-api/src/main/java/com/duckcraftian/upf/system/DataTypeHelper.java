@@ -1,4 +1,4 @@
-package com.duckcraftian.upf.utils;
+package com.duckcraftian.upf.system;
 
 public class DataTypeHelper {
 

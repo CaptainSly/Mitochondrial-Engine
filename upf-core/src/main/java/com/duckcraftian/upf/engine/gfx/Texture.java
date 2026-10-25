@@ -1,7 +1,7 @@
 package com.duckcraftian.upf.engine.gfx;
 
 import com.duckcraftian.upf.impl.IDisposable;
-import com.duckcraftian.upf.utils.FileUtils;
+import com.duckcraftian.upf.system.FileUtils;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
 

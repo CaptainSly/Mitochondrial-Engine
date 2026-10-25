@@ -1,24 +1,37 @@
 package com.duckcraftian.upf.ps1.disc;
 
+import com.duckcraftian.upf.UPF;
 import com.duckcraftian.upf.impl.IDisposable;
+import com.duckcraftian.upf.pe.exceptions.NotRawImageException;
+import com.duckcraftian.upf.system.FileUtils;
 
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.net.URISyntaxException;
+import java.nio.file.Path;
 
-import static com.duckcraftian.upf.UPF.getEngineFolder;
 import static com.duckcraftian.upf.ps1.disc.DiscConstants.*;
 
 public class BinLoader implements IDisposable {
 
-    private RandomAccessFile bin;
+    private final RandomAccessFile bin;
+    private int totalSectors;
 
-    private final int totalSectors;
+    public BinLoader(String discName) throws IOException, URISyntaxException {
+        this(UPF.getEngineFolder("data").resolve(discName));
+    }
 
-    public BinLoader(String discName) throws IOException {
-        bin = new RandomAccessFile(getEngineFolder("data").resolve(discName + ".bin").toFile(), "r");
-        if (bin.length() % RAW_SECTOR_SIZE != 0)
-            throw new RuntimeException("Not a raw MODE2/2352 image");
+    public BinLoader(Path discName) throws IOException, URISyntaxException {
+        bin = new RandomAccessFile(FileUtils.resolveAssetFile(discName + ".bin"), "r");
+        setup();
+    }
 
+    private void setup() throws IOException {
+        if (bin.length() % RAW_SECTOR_SIZE != 0) {
+            bin.close();
+
+            throw new NotRawImageException("Not a raw MODE2/2352 image");
+        }
         totalSectors = (int) (bin.length() / RAW_SECTOR_SIZE);
     }
 

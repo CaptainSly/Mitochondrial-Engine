@@ -1,15 +1,18 @@
 package com.duckcraftian.upf.ps1.disc;
 
+import com.duckcraftian.upf.UPF;
 import com.duckcraftian.upf.impl.IDisposable;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
+import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.List;
 
 import static com.duckcraftian.upf.ps1.disc.DiscConstants.*;
-import static com.duckcraftian.upf.utils.DataTypeHelper.*;
-import static com.duckcraftian.upf.utils.Utils.toHex;
+import static com.duckcraftian.upf.system.DataTypeHelper.*;
+import static com.duckcraftian.upf.system.Utils.toHex;
 
 public class DiscFileSystem implements IDisposable {
 
@@ -17,9 +20,21 @@ public class DiscFileSystem implements IDisposable {
     private long rootLba;
     private long rootLen;
 
-    public DiscFileSystem(String discName) throws IOException {
-        disc = new BinLoader(discName);
-        readRootRecord();
+    public DiscFileSystem(String discName) throws URISyntaxException {
+        this(UPF.getEngineFolder("data").resolve(discName));
+    }
+
+    public DiscFileSystem(Path discName) throws URISyntaxException {
+        try {
+            disc = new BinLoader(discName);
+            readRootRecord();
+        } catch (IOException e) {
+
+            if (disc != null)
+                disc.onDispose();
+
+            throw new RuntimeException(e);
+        }
     }
 
     private void readRootRecord() throws IOException {
@@ -58,6 +73,17 @@ public class DiscFileSystem implements IDisposable {
         }
 
         return toHex(digest.digest());
+    }
+
+    public byte[] readSectors(DiscEntry file, long firstSector, int count) throws IOException {
+        int length = count * FORM1_DATA_SIZE;
+        byte[] out = new byte[length];
+        for (int i = 0; i < count; i++) {
+            byte[] sector = disc.readData(file.lba() + firstSector + i);
+            System.arraycopy(sector, 0, out, i * FORM1_DATA_SIZE, FORM1_DATA_SIZE);
+        }
+
+        return out;
     }
 
     public byte[] readFile(DiscEntry entry) throws IOException {

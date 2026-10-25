@@ -1,21 +1,39 @@
 package com.duckcraftian.upf.pe.disc;
 
+import com.duckcraftian.upf.UPF;
+import com.duckcraftian.upf.pe.ParasiteEve;
+import com.duckcraftian.upf.pe.RoomRange;
+import com.duckcraftian.upf.pe.disc.problems.EntryProblem;
+import com.duckcraftian.upf.pe.disc.rooms.RoomParser;
+import com.duckcraftian.upf.pe.exceptions.NotRawImageException;
+import com.duckcraftian.upf.pe.exceptions.SetupFailure;
+import com.duckcraftian.upf.pe.disc.problems.SetupProblem;
 import com.duckcraftian.upf.ps1.disc.DiscEntry;
 import com.duckcraftian.upf.ps1.disc.DiscFileSystem;
 import com.duckcraftian.upf.ps1.disc.RawDiscEntry;
+import com.duckcraftian.upf.serialization.UPDHSerializer;
+import com.duckcraftian.upf.system.FileUtils;
 import com.duckcraftian.upf.utils.ProgressListener;
 
+import java.io.File;
 import java.io.IOException;
+import java.net.URISyntaxException;
+import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Optional;
 
 import static com.duckcraftian.upf.pe.ParasiteEve.DISC_1_PROGRAM;
 import static com.duckcraftian.upf.pe.ParasiteEve.DISC_2_PROGRAM;
-import static com.duckcraftian.upf.pe.disc.EntryProblem.EntryProblemKind.*;
+import static com.duckcraftian.upf.pe.disc.SquareImageParser.*;
+import static com.duckcraftian.upf.pe.disc.problems.EntryProblem.EntryProblemKind.*;
+import static com.duckcraftian.upf.pe.disc.problems.SetupProblem.SetupProblemKind.*;
 import static com.duckcraftian.upf.ps1.disc.DiscConstants.DATA_2048;
 import static com.duckcraftian.upf.ps1.disc.DiscConstants.RAW_2352;
+import static com.duckcraftian.upf.system.DataTypeHelper.u32LE;
 
 public class PERipper {
 
@@ -63,6 +81,140 @@ public class PERipper {
         }
 
         return problems;
+    }
+
+    public DiscTable loadBundledTable(DiscId discId) throws URISyntaxException, IOException {
+        String manifest = switch (discId) {
+            case DISC_1 -> "d1_manifest.json";
+            case DISC_2 -> "d2_manifest.json";
+        };
+
+        String manifestContent = FileUtils.readString(manifest);
+        RawDiscEntry[] rows = UPF.GSON.fromJson(manifestContent, RawDiscEntry[].class);
+
+        String exeName = switch (discId) {
+            case DISC_1 -> DISC_1_PROGRAM;
+            case DISC_2 -> DISC_2_PROGRAM;
+        };
+
+        return new DiscTable(discId, exeName, rows);
+    }
+
+    public void setup(ProgressListener progress) throws IOException, URISyntaxException, NoSuchAlgorithmException {
+        Path dataDir = UPF.getEngineFolder("data");
+        List<SetupProblem> problems = setupDisc(progress, dataDir);
+
+        if (!problems.isEmpty())
+            throw new SetupFailure(problems);
+    }
+
+    public void setup(Path dataDir, ProgressListener progress) throws IOException, NoSuchAlgorithmException, URISyntaxException {
+        List<SetupProblem> problems = setupDisc(progress, dataDir);
+
+        if (!problems.isEmpty())
+            throw new SetupFailure(problems);
+    }
+
+    private List<SetupProblem> setupDisc(ProgressListener progress, Path dataDir) throws IOException, NoSuchAlgorithmException, URISyntaxException {
+        List<SetupProblem> problems = new ArrayList<>();
+        for (DiscId discId : DiscId.values()) {
+            String discName = switch (discId) {
+                case DISC_1 -> "pe_disc_1";
+                case DISC_2 -> "pe_disc_2";
+            };
+
+            File disc = dataDir.resolve(discName + ".bin").toFile();
+            if (!disc.exists()) {
+                problems.add(new SetupProblem(discId.name(), FILE_NOT_FOUND, Optional.empty()));
+                continue;
+            }
+
+            DiscFileSystem fs = null;
+            try {
+
+                try {
+                    fs = new DiscFileSystem(dataDir.resolve(discName));
+                } catch (NotRawImageException e) {
+                    problems.add(new SetupProblem(discId.name(), NOT_RAW_IMAGE, Optional.empty()));
+                    continue;
+                }
+
+                if (identify(fs) != discId) {
+                    problems.add(new SetupProblem(discId.name(), WRONG_DISC, Optional.empty()));
+                    continue;
+                }
+
+                List<EntryProblem> entryProblems = verify(fs, loadBundledTable(discId), progress);
+                if (!entryProblems.isEmpty())
+                    problems.add(new SetupProblem(discId.name(), BAD_ENTRIES, Optional.of(entryProblems)));
+
+            } finally {
+                if (fs != null)
+                    fs.onDispose();
+            }
+        }
+
+        return problems;
+    }
+
+    public List<RoomRange> readRoomTable(DiscFileSystem fs) throws IOException {
+        byte[] slussyBacca = fs.readFile(fs.findFile(DISC_1_PROGRAM));
+        long loadAddress = u32LE(slussyBacca, 0x18);
+
+        List<RoomRange> ranges = new ArrayList<>();
+
+        long tableRam = ParasiteEve.DISC_1_PROG_TBL_RAM;
+        long tableFile = (tableRam - loadAddress) + 0x800;
+        for (int i = 0; i < ParasiteEve.ROOM_COUNT; i++) {
+            long start = u32LE(slussyBacca, (int) (tableFile + i * 8));
+            long packed = u32LE(slussyBacca, (int) (tableFile + i * 8 + 4));
+            long scratchSectors = packed & 0xFF;
+            long textureSectors = (packed >> 8) & 0xFFF;
+            long roomSectors = (packed >> 20) & 0xFFF;
+
+            ranges.add(new RoomRange(start, scratchSectors, textureSectors, roomSectors));
+        }
+
+        return ranges;
+    }
+
+    public void ripImages(DiscFileSystem fs, Path outFile) throws IOException {
+        List<RoomRange> ranges = readRoomTable(fs);
+        DiscEntry pe = fs.findFile("PE.IMG");
+        LinkedHashMap<String, byte[]> entries = new LinkedHashMap<>();
+
+        for (int i = 0; i < ranges.size(); i++) {
+            RoomRange range = ranges.get(i);
+            if (range.scratch() == 0 && range.texture() == 0 && range.room() == 0)
+                continue;
+
+            int map = i + 1;
+            String mapName = "m";
+            if (map <= 9)
+                mapName = "m00" + map;
+            else if (map >= 10 && map < 100)
+                mapName = "m0" + map;
+            else if (map >= 100)
+                mapName = "m" + map;
+
+            byte[] scratch = fs.readSectors(pe, range.start(), (int) range.scratch());
+            byte[] texture = fs.readSectors(pe, range.start() + range.scratch(), (int) range.texture());
+            byte[] room = fs.readSectors(pe, range.start() + range.scratch() + range.texture(), (int) range.room());
+
+            byte[] scratchConvert = convertImagesToBytes(readVramUploads(scratch));
+            byte[] textureConvert = convertImagesToBytes(readVramUploads(texture));
+
+            byte[] backgroundBlock = RoomParser.readBackgroundBlock(room);
+
+            // Images
+            entries.put("images/" + mapName + "/scratch", scratchConvert);
+            entries.put("images/" + mapName + "/texture", textureConvert);
+
+            // Rooms
+            entries.put("rooms/" + mapName + "/background", backgroundBlock);
+        }
+
+        UPDHSerializer.write(outFile, entries);
     }
 
 }

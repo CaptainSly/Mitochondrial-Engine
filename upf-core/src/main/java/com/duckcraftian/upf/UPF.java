@@ -6,6 +6,8 @@ import com.duckcraftian.upf.system.event.EventBus;
 import com.duckcraftian.upf.system.registries.PluginRegistryManager;
 import com.duckcraftian.upf.system.registries.RegistryManager;
 import com.google.gson.Gson;
+import org.joml.Vector2f;
+import org.joml.Vector3f;
 
 import java.io.File;
 import java.nio.file.Path;
@@ -15,7 +17,7 @@ public class UPF {
     public static final String WINDOW_TITLE = "Mitochondrial Engine";
     public static final String MAJOR = "0";
     public static final String MINOR = "1";
-    public static final String BUGFIX = "2";
+    public static final String BUGFIX = "3";
     public static final String CODENAME = "Resonance";
 
     // ------------ COLORS -------------
@@ -43,6 +45,31 @@ public class UPF {
         for (String dir : ENGINE_FOLDERS)
             getEngineFolder(dir).toFile().mkdirs();
     }
+
+    public static Vector3f[] RECT_POSITIONS = {
+            new Vector3f(-0.5f, 0.5f, 0.0f),
+            new Vector3f(-0.5f, -0.5f, 0.0f),
+            new Vector3f(0.5f, -0.5f, 0.0f),
+            new Vector3f(0.5f, 0.5f, 0.0f)
+    };
+
+    public static Vector3f[] RECT_COLORS = {
+            new Vector3f(1.0f, 1.0f, 1.0f),
+            new Vector3f(1.0f, 1.0f, 1.0f),
+            new Vector3f(1.0f, 1.0f, 1.0f),
+            new Vector3f(1.0f, 1.0f, 1.0f)
+    };
+
+    public static int[] RECT_INDICES = new int[]{
+            0, 1, 3, 3, 1, 2
+    };
+
+    public static Vector2f[] RECT_UV_COORDS = {
+            new Vector2f(0.0f, 1.0f),
+            new Vector2f(0.0f, 0.0f),
+            new Vector2f(1.0f, 0.0f),
+            new Vector2f(1.0f, 1.0f)
+    };
 
     public static Path getEngineFolder(String path) {
         return Path.of(ENGINE_PATH.toString(), path);

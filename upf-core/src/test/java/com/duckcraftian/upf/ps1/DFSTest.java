@@ -9,6 +9,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.tinylog.Logger;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -19,7 +20,7 @@ public class DFSTest {
     private DiscFileSystem fileSystem;
 
     @BeforeAll
-    void createFileSystem() throws IOException {
+    void createFileSystem() throws URISyntaxException {
         fileSystem = new DiscFileSystem("pe_disc_1");
     }
 

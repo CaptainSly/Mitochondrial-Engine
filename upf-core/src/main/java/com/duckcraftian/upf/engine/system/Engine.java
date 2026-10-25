@@ -82,6 +82,7 @@ public class Engine {
 //        pluginLoader.postInitializePlugins();
 
         game = new Game();
+        game.init();
         isRunning = true;
     }
 
@@ -170,7 +171,7 @@ public class Engine {
             }
 
             glViewport(0, 0, window.getWindowWidth(), window.getWindowHeight());
-            glClearColor(0.32f, 0.32f, 0.38f, 1);
+            glClearColor(0, 0, 0, 1);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
             // Update

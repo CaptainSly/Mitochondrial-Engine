@@ -1,4 +1,4 @@
-package com.duckcraftian.upf.pe.disc;
+package com.duckcraftian.upf.pe.disc.problems;
 
 public record EntryProblem(String path, EntryProblemKind kind) {
 

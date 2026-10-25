@@ -26,10 +26,10 @@ public class DataTypeTest {
         );
 
 
-        assertEquals(0, DataTypeHelper.u8(u8Bytes, 0));
-        assertEquals(127, DataTypeHelper.u8(u8Bytes, 1));
-        assertEquals(128, DataTypeHelper.u8(u8Bytes, 2));
-        assertEquals(255, DataTypeHelper.u8(u8Bytes, 3));
+        assertEquals(0, com.duckcraftian.upf.system.DataTypeHelper.u8(u8Bytes, 0));
+        assertEquals(127, com.duckcraftian.upf.system.DataTypeHelper.u8(u8Bytes, 1));
+        assertEquals(128, com.duckcraftian.upf.system.DataTypeHelper.u8(u8Bytes, 2));
+        assertEquals(255, com.duckcraftian.upf.system.DataTypeHelper.u8(u8Bytes, 3));
     }
 
     @Test
@@ -40,9 +40,9 @@ public class DataTypeTest {
                 0xFF
         );
 
-        assertEquals(127, DataTypeHelper.s8(s8Bytes, 0));
-        assertEquals(-128, DataTypeHelper.s8(s8Bytes, 1));
-        assertEquals(-1, DataTypeHelper.s8(s8Bytes, 2));
+        assertEquals(127, com.duckcraftian.upf.system.DataTypeHelper.s8(s8Bytes, 0));
+        assertEquals(-128, com.duckcraftian.upf.system.DataTypeHelper.s8(s8Bytes, 1));
+        assertEquals(-1, com.duckcraftian.upf.system.DataTypeHelper.s8(s8Bytes, 2));
     }
 
     @Test
@@ -54,10 +54,10 @@ public class DataTypeTest {
                 0xFF, 0xFF
         );
 
-        assertEquals(0x1234, DataTypeHelper.u16LE(u16Bytes, 0));
-        assertEquals(255, DataTypeHelper.u16LE(u16Bytes, 2));
-        assertEquals(65280, DataTypeHelper.u16LE(u16Bytes, 4));
-        assertEquals(65535, DataTypeHelper.u16LE(u16Bytes, 6));
+        assertEquals(0x1234, com.duckcraftian.upf.system.DataTypeHelper.u16LE(u16Bytes, 0));
+        assertEquals(255, com.duckcraftian.upf.system.DataTypeHelper.u16LE(u16Bytes, 2));
+        assertEquals(65280, com.duckcraftian.upf.system.DataTypeHelper.u16LE(u16Bytes, 4));
+        assertEquals(65535, com.duckcraftian.upf.system.DataTypeHelper.u16LE(u16Bytes, 6));
     }
 
     @Test
@@ -68,9 +68,9 @@ public class DataTypeTest {
                 0xFF, 0xFF
         );
 
-        assertEquals(32767, DataTypeHelper.s16LE(s16Bytes, 0));
-        assertEquals(-32768, DataTypeHelper.s16LE(s16Bytes, 2));
-        assertEquals(-1, DataTypeHelper.s16LE(s16Bytes, 4));
+        assertEquals(32767, com.duckcraftian.upf.system.DataTypeHelper.s16LE(s16Bytes, 0));
+        assertEquals(-32768, com.duckcraftian.upf.system.DataTypeHelper.s16LE(s16Bytes, 2));
+        assertEquals(-1, com.duckcraftian.upf.system.DataTypeHelper.s16LE(s16Bytes, 4));
     }
 
     @Test
@@ -82,10 +82,10 @@ public class DataTypeTest {
                 0xFF, 0xFF, 0xFF, 0xFF
         );
 
-        assertEquals(0x12345678L, DataTypeHelper.u32LE(u32Bytes, 0));
-        assertEquals(2147483647L, DataTypeHelper.u32LE(u32Bytes, 4));
-        assertEquals(2147483648L, DataTypeHelper.u32LE(u32Bytes, 8));
-        assertEquals(4294967295L, DataTypeHelper.u32LE(u32Bytes, 12));
+        assertEquals(0x12345678L, com.duckcraftian.upf.system.DataTypeHelper.u32LE(u32Bytes, 0));
+        assertEquals(2147483647L, com.duckcraftian.upf.system.DataTypeHelper.u32LE(u32Bytes, 4));
+        assertEquals(2147483648L, com.duckcraftian.upf.system.DataTypeHelper.u32LE(u32Bytes, 8));
+        assertEquals(4294967295L, com.duckcraftian.upf.system.DataTypeHelper.u32LE(u32Bytes, 12));
     }
 
     @Test
@@ -96,9 +96,9 @@ public class DataTypeTest {
                 0xFF, 0xFF, 0xFF, 0xFF
         );
 
-        assertEquals(2147483647, DataTypeHelper.s32LE(s32Bytes, 0));
-        assertEquals(-2147483648, DataTypeHelper.s32LE(s32Bytes, 4));
-        assertEquals(-1, DataTypeHelper.s32LE(s32Bytes, 8));
+        assertEquals(2147483647, com.duckcraftian.upf.system.DataTypeHelper.s32LE(s32Bytes, 0));
+        assertEquals(-2147483648, com.duckcraftian.upf.system.DataTypeHelper.s32LE(s32Bytes, 4));
+        assertEquals(-1, com.duckcraftian.upf.system.DataTypeHelper.s32LE(s32Bytes, 8));
     }
 
 }
