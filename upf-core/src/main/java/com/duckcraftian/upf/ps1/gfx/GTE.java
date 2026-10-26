@@ -1,5 +1,7 @@
 package com.duckcraftian.upf.ps1.gfx;
 
+import com.duckcraftian.upf.ps1.PSX;
+
 public class GTE {
 
     public static final int DATA_COUNT = 32;
@@ -33,19 +35,19 @@ public class GTE {
         lm = (command >> 10) & 1;
 
         switch (opcode) {
-            case 0x06:
+            case PSX.OP_NCLIP:
                 nclip();
                 break;
-            case 0x2D:
+            case PSX.OP_AVSZ3:
                 avsz3();
                 break;
-            case 0x2E:
+            case PSX.OP_AVSZ4:
                 avsz4();
                 break;
-            case 0x01:
+            case PSX.OP_RTPS:
                 rtp(0);
                 break;
-            case 0x30:
+            case PSX.OP_RTPT:
                 rtp(0);
                 rtp(1);
                 rtp(2);
@@ -56,6 +58,20 @@ public class GTE {
             flag = flag | 0x80000000;
 
         control[31] = flag;
+    }
+
+    public void loadRotation(int[] r) {
+        writeControl(0, (r[1] << 16) | (r[0] & 0xFFFF));
+        writeControl(1, (r[3] << 16) | (r[2] & 0xFFFF));
+        writeControl(2, (r[5] << 16) | (r[4] & 0xFFFF));
+        writeControl(3, (r[7] << 16) | (r[6] & 0xFFFF));
+        writeControl(4, r[8]);
+    }
+
+    public void loadTranslation(int[] t) {
+        writeControl(5, t[0]);
+        writeControl(6, t[1]);
+        writeControl(7, t[2]);
     }
 
     public int readData(int slot) {

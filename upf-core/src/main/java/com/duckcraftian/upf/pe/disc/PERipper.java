@@ -4,7 +4,6 @@ import com.duckcraftian.upf.UPF;
 import com.duckcraftian.upf.pe.ParasiteEve;
 import com.duckcraftian.upf.pe.RoomRange;
 import com.duckcraftian.upf.pe.disc.problems.EntryProblem;
-import com.duckcraftian.upf.pe.disc.rooms.RoomParser;
 import com.duckcraftian.upf.pe.exceptions.NotRawImageException;
 import com.duckcraftian.upf.pe.exceptions.SetupFailure;
 import com.duckcraftian.upf.pe.disc.problems.SetupProblem;
@@ -212,6 +211,7 @@ public class PERipper {
 
             // Rooms
             entries.put("rooms/" + mapName + "/background", backgroundBlock);
+            entries.put("rooms/" + mapName + "/container", room);
         }
 
         UPDHSerializer.write(outFile, entries);

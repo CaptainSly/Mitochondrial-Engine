@@ -5,12 +5,19 @@ import com.duckcraftian.upf.impl.IDisposable;
 import com.duckcraftian.upf.pe.ParasiteEve;
 import com.duckcraftian.upf.pe.disc.PERipper;
 import com.duckcraftian.upf.pe.disc.SquareImageParser;
-import com.duckcraftian.upf.pe.disc.rooms.BackgroundTile;
-import com.duckcraftian.upf.pe.disc.rooms.PSXViewport;
-import com.duckcraftian.upf.pe.disc.rooms.RoomParser;
+import com.duckcraftian.upf.pe.rooms.BackgroundTile;
+import com.duckcraftian.upf.pe.rooms.PSXViewport;
+import com.duckcraftian.upf.pe.disc.RoomParser;
+import com.duckcraftian.upf.pe.rooms.Room;
+import com.duckcraftian.upf.pe.rooms.RoomLoader;
+import com.duckcraftian.upf.ps1.PSXMath;
 import com.duckcraftian.upf.ps1.data_types.PSXImage;
 import com.duckcraftian.upf.ps1.disc.DiscFileSystem;
-import com.duckcraftian.upf.ps1.gfx.PSXRenderer;
+import com.duckcraftian.upf.pe.gfx.PSXAnimation;
+import com.duckcraftian.upf.ps1.gfx.PSXCamera;
+import com.duckcraftian.upf.pe.gfx.PSXModel;
+import com.duckcraftian.upf.ps1.gfx.PSXOrderingTable;
+import com.duckcraftian.upf.pe.gfx.PSXRenderer;
 import com.duckcraftian.upf.serialization.UPDHSerializer;
 import com.duckcraftian.upf.system.Utils;
 import org.tinylog.Logger;
@@ -20,22 +27,25 @@ import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class Game implements IDisposable {
 
     private PSXRenderer renderer;
-    private List<BackgroundTile> tiles;
     private List<PSXViewport> viewports;
 
-    public static final String MAP_NAME = "m362";
+    private PSXCamera camera;
+    private PERipper ripper;
+
+    public static final String MAP_NAME = "m001";
 
     public Game() {
         UPF.REGISTRY_MANAGER.createNamespace(ParasiteEve.NAMESPACE);
     }
 
     public void init() {
-        tiles = new ArrayList<>();
         viewports = new ArrayList<>();
 
         Path imagesFiles = UPF.getEngineFolder("data").resolve("images.udh");
@@ -43,7 +53,7 @@ public class Game implements IDisposable {
             DiscFileSystem dfs = null;
             try {
                 dfs = new DiscFileSystem("pe_disc_1");
-                PERipper ripper = new PERipper();
+                ripper = new PERipper();
                 ripper.ripImages(dfs, imagesFiles);
 
             } catch (URISyntaxException | IOException e) {
@@ -54,30 +64,18 @@ public class Game implements IDisposable {
         }
 
         try {
-            byte[] bytes = UPDHSerializer.getStreamedData(imagesFiles, "rooms/" + MAP_NAME + "/background");
-            tiles = RoomParser.parseBackgroundBlock(bytes, 0);
-            viewports = RoomParser.parseViewports(bytes);
-        } catch (IOException e) {
+            Room room = RoomLoader.loadRoom(imagesFiles, MAP_NAME);
+            viewports = room.viewports();
+
+            renderer = new PSXRenderer();
+            camera = new PSXCamera(renderer.getGTE(), viewports.get(0));
+            camera.follow(-4, 65, -4813);
+
+            renderer.setCameraPosition(camera.getCamX(), camera.getCamY());
+            renderer.upload(room);
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
-
-        renderer = new PSXRenderer(tiles);
-        renderer.setCameraPosition(160, 112);
-
-        String[] imageKeys = {"images/" + MAP_NAME + "/scratch", "images/" + MAP_NAME + "/texture"};
-        for (String key : imageKeys) {
-            try {
-                byte[] bytes = UPDHSerializer.getStreamedData(imagesFiles, key);
-                List<PSXImage> images = SquareImageParser.convertBytesToImages(bytes);
-                for (PSXImage image : images)
-                    renderer.upload(image);
-
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        }
-
-        Logger.debug("projectionDistance: " + viewports.get(0).projectionDistance() + ", rotation: " + Utils.intArrayToString(viewports.get(0).rotation()) + " translation: " + Utils.intArrayToString(viewports.get(0).translation()) + " image: " + viewports.get(0).width() + "x" + viewports.get(0).height() + ", minX: " + viewports.get(0).minX() + ", minY: " + viewports.get(0).minY() + ", maxX: " + viewports.get(0).maxX() + ", maxY: " + viewports.get(0).maxY());
 
     }
 

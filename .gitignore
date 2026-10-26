@@ -12,8 +12,10 @@
 *.ctxt
 
 *.idea
+*.iml
 
 mitochondria/*
+
 
 # Mobile Tools for Java (J2ME)
 .mtj.tmp/

@@ -26,6 +26,37 @@ public class Utils {
         return sb.toString();
     }
 
+    public static int[][] splitIntArray(int[] a, int splitIndex) {
+        int secondSize = a.length - splitIndex;
+        int[] first = new int[splitIndex];
+        int[] second = new int[secondSize];
+
+        for (int i = 0; i < splitIndex; i++)
+            first[i] = a[i];
+
+        for (int i = 0; i < secondSize; i++) {
+            int idx = splitIndex + i;
+            second[i] = a[idx];
+        }
+
+        return new int[][]{first, second};
+    }
+
+    public static int[] combineIntArray(int[] a, int[] b) {
+        int length = a.length + b.length;
+        int[] result = new int[length];
+
+        for (int i = 0; i < a.length; i++)
+            result[i] = a[i];
+
+        for (int i = 0; i < b.length; i++) {
+            int idx = a.length + i;
+            result[idx] = b[i];
+        }
+
+        return result;
+    }
+
     public static String intArrayToString(int[] arr) {
         StringBuilder sb = new StringBuilder();
 
