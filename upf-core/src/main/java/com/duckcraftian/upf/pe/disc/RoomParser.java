@@ -123,6 +123,11 @@ public class RoomParser {
         return start;
     }
 
+    public static int readEntityBank(byte[] container) {
+        int directory = (int) u32LE(container, 4);
+        return u8(container, directory + 1);
+    }
+
     public static int readSpawnList(byte[] container) {
         int directoryOffset = (int) u32LE(container, 4);
         int field = (int) u32LE(container, directoryOffset + 0x14);
@@ -287,6 +292,8 @@ public class RoomParser {
         int page = ((x >> 6) - 8) * 2 + (y >> 7) + (y >> 8) * 30;
         int pageOffset = page >> 1;
         int clutOffset = paletteRow * 64 - 0x7080;
+
+        if (x == 960 && model.getPrimPageBits()[0] == 31) return;
 
         for (int i = 0; i < model.getN34() + model.getN28(); i++) {
             model.getPrimPageBits()[i] = model.getPrimPageBits()[i] + pageOffset;

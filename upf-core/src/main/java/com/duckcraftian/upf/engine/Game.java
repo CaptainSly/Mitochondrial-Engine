@@ -11,6 +11,8 @@ import com.duckcraftian.upf.pe.rooms.Room;
 import com.duckcraftian.upf.pe.rooms.RoomLoader;
 import com.duckcraftian.upf.pe.script.ScriptVM;
 import com.duckcraftian.upf.ps1.disc.DiscFileSystem;
+import com.duckcraftian.upf.utils.Input;
+import org.lwjgl.sdl.SDLScancode;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -29,7 +31,7 @@ public class Game implements IDisposable {
 
     private Room room;
 
-    public static final String MAP_NAME = "m001";
+    public static final String MAP_NAME = "m088";
 
     public Game() {
         UPF.REGISTRY_MANAGER.createNamespace(ParasiteEve.NAMESPACE);
@@ -85,6 +87,24 @@ public class Game implements IDisposable {
     }
 
     public void tick() {
+        //Player Pad Control
+        int pad = 0;
+        if (Input.isKeyDown(SDLScancode.SDL_SCANCODE_W))
+            pad |= 0x08;
+
+        if (Input.isKeyDown(SDLScancode.SDL_SCANCODE_S))
+            pad |= 0x20;
+
+        if (Input.isKeyDown(SDLScancode.SDL_SCANCODE_A))
+            pad |= 0x40;
+
+        if (Input.isKeyDown(SDLScancode.SDL_SCANCODE_D))
+            pad |= 0x10;
+
+        if (Input.isKeyDown(SDLScancode.SDL_SCANCODE_LSHIFT))
+            pad |= 0x01;
+
+        ScriptVM.pad = pad;
         ScriptVM.runAll();
         camera.step();
 

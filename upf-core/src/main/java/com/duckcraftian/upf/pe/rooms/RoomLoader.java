@@ -1,5 +1,6 @@
 package com.duckcraftian.upf.pe.rooms;
 
+import com.duckcraftian.upf.pe.ParasiteEve;
 import com.duckcraftian.upf.pe.disc.RoomParser;
 import com.duckcraftian.upf.pe.disc.SquareImageParser;
 import com.duckcraftian.upf.pe.gfx.PEModel;
@@ -31,13 +32,28 @@ public class RoomLoader {
             byte[] container = UPDHSerializer.getStreamedData(imagesFile, "rooms/" + mapName + "/container");
             int[][] modelRecords = RoomParser.readModelRecords(container);
 
-            ScriptVM.loadRoom(container);
+            int bank = RoomParser.readEntityBank(container);
+            byte[] bankContainer = UPDHSerializer.getStreamedData(imagesFile, "entity/bank/" + bank + "/container");
+
+
+            ScriptVM.loadRoom(container, bankContainer);
 
             Map<Integer, PEModel> models = new HashMap<>();
             for (int[] record : modelRecords) {
                 PEModel model = RoomParser.parseModel(container, record[1]);
                 RoomParser.applyTextureRemap(model, record[2]);
                 models.put(record[0], model);
+            }
+
+
+            if (bank != 0) {
+                images.addAll(SquareImageParser.convertBytesToImages(UPDHSerializer.getStreamedData(imagesFile, "images/entity/bank" + bank)));
+
+                for (int[] record : RoomParser.readModelRecords(bankContainer)) {
+                    PEModel model = RoomParser.parseModel(bankContainer, record[1]);
+                    RoomParser.applyTextureRemap(model, (int) ParasiteEve.PLAYER_TEXTURE_WORD);
+                    models.put(record[0], model);
+                }
             }
 
             return new Room(tiles, images, viewports, models);

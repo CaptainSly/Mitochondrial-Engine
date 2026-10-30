@@ -10,6 +10,9 @@ public class ParasiteEve {
     public static final int ROOM_COUNT = 450;
 
     public static final long DISC_1_PROG_TBL_RAM = 0x80093378;
+    public static final long RESIDENT_TABLE_RAM = 0x800930D8;
+
+    public static final long PLAYER_TEXTURE_WORD = 0x2F200;
 
     // Sector Counts
     public static final int SCRATCH_SECTOR_COUNT = 33;
@@ -40,5 +43,18 @@ public class ParasiteEve {
     public static final int WaitAnimFrameMatch = 48;
     /** EncodeBarcode in Decomp */
     public static final int RoomChange = 49;
+    public static final int SetGlobalFlag1 = 64;
+    public static final int ClearGlobalFlag1 = 63;
+    public static final int SetGlobalFlags = 45;
+    public static final int ClearGlobalFlags = 43;
+    public static final int GetGlobalFlags = 44;
+    public static final int SetSceneFlag2000 = 170;
+    public static final int ClearSceneFlag2000 = 171;
+    public static final int SetCurrentFlag80 = 30;
+    public static final int setCurrentFlag20 = 121;
+    public static final int ClearCurrentFlag20 = 120;
+    public static final int ClearMotionVectors = 101;
+    public static final int SetEntityMoveSpeed = 27;
+    public static final int ScreenScrollPos = 132;
 
 }

@@ -26,6 +26,14 @@ public class PSXMath {
         return matrix;
     }
 
+    public static int fixedMul(int a, int b) {
+        return (int) (((long) a * b) >> 16);
+    }
+
+    public static int fixedDiv(int a, int b) {
+        return (a / (b >> 8)) << 8;
+    }
+
     public static int rcos(int angle) {
         double radians = angle * 2 * Math.PI / 4096;
         return (int) Math.round(Math.cos(radians) * 4096);

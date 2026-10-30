@@ -25,13 +25,13 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Optional;
 
-import static com.duckcraftian.upf.pe.ParasiteEve.DISC_1_PROGRAM;
-import static com.duckcraftian.upf.pe.ParasiteEve.DISC_2_PROGRAM;
+import static com.duckcraftian.upf.pe.ParasiteEve.*;
 import static com.duckcraftian.upf.pe.disc.SquareImageParser.*;
 import static com.duckcraftian.upf.pe.disc.problems.EntryProblem.EntryProblemKind.*;
 import static com.duckcraftian.upf.pe.disc.problems.SetupProblem.SetupProblemKind.*;
 import static com.duckcraftian.upf.ps1.disc.DiscConstants.DATA_2048;
 import static com.duckcraftian.upf.ps1.disc.DiscConstants.RAW_2352;
+import static com.duckcraftian.upf.system.DataTypeHelper.u16LE;
 import static com.duckcraftian.upf.system.DataTypeHelper.u32LE;
 
 public class PERipper {
@@ -214,7 +214,36 @@ public class PERipper {
             entries.put("rooms/" + mapName + "/container", room);
         }
 
+        int[] boundaries = readResidentBoundaries(fs);
+
+        for (int bank = 10; bank <= 13; bank++) {
+            int modelRange = bank + 8;
+            int texRange = bank + 3;
+
+            byte[] blob = fs.readSectors(pe, boundaries[modelRange], boundaries[modelRange + 1] - boundaries[modelRange]);
+            byte[] tex = fs.readSectors(pe, boundaries[texRange], boundaries[texRange + 1] - boundaries[texRange]);
+
+            entries.put("entity/bank/" + bank + "/container", blob);
+            entries.put("images/entity/bank/" + bank, convertImagesToBytes(readVramUploads(tex)));
+        }
+
         UPDHSerializer.write(outFile, entries);
+    }
+
+    public int[] readResidentBoundaries(DiscFileSystem fs) throws IOException {
+        byte[] exe = fs.readFile(fs.findFile(DISC_1_PROGRAM));
+        long loadAddress = u32LE(exe, 0x18);
+        long at = (RESIDENT_TABLE_RAM - loadAddress) + 0x800;
+
+        List<Integer> list = new ArrayList<>();
+        while (true) {
+            int v = u16LE(exe, (int) at);
+            if (!list.isEmpty() && v < list.get(list.size() - 1)) break;
+            list.add(v);
+            at = at + 2;
+        }
+
+        return list.stream().mapToInt(Integer::intValue).toArray();
     }
 
 }

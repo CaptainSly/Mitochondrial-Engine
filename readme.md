@@ -7,13 +7,16 @@ It's written on top of the UPF, or Untitled Porting Framework. The framework is 
 
 # Current Status
 
-Maps are visible, 3D Models show. No Gameplay yet. 
+Maps are visible, 3D Models show. Animations do play, in the case of map001, one of the officers really enjoys waving his arms to the street. 
+
+You can move Aya around, but there isn't any collision, or interaction yet.
 
 This is currently a glorified tech demo. As progress is made, screenshots will be posted below. 
 
 The readme_images folder contains progress images.
 
 ![all_3_actors](readme_images/all_3_actors.png)
+![script_vm_test](readme_images/script_vm_wip_test.png)
 
 # System Requirements
 
