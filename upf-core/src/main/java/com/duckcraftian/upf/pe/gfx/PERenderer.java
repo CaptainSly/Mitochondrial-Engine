@@ -5,32 +5,35 @@ import com.duckcraftian.upf.engine.gfx.Framebuffer;
 import com.duckcraftian.upf.engine.gfx.FramebufferQuad;
 import com.duckcraftian.upf.engine.gfx.ShaderProgram;
 import com.duckcraftian.upf.impl.IDisposable;
-import com.duckcraftian.upf.pe.rooms.Actor;
 import com.duckcraftian.upf.pe.rooms.BackgroundTile;
 import com.duckcraftian.upf.pe.rooms.PSXViewport;
 import com.duckcraftian.upf.pe.rooms.Room;
+import com.duckcraftian.upf.pe.script.ScriptVM;
+import com.duckcraftian.upf.ps1.PSX;
 import com.duckcraftian.upf.ps1.PSXMath;
 import com.duckcraftian.upf.ps1.data_types.PSXImage;
-import com.duckcraftian.upf.ps1.gfx.*;
+import com.duckcraftian.upf.ps1.gfx.PSXOrderingTable;
+import com.duckcraftian.upf.ps1.gfx.PSXTexture;
+import com.duckcraftian.upf.ps1.gfx.PSXTexturedQuad;
+import com.duckcraftian.upf.ps1.gfx.PSXTriangleBatch;
 import org.joml.Vector2f;
 import org.joml.Vector2i;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL13.GL_TEXTURE0;
 import static org.lwjgl.opengl.GL13.glActiveTexture;
 
-public class PSXRenderer implements IDisposable {
+public class PERenderer implements IDisposable {
 
     private ShaderProgram defaultShader, tileShader, blitShader, polygonShader;
     private PSXTexturedQuad quad;
 
-    private GTE gte;
-
     private PSXTexture tileTexture;
-    private PSXTileBatch tileBatch;
+    private PETileBatch tileBatch;
     private PSXTriangleBatch triangleBatch;
     private Framebuffer psxBuffer;
     private FramebufferQuad screen;
@@ -39,7 +42,7 @@ public class PSXRenderer implements IDisposable {
 
     private boolean isDebug = false;
 
-    public PSXRenderer() {
+    public PERenderer() {
         // Debug
         quad = new PSXTexturedQuad();
         defaultShader = new ShaderProgram("shaders/ps1/ps1_default");
@@ -47,8 +50,6 @@ public class PSXRenderer implements IDisposable {
         defaultShader.createUniform("pageOrigin");
         defaultShader.createUniform("pageSize");
 
-        // Actual
-        gte = new GTE();
 
         tileShader = new ShaderProgram("shaders/ps1/ps1_tiles");
         tileShader.createUniform("vram");
@@ -71,8 +72,6 @@ public class PSXRenderer implements IDisposable {
 
         // Clamp Camera Position
         PSXViewport viewport = viewports.get(0);
-        camX = Math.clamp(camX, viewport.minX(), viewport.maxX());
-        camY = Math.clamp(camY, viewport.minY(), viewport.maxY());
 
         glEnable(GL_DEPTH_TEST);
         glDepthFunc(GL_LEQUAL);
@@ -132,28 +131,36 @@ public class PSXRenderer implements IDisposable {
     }
 
     public void upload(List<BackgroundTile> tiles) {
-        tileBatch = new PSXTileBatch(tiles);
+        tileBatch = new PETileBatch(tiles);
     }
+
     public void upload(Room room) {
         for (PSXImage image : room.images())
             upload(image);
 
         upload(room.tiles());
-        upload(room.actors(), room.viewports().get(0));
+        upload(room.models(), room.viewports().get(0));
     }
 
-    public void upload(List<Actor> actors, PSXViewport viewport) {
+    public void upload(Map<Integer, PEModel> models, PSXViewport viewport) {
         List<Integer> all = new ArrayList<>();
-        gte.writeControl(29, 0x155);
-        gte.writeControl(30, 0x100);
+        PSX.GTE.writeControl(29, 0x155);
+        PSX.GTE.writeControl(30, 0x100);
 
-        for (Actor actor : actors) {
-            int[] rot = PSXMath.rotMatrixYXZ(0, actor.yaw(), 0);
-            int[][] pose = actor.model().pose(actor.animation(), 0, rot, actor.position());
-            int[] screen = actor.model().project(gte, pose, viewport.rotation(), viewport.translation());
-            PSXOrderingTable ot = new PSXOrderingTable(1024, actor.model().getN34() + actor.model().getN28());
-            actor.model().sortIntoOT(gte, screen, ot);
-            for (int value : actor.model().buildTriangles(ot, screen))
+        for (ScriptVM vm : ScriptVM.getActors()) {
+            PEModel model = models.get(vm.getType());
+            if (model == null) continue;
+
+            PEAnimation anim = vm.getAnimation();
+            if (anim == null) continue;
+
+            int[] rot = PSXMath.rotMatrixYXZ(0, vm.getRotY(), 0);
+            int[] pos = {vm.getPosX() >> 16, vm.getPosY() >> 16, vm.getPosZ() >> 16};
+            int[][] pose = model.pose(anim, vm.getFrame(), rot, pos);
+            int[] screen = model.project(pose, viewport.rotation(), viewport.translation());
+            PSXOrderingTable ot = new PSXOrderingTable(1024, model.getN34() + model.getN28());
+            model.sortIntoOT(screen, ot);
+            for (int value : model.buildTriangles(ot, screen))
                 all.add(value);
         }
 
@@ -175,10 +182,6 @@ public class PSXRenderer implements IDisposable {
     public void setCameraPosition(int camX, int camY) {
         this.camX = camX;
         this.camY = camY;
-    }
-
-    public GTE getGTE() {
-        return gte;
     }
 
     @Override

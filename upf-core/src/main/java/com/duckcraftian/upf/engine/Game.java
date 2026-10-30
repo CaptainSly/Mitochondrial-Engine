@@ -4,46 +4,40 @@ import com.duckcraftian.upf.UPF;
 import com.duckcraftian.upf.impl.IDisposable;
 import com.duckcraftian.upf.pe.ParasiteEve;
 import com.duckcraftian.upf.pe.disc.PERipper;
-import com.duckcraftian.upf.pe.disc.SquareImageParser;
-import com.duckcraftian.upf.pe.rooms.BackgroundTile;
+import com.duckcraftian.upf.pe.gfx.PECamera;
+import com.duckcraftian.upf.pe.gfx.PERenderer;
 import com.duckcraftian.upf.pe.rooms.PSXViewport;
-import com.duckcraftian.upf.pe.disc.RoomParser;
 import com.duckcraftian.upf.pe.rooms.Room;
 import com.duckcraftian.upf.pe.rooms.RoomLoader;
-import com.duckcraftian.upf.ps1.PSXMath;
-import com.duckcraftian.upf.ps1.data_types.PSXImage;
+import com.duckcraftian.upf.pe.script.ScriptVM;
 import com.duckcraftian.upf.ps1.disc.DiscFileSystem;
-import com.duckcraftian.upf.pe.gfx.PSXAnimation;
-import com.duckcraftian.upf.ps1.gfx.PSXCamera;
-import com.duckcraftian.upf.pe.gfx.PSXModel;
-import com.duckcraftian.upf.ps1.gfx.PSXOrderingTable;
-import com.duckcraftian.upf.pe.gfx.PSXRenderer;
-import com.duckcraftian.upf.serialization.UPDHSerializer;
-import com.duckcraftian.upf.system.Utils;
-import org.tinylog.Logger;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 public class Game implements IDisposable {
 
-    private PSXRenderer renderer;
+    private PERenderer renderer;
     private List<PSXViewport> viewports;
 
-    private PSXCamera camera;
+    private PECamera camera;
     private PERipper ripper;
+
+    private Room room;
 
     public static final String MAP_NAME = "m001";
 
     public Game() {
         UPF.REGISTRY_MANAGER.createNamespace(ParasiteEve.NAMESPACE);
     }
+
+    // 30Hz Update Accumulator
+    private float accumulator = 0;
+    private final float TICK = 1f / 30;
 
     public void init() {
         viewports = new ArrayList<>();
@@ -64,12 +58,12 @@ public class Game implements IDisposable {
         }
 
         try {
-            Room room = RoomLoader.loadRoom(imagesFiles, MAP_NAME);
+            room = RoomLoader.loadRoom(imagesFiles, MAP_NAME);
             viewports = room.viewports();
 
-            renderer = new PSXRenderer();
-            camera = new PSXCamera(renderer.getGTE(), viewports.get(0));
-            camera.follow(-4, 65, -4813);
+            renderer = new PERenderer();
+
+            camera = new PECamera(viewports.get(0));
 
             renderer.setCameraPosition(camera.getCamX(), camera.getCamY());
             renderer.upload(room);
@@ -82,9 +76,34 @@ public class Game implements IDisposable {
 
     public void update(float delta) {
 
+        accumulator += delta;
+        while (accumulator >= TICK) {
+            accumulator -= TICK;
+            tick();
+        }
+
+    }
+
+    public void tick() {
+        ScriptVM.runAll();
+        camera.step();
+
+        for (ScriptVM vm : ScriptVM.getActors())
+            vm.advanceAnim();
+
+        ScriptVM player = ScriptVM.getPlayer();
+        if ((player != null) && camera.canFollow()) {
+            int x = player.getPosX() >> 16;
+            int y = player.getPosY() >> 16;
+            int z = player.getPosZ() >> 16;
+            camera.follow(x, y, z);
+        }
+
+        renderer.upload(room.models(), viewports.get(0));
     }
 
     public void render() {
+        renderer.setCameraPosition(camera.getCamX(), camera.getCamY());
         renderer.onRender(viewports);
     }
 

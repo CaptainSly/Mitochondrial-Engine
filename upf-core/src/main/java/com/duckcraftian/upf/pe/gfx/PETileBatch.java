@@ -1,4 +1,4 @@
-package com.duckcraftian.upf.ps1.gfx;
+package com.duckcraftian.upf.pe.gfx;
 
 import com.duckcraftian.upf.impl.IDisposable;
 import com.duckcraftian.upf.pe.rooms.BackgroundTile;
@@ -13,13 +13,13 @@ import static org.lwjgl.opengl.GL30.*;
 import static org.lwjgl.opengl.GL31.glDrawArraysInstanced;
 import static org.lwjgl.opengl.GL33.glVertexAttribDivisor;
 
-public class PSXTileBatch implements IDisposable {
+public class PETileBatch implements IDisposable {
 
     private int vao;
     private int vbo;
     private int tileCount;
 
-    public PSXTileBatch(List<BackgroundTile> tiles) {
+    public PETileBatch(List<BackgroundTile> tiles) {
         tileCount = tiles.size();
         int[] data = new int[tileCount * 9];
 

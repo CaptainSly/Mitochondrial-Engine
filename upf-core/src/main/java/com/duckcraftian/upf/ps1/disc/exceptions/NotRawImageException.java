@@ -1,4 +1,4 @@
-package com.duckcraftian.upf.pe.exceptions;
+package com.duckcraftian.upf.ps1.disc.exceptions;
 
 public class NotRawImageException extends RuntimeException {
 

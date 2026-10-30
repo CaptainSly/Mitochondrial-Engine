@@ -4,7 +4,7 @@ import com.duckcraftian.upf.UPF;
 import com.duckcraftian.upf.pe.ParasiteEve;
 import com.duckcraftian.upf.pe.RoomRange;
 import com.duckcraftian.upf.pe.disc.problems.EntryProblem;
-import com.duckcraftian.upf.pe.exceptions.NotRawImageException;
+import com.duckcraftian.upf.ps1.disc.exceptions.NotRawImageException;
 import com.duckcraftian.upf.pe.exceptions.SetupFailure;
 import com.duckcraftian.upf.pe.disc.problems.SetupProblem;
 import com.duckcraftian.upf.ps1.disc.DiscEntry;

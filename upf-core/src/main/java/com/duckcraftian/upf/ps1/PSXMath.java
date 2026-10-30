@@ -3,12 +3,12 @@ package com.duckcraftian.upf.ps1;
 public class PSXMath {
 
     public static int[] rotMatrixYXZ(int ax, int ay, int az) {
-        int cx = (int) Math.round(Math.cos(ax * 2 * Math.PI / 4096) * 4096);
-        int sx = (int) Math.round(Math.sin(ax * 2 * Math.PI / 4096) * 4096);
-        int cy = (int) Math.round(Math.cos(ay * 2 * Math.PI / 4096) * 4096);
-        int sy = (int) Math.round(Math.sin(ay * 2 * Math.PI / 4096) * 4096);
-        int cz = (int) Math.round(Math.cos(az * 2 * Math.PI / 4096) * 4096);
-        int sz = (int) Math.round(Math.sin(az * 2 * Math.PI / 4096) * 4096);
+        int cx = rcos(ax);
+        int sx = rsin(ax);
+        int cy = rcos(ay);
+        int sy = rsin(ay);
+        int cz = rcos(az);
+        int sz = rsin(az);
         int sysx = (sy * sx) >> 12;
         int cysx = (cy * sx) >> 12;
 
@@ -24,6 +24,16 @@ public class PSXMath {
         matrix[8] = (cy * cx) >> 12;
 
         return matrix;
+    }
+
+    public static int rcos(int angle) {
+        double radians = angle * 2 * Math.PI / 4096;
+        return (int) Math.round(Math.cos(radians) * 4096);
+    }
+
+    public static int rsin(int angle) {
+        double radians = angle * 2 * Math.PI / 4096;
+        return (int) Math.round(Math.sin(radians) * 4096);
     }
 
     public static int[] mulMatrix(int[] a, int[] b) {

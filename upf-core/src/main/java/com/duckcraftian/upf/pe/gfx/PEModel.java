@@ -2,15 +2,13 @@ package com.duckcraftian.upf.pe.gfx;
 
 import com.duckcraftian.upf.ps1.PSX;
 import com.duckcraftian.upf.ps1.PSXMath;
-import com.duckcraftian.upf.ps1.gfx.GTE;
 import com.duckcraftian.upf.ps1.gfx.PSXOrderingTable;
 import com.duckcraftian.upf.system.Utils;
-import org.tinylog.Logger;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 
-public class PSXModel {
+public class PEModel {
 
     private int partCount;
     private int vertexCount;
@@ -33,7 +31,7 @@ public class PSXModel {
     private int[] partTranslationZ;
     private int[] matrixCommands;
 
-    public PSXModel(int partCount, int vertexCount, int primCount) {
+    public PEModel(int partCount, int vertexCount, int primCount) {
         this.partCount = partCount;
         this.vertexCount = vertexCount;
 
@@ -48,7 +46,7 @@ public class PSXModel {
         primUV = new int[primCount * 8];
     }
 
-    public int[][] pose(PSXAnimation anim, int frame, int[] worldRot, int[] worldTrans) {
+    public int[][] pose(PEAnimation anim, int frame, int[] worldRot, int[] worldTrans) {
         int[][] result = new int[partCount][12];
         int[] curRot = worldRot;
         int[] curTrans = worldTrans;
@@ -97,7 +95,7 @@ public class PSXModel {
         return result;
     }
 
-    public int[] project(GTE gte, int[][] pose, int[] viewRot, int[] viewTrans) {
+    public int[] project(int[][] pose, int[] viewRot, int[] viewTrans) {
         int[] screen = new int[vertexCount * 3];
 
         for (int p = 0; p < partCount; p++) {
@@ -119,8 +117,8 @@ public class PSXModel {
             t[0] = t[0] + viewTrans[0];
             t[1] = t[1] + viewTrans[1];
             t[2] = t[2] + viewTrans[2];
-            gte.loadRotation(rot);
-            gte.loadTranslation(t);
+            PSX.GTE.loadRotation(rot);
+            PSX.GTE.loadTranslation(t);
 
             int first = partVertexStart[p];
             int last = partVertexStart[p] + partVertexCount[p] - 1;
@@ -129,20 +127,20 @@ public class PSXModel {
                 int v1 = Math.min(v + 1, last);
                 int v2 = Math.min(v + 2, last);
 
-                gte.writeData(0, (vertices[3 * v + 1] << 16) | (vertices[3 * v] & 0xFFFF));
-                gte.writeData(1, vertices[3 * v + 2]);
-                gte.writeData(2, (vertices[3 * v1 + 1] << 16) | (vertices[3 * v1] & 0xFFFF));
-                gte.writeData(3, vertices[3 * v1 + 2]);
-                gte.writeData(4, (vertices[3 * v2 + 1] << 16) | (vertices[3 * v2] & 0xFFFF));
-                gte.writeData(5, vertices[3 * v2 + 2]);
-                gte.execute(PSX.CMD_RTPT);
+                PSX.GTE.writeData(0, (vertices[3 * v + 1] << 16) | (vertices[3 * v] & 0xFFFF));
+                PSX.GTE.writeData(1, vertices[3 * v + 2]);
+                PSX.GTE.writeData(2, (vertices[3 * v1 + 1] << 16) | (vertices[3 * v1] & 0xFFFF));
+                PSX.GTE.writeData(3, vertices[3 * v1 + 2]);
+                PSX.GTE.writeData(4, (vertices[3 * v2 + 1] << 16) | (vertices[3 * v2] & 0xFFFF));
+                PSX.GTE.writeData(5, vertices[3 * v2 + 2]);
+                PSX.GTE.execute(PSX.CMD_RTPT);
 
                 for (int k = 0; k < 3; k++) {
                     int index = Math.min(v + k, last);
-                    int sxy = gte.readData(12 + k);
+                    int sxy = PSX.GTE.readData(12 + k);
                     screen[3 * index] = (short) sxy;
                     screen[3 * index + 1] = (short) (sxy >> 16);
-                    screen[3 * index + 2] = gte.readData(17 + k);
+                    screen[3 * index + 2] = PSX.GTE.readData(17 + k);
                 }
             }
         }
@@ -150,7 +148,7 @@ public class PSXModel {
         return screen;
     }
 
-    public void sortIntoOT(GTE gte, int[] screen, PSXOrderingTable ot) {
+    public void sortIntoOT(int[] screen, PSXOrderingTable ot) {
         for (int i = 0; i < n34 + n28; i++) {
             boolean isQuad = i < n34;
             int a = primVertex[4 * i];
@@ -158,27 +156,27 @@ public class PSXModel {
             int c = primVertex[4 * i + 2];
             int d = primVertex[4 * i + 3];
 
-            gte.writeData(12, (screen[3 * a + 1] << 16) | (screen[3 * a] & 0xFFFF));
-            gte.writeData(13, (screen[3 * b + 1] << 16) | (screen[3 * b] & 0xFFFF));
-            gte.writeData(14, (screen[3 * c + 1] << 16) | (screen[3 * c] & 0xFFFF));
-            gte.execute(PSX.CMD_NCLIP);
+            PSX.GTE.writeData(12, (screen[3 * a + 1] << 16) | (screen[3 * a] & 0xFFFF));
+            PSX.GTE.writeData(13, (screen[3 * b + 1] << 16) | (screen[3 * b] & 0xFFFF));
+            PSX.GTE.writeData(14, (screen[3 * c + 1] << 16) | (screen[3 * c] & 0xFFFF));
+            PSX.GTE.execute(PSX.CMD_NCLIP);
 
-            int winding = gte.readData(24);
+            int winding = PSX.GTE.readData(24);
             if (winding < 0)
                 continue;
 
-            gte.writeData(17, screen[3 * a + 2]);
-            gte.writeData(18, screen[3 * b + 2]);
-            gte.writeData(19, screen[3 * c + 2]);
+            PSX.GTE.writeData(17, screen[3 * a + 2]);
+            PSX.GTE.writeData(18, screen[3 * b + 2]);
+            PSX.GTE.writeData(19, screen[3 * c + 2]);
             if (isQuad) {
-                gte.writeData(16, screen[3 * a + 2]);
-                gte.writeData(17, screen[3 * b + 2]);
-                gte.writeData(18, screen[3 * c + 2]);
-                gte.writeData(19, screen[3 * d + 2]);
-                gte.execute(PSX.CMD_AVSZ4);
-            } else gte.execute(PSX.CMD_AVSZ3);
+                PSX.GTE.writeData(16, screen[3 * a + 2]);
+                PSX.GTE.writeData(17, screen[3 * b + 2]);
+                PSX.GTE.writeData(18, screen[3 * c + 2]);
+                PSX.GTE.writeData(19, screen[3 * d + 2]);
+                PSX.GTE.execute(PSX.CMD_AVSZ4);
+            } else PSX.GTE.execute(PSX.CMD_AVSZ3);
 
-            int slot = Math.min(gte.readData(7), ot.getLength() - 1);
+            int slot = Math.min(PSX.GTE.readData(7), ot.getLength() - 1);
             ot.add(slot, i);
         }
 

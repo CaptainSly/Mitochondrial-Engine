@@ -1,9 +1,11 @@
 package com.duckcraftian.upf.pe.disc;
 
-import com.duckcraftian.upf.pe.gfx.PSXAnimation;
-import com.duckcraftian.upf.pe.gfx.PSXModel;
+import com.duckcraftian.upf.pe.gfx.PEAnimation;
+import com.duckcraftian.upf.pe.gfx.PEModel;
 import com.duckcraftian.upf.pe.rooms.BackgroundTile;
 import com.duckcraftian.upf.pe.rooms.PSXViewport;
+import com.duckcraftian.upf.pe.script.Decoder;
+import org.tinylog.Logger;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -38,12 +40,32 @@ public class RoomParser {
         int outX = s16LE(block, 0x38);
         int outY = s16LE(block, 0x3A);
 
+
+        boolean[] shown = new boolean[layerCount];
+
+        int controlCount = u16LE(block, 0x04);
+        int controlOffset = s32LE(block, 0x10);
+        for (int c = 0; c < controlCount; c++) {
+            int controlAddress = controlOffset + c * 16;
+            int slotsAddress = controlAddress + s32LE(block, controlAddress + 12);
+            int firstEntry = u8(block, slotsAddress);
+            shown[firstEntry] = true;
+        }
+
         for (int l = 0; l < layerCount; l++) {
             int entry = entryOffset + l * 0x38;
             int layerGroup = u8(block, entry + 0x24);
 
+            int flags = u8(block, entry);
+            if ((flags & 2) != 0)
+                shown[l] = true;
+
             if (layerGroup != group)
                 continue;
+
+            if (!shown[l])
+                continue;
+
 
             long first = u32LE(block, entry);
             int layerDepth = (int) ((first >> 8) & 0xFFF);
@@ -79,6 +101,36 @@ public class RoomParser {
 
         tiles.sort(Comparator.comparingInt(BackgroundTile::orderIndex).reversed());
         return tiles;
+    }
+
+    public static int[] readScriptStreams(byte[] container) {
+        int directoryOffset = (int) u32LE(container, 4);
+        int field = (int) u32LE(container, directoryOffset + 0x14);
+        int tableOffset = field & 0x3FFFFF;
+        int payload = (int) (u32LE(container, tableOffset + 4) & 0xFFFFFF);
+        int count = (int) u32LE(container, payload + 4);
+
+        int[] start = new int[count];
+        for (int i = 0; i < count; i++)
+            start[i] = (int) (payload + u32LE(container, payload + 8 + 4 * i));
+
+        for (int k = 0; k < start.length; k++) {
+            int end = (k + 1 < start.length) ? start[k + 1] : container.length;
+            int words = Decoder.trace(container, start[k], end);
+            Logger.debug("stream " + k + ": " + words + " words");
+        }
+
+        return start;
+    }
+
+    public static int readSpawnList(byte[] container) {
+        int directoryOffset = (int) u32LE(container, 4);
+        int field = (int) u32LE(container, directoryOffset + 0x14);
+        int tableOffset = field & 0x3FFFFF;
+
+        int payload = (int) (u32LE(container, tableOffset + 4) & 0xFFFFFF);
+
+        return payload + (int) u32LE(container, payload);
     }
 
     public static List<PSXViewport> parseViewports(byte[] block) {
@@ -129,7 +181,7 @@ public class RoomParser {
         return records;
     }
 
-    public static PSXModel parseModel(byte[] container, int offset) {
+    public static PEModel parseModel(byte[] container, int offset) {
         int partCount = u8(container, offset + 0x02);
         int vertexCount = u16LE(container, offset + 0x06);
         int n34 = u16LE(container, offset + 0x08);
@@ -148,7 +200,7 @@ public class RoomParser {
         int quadTexturesAt = matrixAt + roundUp4(matrixCommandBytes);
         int triangleTexturesAt = quadTexturesAt + 16 * n34;
 
-        PSXModel model = new PSXModel(partCount, vertexCount, primCount);
+        PEModel model = new PEModel(partCount, vertexCount, primCount);
         model.setN34(n34);
         model.setN28(n28);
         model.setN24(n24);
@@ -228,7 +280,7 @@ public class RoomParser {
         return records;
     }
 
-    public static void applyTextureRemap(PSXModel model, int vramWord) {
+    public static void applyTextureRemap(PEModel model, int vramWord) {
         int x = (vramWord >> 6) & 0x3C0;
         int y = (vramWord >> 9) & 0x180;
         int paletteRow = ((vramWord >> 18) & 0xFF) + 0x1C0;
@@ -242,7 +294,7 @@ public class RoomParser {
         }
     }
 
-    public static PSXAnimation parseAnimation(byte[] container, int offset) {
+    public static PEAnimation parseAnimation(byte[] container, int offset) {
         int encoding = u8(container, offset);
         int lastBone = u8(container, offset + 1);
         int frameCount = u8(container, offset + 2);
@@ -282,10 +334,10 @@ public class RoomParser {
                 cursor = cursor + 4 * ((frameCount >> 2) + 1);
         }
 
-        return new PSXAnimation(frameCount, boneCount, (cursor - offset), channels);
+        return new PEAnimation(frameCount, boneCount, (cursor - offset), channels);
     }
 
-    public static void parseSkeleton(byte[] container, int partsAt, int matrixAt, int matrixCommandBytes, PSXModel model) {
+    public static void parseSkeleton(byte[] container, int partsAt, int matrixAt, int matrixCommandBytes, PEModel model) {
         model.setPartTranslationZ(new int[model.getPartCount()]);
         for (int p = 0; p < model.getPartCount(); p++)
             model.getPartTranslationZ()[p] = s32LE(container, partsAt + 12 * p + 8);

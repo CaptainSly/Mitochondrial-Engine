@@ -2,8 +2,8 @@ package com.duckcraftian.upf.pe.rooms;
 
 import com.duckcraftian.upf.pe.disc.RoomParser;
 import com.duckcraftian.upf.pe.disc.SquareImageParser;
-import com.duckcraftian.upf.pe.gfx.PSXAnimation;
-import com.duckcraftian.upf.pe.gfx.PSXModel;
+import com.duckcraftian.upf.pe.gfx.PEModel;
+import com.duckcraftian.upf.pe.script.ScriptVM;
 import com.duckcraftian.upf.ps1.data_types.PSXImage;
 import com.duckcraftian.upf.serialization.UPDHSerializer;
 
@@ -30,32 +30,17 @@ public class RoomLoader {
 
             byte[] container = UPDHSerializer.getStreamedData(imagesFile, "rooms/" + mapName + "/container");
             int[][] modelRecords = RoomParser.readModelRecords(container);
-            int[][] animRecords = RoomParser.readAnimationRecords(container);
 
-            Map<Integer, PSXModel> models = new HashMap<>();
+            ScriptVM.loadRoom(container);
+
+            Map<Integer, PEModel> models = new HashMap<>();
             for (int[] record : modelRecords) {
-                PSXModel model = RoomParser.parseModel(container, record[1]);
+                PEModel model = RoomParser.parseModel(container, record[1]);
                 RoomParser.applyTextureRemap(model, record[2]);
                 models.put(record[0], model);
             }
 
-            int[][] placements = {
-                    {2, -161, 0, -5352, 0},
-                    {3, 396, 0, -5362, 480},
-                    {4, 795, 0, -4974, 0}
-            };
-
-            List<Actor> actors = new ArrayList<>();
-            for (int[] p : placements) {
-                int[] animRecord = null;
-                for (int[] a : animRecords)
-                    if (a[0] == p[0] && a[1] == 0)
-                        animRecord = a;
-                PSXAnimation animation = RoomParser.parseAnimation(container, animRecord[2]);
-                actors.add(new Actor(models.get(p[0]), animation, new int[]{p[1], p[2], p[3]}, p[4]));
-            }
-
-            return new Room(tiles, images, viewports, actors);
+            return new Room(tiles, images, viewports, models);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

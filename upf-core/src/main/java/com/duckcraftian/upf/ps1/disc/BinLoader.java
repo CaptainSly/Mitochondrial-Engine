@@ -2,7 +2,7 @@ package com.duckcraftian.upf.ps1.disc;
 
 import com.duckcraftian.upf.UPF;
 import com.duckcraftian.upf.impl.IDisposable;
-import com.duckcraftian.upf.pe.exceptions.NotRawImageException;
+import com.duckcraftian.upf.ps1.disc.exceptions.NotRawImageException;
 import com.duckcraftian.upf.system.FileUtils;
 
 import java.io.IOException;

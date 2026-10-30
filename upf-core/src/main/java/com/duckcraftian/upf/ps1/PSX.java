@@ -1,5 +1,7 @@
 package com.duckcraftian.upf.ps1;
 
+import com.duckcraftian.upf.ps1.gfx.GTE;
+
 public class PSX {
 
     // Opcodes
@@ -15,6 +17,6 @@ public class PSX {
     public static final int CMD_AVSZ3 = 0x158002D;
     public static final int CMD_AVSZ4 = 0x168002E;
 
-
+    public static final GTE GTE = new GTE();
 
 }
