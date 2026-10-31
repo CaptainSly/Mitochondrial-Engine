@@ -7,16 +7,17 @@ It's written on top of the [UPF](/upf_readme.md), or Untitled Porting Framework.
 
 # Current Status
 
-Maps are visible, 3D Models show. Animations do play, in the case of map001, one of the officers really enjoys waving his arms to the street. 
+Maps are visible, 3D Models show. Animations do play. 
 
-You can move Aya around, but there isn't any interaction yet.
+You can move Aya around, but there isn't any interaction yet. As a debug check, Aya will be renamed to 'Hank'. This will be removed later... maybe.
+Dialogue does show up on the screen, you can progress through it with 'F'. The game will fade to black indefinitely when entering the Opera's area after the entrance hallway. 
 
 This is currently a glorified tech demo. As progress is made, screenshots will be posted below. 
 
 The readme_images folder contains progress images.
 
-![all_3_actors](readme_images/all_3_actors.png)
 ![script_vm_test](readme_images/script_vm_wip_test.png)
+![dialogue_test](readme_images/dialogue_test_wip.png)
 
 # System Requirements
 

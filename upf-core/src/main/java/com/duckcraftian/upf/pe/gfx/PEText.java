@@ -1,6 +1,12 @@
 package com.duckcraftian.upf.pe.gfx;
 
+import com.duckcraftian.upf.pe.script.ScriptVM;
+import com.duckcraftian.upf.system.Utils;
+
+import java.util.ArrayList;
 import java.util.List;
+
+import static com.duckcraftian.upf.system.DataTypeHelper.u8;
 
 public class PEText {
 
@@ -38,6 +44,52 @@ public class PEText {
             return width + 2;
 
         return width + 1;
+    }
+
+    public static List<int[]> layoutMessage(byte[] container, int bank, int id) {
+        List<int[]> sections = new ArrayList<>();
+        List<Integer> out = new ArrayList<>();
+
+        int x = 20;
+        int y = 174;
+
+        int pos = bank;
+        while (!(u8(container, pos) == 0xFE && u8(container, pos + 1) == id)) {
+            pos += 1;
+            if (pos >= container.length - 1) {
+                sections.add(new int[0]);
+                return sections;
+            }
+        }
+
+        pos += 2;
+
+        while (u8(container, pos) != 0xFF && u8(container, pos) != 0xF9) {
+            int b = u8(container, pos);
+            if (b == 0xF7) {
+                x = 20;
+                y += 12;
+            } else if (b == 0xF8) {
+                sections.add(Utils.intListToArray(out));
+                out = new ArrayList<>();
+                x = 20;
+                y = 174;
+            } else if (b == 0xFB) {
+                pos += 1;
+                int sub = u8(container, pos);
+                if (sub == 0x07 || sub == 0x09)
+                    pos += 1;
+            } else if (b == 0xFA) {
+                for (int g : ScriptVM.playerName)
+                    x += addGlyph(out, g, x, y);
+            } else if (b < 0xF7)
+                x += addGlyph(out, b, x, y);
+
+            pos += 1;
+        }
+
+        sections.add(Utils.intListToArray(out));
+        return sections;
     }
 
     private static void addVertex(List<Integer> out, int x, int y, int u, int v) {

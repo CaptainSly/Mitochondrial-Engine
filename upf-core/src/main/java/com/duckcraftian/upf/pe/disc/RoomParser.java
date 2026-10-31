@@ -341,6 +341,8 @@ public class RoomParser {
         model.setN24(n24);
         model.setN1c(n1c);
         model.setByteSize(triangleTexturesAt + 12 * n28 - offset);
+        model.setAnchorY(s16LE(container, offset + 0x10));
+        model.setAnchorMatrixIndex(u16LE(container, offset + 0x12));
 
         for (int p = 0; p < partCount; p++) {
             model.getPartVertexStart()[p] = u16LE(container, partsAt + 12 * p);

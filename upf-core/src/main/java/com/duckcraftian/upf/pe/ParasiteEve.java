@@ -79,6 +79,7 @@ public class ParasiteEve {
     public static final int TextboxClose = 35;
     public static final int FadeSceneToColor = 135;
     public static final int OpenNameEntryMenu = 239;
+    public static final int ActorSnapToAnimAnchor = 205;
 
 
     public static int mapFromToken(int t) {

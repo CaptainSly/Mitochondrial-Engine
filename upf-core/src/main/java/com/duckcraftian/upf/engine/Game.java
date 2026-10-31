@@ -15,6 +15,7 @@ import com.duckcraftian.upf.pe.script.ScriptVM;
 import com.duckcraftian.upf.ps1.data_types.PSXImage;
 import com.duckcraftian.upf.ps1.disc.DiscFileSystem;
 import com.duckcraftian.upf.serialization.UPDHSerializer;
+import com.duckcraftian.upf.system.Utils;
 import com.duckcraftian.upf.utils.Input;
 import org.lwjgl.sdl.SDLScancode;
 import org.tinylog.Logger;
@@ -24,6 +25,7 @@ import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import static com.duckcraftian.upf.pe.gfx.PEText.addGlyph;
@@ -81,19 +83,13 @@ public class Game implements IDisposable {
         }
 
         loadMap("m010");
-
-        List<Integer> out = new ArrayList<>();
-        int x = 20;
-        for (int code : new int[]{0x10, 0x48, 0x30}) {
-            x = x + addGlyph(out, code, x, 174);
-            renderer.uploadText(out.stream().mapToInt(Integer::intValue).toArray());
-        }
     }
 
     public void loadMap(String mapName) {
         Logger.debug("Attempting to load map: " + mapName);
         try {
             room = RoomLoader.loadRoom(imagesFiles, mapName);
+            ScriptVM.models = room.models();
             viewports = room.viewports();
             camera = new PECamera(viewports.get(0));
 
@@ -135,13 +131,21 @@ public class Game implements IDisposable {
         if (Input.isKeyDown(SDLScancode.SDL_SCANCODE_LSHIFT)) pad |= 0x01;
 
         if (confirmPressed) {
-            ScriptVM.openMessages.clear();
+            ScriptVM.confirm();
             confirmPressed = false;
         }
 
         ScriptVM.pad = pad;
         ScriptVM.runAll();
         ScriptVM.stepFade();
+
+        List<Integer> allDialogue = new ArrayList<>();
+        for (int id : ScriptVM.openMessages) {
+            List<int[]> sections = ScriptVM.messageSections.get(id);
+            int[] verts = sections.get(ScriptVM.messageSection.get(id));
+            allDialogue.addAll(Utils.intArrayToList(verts));
+        }
+        renderer.uploadText(Utils.intListToArray(allDialogue));
 
         int token = ScriptVM.takePendingRoom();
         if (token != 0) {

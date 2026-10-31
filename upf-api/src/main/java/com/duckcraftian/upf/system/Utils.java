@@ -4,7 +4,9 @@ import org.joml.*;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.HexFormat;
+import java.util.List;
 
 public class Utils {
 
@@ -24,6 +26,52 @@ public class Utils {
         }
 
         return sb.toString();
+    }
+
+    public static <T extends Object> String arrayToString(T[] array) {
+        StringBuilder sb = new StringBuilder();
+        String appender = "";
+        for (int i = 0; i < array.length; i++) {
+
+            if (!(i == array.length - 1))
+                appender = ", ";
+            else appender = "";
+
+            sb.append(array[i].toString() + appender);
+        }
+
+        return sb.toString();
+    }
+
+    public static String arrayToString(int[] array) {
+        StringBuilder sb = new StringBuilder();
+        String appender = "";
+        for (int i = 0; i < array.length; i++) {
+
+            if (!(i == array.length - 1))
+                appender = ", ";
+            else appender = "";
+
+            sb.append(array[i] + appender);
+        }
+
+        return sb.toString();
+    }
+
+    public static List<Integer> intArrayToList(int[] values) {
+        List<Integer> result = new ArrayList<>();
+        for (int i : values)
+            result.add(i);
+
+        return result;
+    }
+
+    public static int[] intListToArray(List<Integer> values) {
+        int[] result = new int[values.size()];
+        for (int i = 0; i < values.size(); i++)
+            result[i] = values.get(i);
+
+        return result;
     }
 
     public static int[][] splitIntArray(int[] a, int splitIndex) {

@@ -17,6 +17,8 @@ public class PEModel {
     private int n24;
     private int n1c;
     private int byteSize;
+    private int AnchorY;
+    private int anchorMatrixIndex;
 
 
     private int[] partVertexStart;
@@ -237,6 +239,22 @@ public class PEModel {
 
     public int getPartCount() {
         return partCount;
+    }
+
+    public int getAnchorY() {
+        return AnchorY;
+    }
+
+    public void setAnchorY(int anchorY) {
+        AnchorY = anchorY;
+    }
+
+    public int getAnchorMatrixIndex() {
+        return anchorMatrixIndex;
+    }
+
+    public void setAnchorMatrixIndex(int anchorMatrixIndex) {
+        this.anchorMatrixIndex = anchorMatrixIndex;
     }
 
     public void setPartCount(int partCount) {

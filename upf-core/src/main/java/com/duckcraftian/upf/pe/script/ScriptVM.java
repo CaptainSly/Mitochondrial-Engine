@@ -2,9 +2,12 @@ package com.duckcraftian.upf.pe.script;
 
 import com.duckcraftian.upf.pe.disc.RoomParser;
 import com.duckcraftian.upf.pe.gfx.PEAnimation;
+import com.duckcraftian.upf.pe.gfx.PEModel;
+import com.duckcraftian.upf.pe.gfx.PEText;
 import com.duckcraftian.upf.pe.rooms.Collision;
 import com.duckcraftian.upf.ps1.PSX;
 import com.duckcraftian.upf.ps1.PSXMath;
+import com.duckcraftian.upf.system.Utils;
 import org.tinylog.Logger;
 
 import java.util.*;
@@ -36,6 +39,10 @@ public class ScriptVM {
     public static int messageBank;
 
     public static int[] playerName = {0x10, 0x48, 0x30};
+    public static Map<Integer, PEModel> models;
+    public static Map<Integer, List<int[]>> messageSections = new HashMap<>();
+    public static Map<Integer, Integer> messageSection = new HashMap<>();
+    public static List<Integer> openMessages = new ArrayList<>();
 
     // Entity Specific
     private int type;
@@ -95,7 +102,6 @@ public class ScriptVM {
     private static int[] STARTS;
 
     private static List<ScriptVM> actors = new ArrayList<>();
-    public static List<Integer> openMessages = new ArrayList<>();
     private static List<int[]> queue = new ArrayList<>();
 
     public static ScriptVM spawn(int type, int sub) {
@@ -204,7 +210,7 @@ public class ScriptVM {
                     n.cursor = vm.msgCursor;
                     n.active = 1;
                     n.target14 = e[0];
-                    vm.nodes.add(0, n);
+                    vm.nodes.addFirst(n);
                     Logger.debug("Command: " + e[0] + " Sub: " + e[1] + " Type: " + e[2]);
                 }
             }
@@ -311,6 +317,38 @@ public class ScriptVM {
             return true;
         };
 
+        handlers[ActorSnapToAnimAnchor] = _ -> {
+            PEModel model = models.get(type);
+            if (model == null || getAnimation() == null)
+                return true;
+
+            int[] rot = PSXMath.rotMatrixYXZ(0, rotY, 0);
+            int[] at = {posX >> 16, posY >> 16, posZ >> 16};
+            int[][] pose = model.pose(getAnimation(), getFrame(), rot, at);
+
+            int[] bone = pose[model.getAnchorMatrixIndex()];
+            int[] boneMatrix = Arrays.copyOfRange(bone, 0, 9);
+            int[] p = PSXMath.mulVector(boneMatrix, 0, model.getAnchorY(), 0);
+
+            posX = bone[9] << 16;
+            posY = bone[10] << 16;
+            posZ = bone[11] << 16;
+
+            Logger.debug("P: " + Utils.arrayToString(p) + " bone3x3: " + Utils.arrayToString(boneMatrix));
+            Logger.debug("205 type=" + type
+                    + " rotY=" + rotY
+                    + " frame=" + getFrame()
+                    + " rootOff=" + getAnimation().channels()[0][getFrame()] + ","
+                    + getAnimation().channels()[1][getFrame()] + ","
+                    + getAnimation().channels()[2][getFrame()]
+                    + " rootRot=" + getAnimation().channels()[3][getFrame()] + ","
+                    + getAnimation().channels()[4][getFrame()] + ","
+                    + getAnimation().channels()[5][getFrame()]);
+
+
+            return true;
+        };
+
         handlers[PlayFieldSFX] = _ -> {
             queue.add(new int[]{
                     get(2) & 0xFF, get(1) & 0xFF, get(0) & 0xFFFF
@@ -320,8 +358,10 @@ public class ScriptVM {
         };
 
         handlers[TextboxOpen] = _ -> {
-            openMessages.add(get(0));
-            Logger.info(RoomParser.readMessage(CONTAINER, messageBank, get(0)));
+            int id = get(0);
+            openMessages.add(id);
+            messageSections.put(id, PEText.layoutMessage(CONTAINER, messageBank, id));
+            messageSection.put(id, 0);
             return true;
         };
 
@@ -336,7 +376,7 @@ public class ScriptVM {
         };
 
         handlers[TextboxClose] = _ -> {
-            openMessages.remove(Integer.valueOf(get(0)));
+            closeMessage(get(0));
             return true;
         };
 
@@ -696,6 +736,22 @@ public class ScriptVM {
         }
     }
 
+    public static void closeMessage(int id) {
+        openMessages.remove(Integer.valueOf(id));
+        messageSections.remove(id);
+        messageSection.remove(id);
+    }
+
+    public static void confirm() {
+        List<Integer> messages = new ArrayList<>(openMessages);
+        for (int id : messages) {
+            int next = messageSection.get(id) + 1;
+            if (next < messageSections.get(id).size())
+                messageSection.put(id, next);
+            else closeMessage(id);
+        }
+    }
+
     public void setActionMode(int mode) {
         PEAnimation anim = actions.get(mode);
 
@@ -708,6 +764,15 @@ public class ScriptVM {
         animFrame = 0;
         entityFlags &= ~0x200;
         animLastFrame = anim.frameCount() - 1;
+
+        Logger.debug("action " + mode + " type=" + type
+                + " frame0 rootOff=" + anim.channels()[0][0] + ","
+                + anim.channels()[1][0] + ","
+                + anim.channels()[2][0]
+                + " rootRot=" + anim.channels()[3][0] + ","
+                + anim.channels()[4][0] + ","
+                + anim.channels()[5][0]);
+
     }
 
     public void controller() {
@@ -913,7 +978,7 @@ public class ScriptVM {
         if (COLLISION == null) return;
         if ((entityFlags & 2) != 0) return;
 
-        int t = COLLISION.findTriangle(posX >> 16, posY >> 16);
+        int t = COLLISION.findTriangle(posX >> 16, posZ >> 16);
         if (t < 0) return;
 
         posY = COLLISION.floorY(t, posX, posZ);
