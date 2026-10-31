@@ -10,9 +10,9 @@ It's written on top of the [UPF](/upf_readme.md), or Untitled Porting Framework.
 Maps are visible, 3D Models show. Animations do play. 
 
 You can move Aya around, but there isn't any interaction yet. As a debug check, Aya will be renamed to 'Hank'. This will be removed later... maybe.
-Dialogue does show up on the screen, you can progress through it with 'F'. The game will fade to black indefinitely when entering the Opera's area after the entrance hallway. 
+Dialogue does show up on the screen, you can progress through it with 'F'. You will encounter a softlock after talking to Eve before the first battle. 
 
-This is currently a glorified tech demo. As progress is made, screenshots will be posted below. 
+This is currently a glorified walking simulator. As progress is made, screenshots will be posted below. 
 
 The readme_images folder contains progress images.
 

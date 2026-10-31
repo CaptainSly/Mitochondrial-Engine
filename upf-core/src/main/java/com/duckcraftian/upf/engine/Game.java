@@ -1,5 +1,15 @@
 package com.duckcraftian.upf.engine;
 
+import java.io.IOException;
+import java.net.URISyntaxException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.lwjgl.sdl.SDLScancode;
+import org.tinylog.Logger;
+
 import com.duckcraftian.upf.UPF;
 import com.duckcraftian.upf.impl.IDisposable;
 import com.duckcraftian.upf.pe.ParasiteEve;
@@ -18,18 +28,6 @@ import com.duckcraftian.upf.ps1.disc.DiscFileSystem;
 import com.duckcraftian.upf.serialization.UPDHSerializer;
 import com.duckcraftian.upf.system.Utils;
 import com.duckcraftian.upf.utils.Input;
-import org.lwjgl.sdl.SDLScancode;
-import org.tinylog.Logger;
-
-import java.io.IOException;
-import java.net.URISyntaxException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-
-import static com.duckcraftian.upf.pe.gfx.PEText.addGlyph;
 
 public class Game implements IDisposable {
 
@@ -85,7 +83,7 @@ public class Game implements IDisposable {
             throw new RuntimeException(e);
         }
 
-        loadMap("m180");
+        loadMap("m010");
 
     }
 
@@ -106,9 +104,7 @@ public class Game implements IDisposable {
 
     }
 
-
     public void update(float delta) {
-
 
         if (!ScriptVM.openMessages.isEmpty()) {
             if (Input.isKeyJustDown(SDLScancode.SDL_SCANCODE_F))
@@ -130,17 +126,22 @@ public class Game implements IDisposable {
     }
 
     public void tick() {
-        //Player Pad Control
+        // Player Pad Control
         int pad = 0;
-        if (Input.isKeyDown(SDLScancode.SDL_SCANCODE_W)) pad |= 0x08;
+        if (Input.isKeyDown(SDLScancode.SDL_SCANCODE_W))
+            pad |= 0x08;
 
-        if (Input.isKeyDown(SDLScancode.SDL_SCANCODE_S)) pad |= 0x20;
+        if (Input.isKeyDown(SDLScancode.SDL_SCANCODE_S))
+            pad |= 0x20;
 
-        if (Input.isKeyDown(SDLScancode.SDL_SCANCODE_A)) pad |= 0x40;
+        if (Input.isKeyDown(SDLScancode.SDL_SCANCODE_A))
+            pad |= 0x40;
 
-        if (Input.isKeyDown(SDLScancode.SDL_SCANCODE_D)) pad |= 0x10;
+        if (Input.isKeyDown(SDLScancode.SDL_SCANCODE_D))
+            pad |= 0x10;
 
-        if (Input.isKeyDown(SDLScancode.SDL_SCANCODE_LSHIFT)) pad |= 0x01;
+        if (Input.isKeyDown(SDLScancode.SDL_SCANCODE_LSHIFT))
+            pad |= 0x01;
 
         if (confirmPressed) {
             ScriptVM.confirm();
@@ -156,7 +157,6 @@ public class Game implements IDisposable {
             ScriptVM.moveChoice(1);
             downPressed = false;
         }
-
 
         ScriptVM.pad = pad;
         ScriptVM.runAll();
@@ -178,7 +178,6 @@ public class Game implements IDisposable {
                 PEText.addGlyph(allDialogue, 0x2A, choice[1], choice[2] + ScriptVM.messageCursor.get(id) * 12);
         }
         renderer.uploadText(Utils.intListToArray(allDialogue));
-
 
         int token = ScriptVM.takePendingRoom();
         if (token != 0) {
