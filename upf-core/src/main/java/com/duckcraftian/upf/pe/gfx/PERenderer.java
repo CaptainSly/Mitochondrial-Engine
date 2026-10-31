@@ -57,6 +57,7 @@ public class PERenderer implements IDisposable {
 
         blitShader = new ShaderProgram("shaders/ps1/ps1_blit");
         blitShader.createUniform("screen");
+        blitShader.createUniform("fade");
 
         polygonShader = new ShaderProgram("shaders/ps1/ps1_poly");
         polygonShader.createUniform("vram");
@@ -126,11 +127,15 @@ public class PERenderer implements IDisposable {
         glViewport(x, y, w, h);
         blitShader.begin();
         blitShader.set("screen", 0);
+        blitShader.set("fade", ScriptVM.fadeLevel / 255.0f);
         screen.draw();
         blitShader.end();
     }
 
     public void upload(List<BackgroundTile> tiles) {
+        if (tileBatch != null)
+            tileBatch.onDispose();
+
         tileBatch = new PETileBatch(tiles);
     }
 

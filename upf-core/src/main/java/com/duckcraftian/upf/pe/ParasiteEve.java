@@ -41,8 +41,9 @@ public class ParasiteEve {
     public static final int SetEntityAnimFrame = 47;
     public static final int SetEntityAnimSpeed = 78;
     public static final int WaitAnimFrameMatch = 48;
-    /** EncodeBarcode in Decomp */
     public static final int RoomChange = 49;
+    public static final int IsInRectangle = 119;
+    public static final int GetPlayerPosition = 94;
     public static final int SetGlobalFlag1 = 64;
     public static final int ClearGlobalFlag1 = 63;
     public static final int SetGlobalFlags = 45;
@@ -51,10 +52,33 @@ public class ParasiteEve {
     public static final int SetSceneFlag2000 = 170;
     public static final int ClearSceneFlag2000 = 171;
     public static final int SetCurrentFlag80 = 30;
+    public static final int SetCurrentFlag40 = 65;
     public static final int setCurrentFlag20 = 121;
     public static final int ClearCurrentFlag20 = 120;
     public static final int ClearMotionVectors = 101;
     public static final int SetEntityMoveSpeed = 27;
     public static final int ScreenScrollPos = 132;
+    public static final int SelectFieldSetter = 20;
+    public static final int GetNodeTarget14 = 31;
+    public static final int MarkNodeFree = 4;
+    public static final int PlayFieldSfx = 28;
+    public static final int FadeSceneToBlack = 133;
+    public static final int FadeSceneIn = 134;
+    public static final int WaitForFade = 156;
+    public static final int ActorFaceActor = 75;
+    public static final int SpawnChildNode = 18;
+    public static final int ActorWalkToPoint = 68;
+    public static final int ActorTurnToPoint = 184;
+    public static final int StopEntityAnim = 13;
+    public static final int YieldWhileTableEntrySet = 34;
+    public static final int SetFogParams = 3;
+    public static final int LoadGeomState = 130;
+    public static final int EntityMarkDead = 1;
+    public static final int TextboxOpen = 13;
+    public static final int TextboxWait = 34;
+
+    public static int mapFromToken(int t) {
+        return ((t >> 17) & 31) * 100 + ((t >> 12) & 31) * 10 + ((t >> 7) & 31);
+    }
 
 }

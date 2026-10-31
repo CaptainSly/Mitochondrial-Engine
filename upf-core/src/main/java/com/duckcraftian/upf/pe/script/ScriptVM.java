@@ -2,16 +2,14 @@ package com.duckcraftian.upf.pe.script;
 
 import com.duckcraftian.upf.pe.disc.RoomParser;
 import com.duckcraftian.upf.pe.gfx.PEAnimation;
+import com.duckcraftian.upf.pe.rooms.Collision;
 import com.duckcraftian.upf.ps1.PSXMath;
 import org.tinylog.Logger;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static com.duckcraftian.upf.pe.ParasiteEve.*;
-import static com.duckcraftian.upf.pe.ParasiteEve.SetSceneFlag2000;
+import static com.duckcraftian.upf.ps1.PSXMath.*;
 import static com.duckcraftian.upf.system.DataTypeHelper.u32LE;
 import static com.duckcraftian.upf.system.DataTypeHelper.u8;
 
@@ -23,12 +21,22 @@ public class ScriptVM {
     public static final int ACTOR_COUNT = 56;
     public static final int HANDLER_COUNT = 241;
 
+    public static Collision COLLISION;
+
     public static int pad;
+    public static int cameraYaw, cameraYaw2;
+
+    public static int fadeLevel = 0;
+    public static int fadeStart = 0;
+    public static int fadeTarget = 0;
+    public static int fadeFrame = 0;
+    public static int fadeDuration = 0;
 
     // Entity Specific
     private int type;
     private int sub;
 
+    private int baseX, baseY, baseZ;
     private int posX, posY, posZ;
     private int rotX, rotY, rotZ;
     private int motionX, motionY, motionZ;
@@ -48,10 +56,12 @@ public class ScriptVM {
     private int animLastFrame;
 
     private int streamStart;
-    private int cursor;
-    private int flags;
-    private int active;
 
+    private Node node;
+    private int msgCursor;
+    private int contactCursor;
+
+    private List<Node> nodes;
     private Map<Integer, PEAnimation> actions;
 
     private int[] mode = new int[16];
@@ -63,8 +73,7 @@ public class ScriptVM {
     private static int moveLock;
     private static int sceneFlags;
     private static int current;
-
-    public static int cameraYaw, cameraYaw2;
+    private static int pendingRoom = 0;
 
     private static final boolean[] WARNED = new boolean[HANDLER_COUNT];
 
@@ -81,6 +90,7 @@ public class ScriptVM {
     private static int[] STARTS;
 
     private static List<ScriptVM> actors = new ArrayList<>();
+    private static List<int[]> queue = new ArrayList<>();
 
     public static ScriptVM spawn(int type, int sub) {
         var vm = new ScriptVM();
@@ -118,18 +128,23 @@ public class ScriptVM {
         return null;
     }
 
+    public static int takePendingRoom() {
+        int t = pendingRoom;
+        pendingRoom = 0;
+        return t;
+    }
+
     public static void loadRoom(byte[] container, byte[] bankContainer) {
         CONTAINER = container;
         BANK_CONTAINER = bankContainer;
         STARTS = RoomParser.readScriptStreams(container);
         actors.clear();
-        for (int i = 0; i < SCRATCH.length; i++)
-            SCRATCH[i] = 0;
 
-        for (int i = 0; i < NODE_FLAGS.length; i++)
-            NODE_FLAGS[i] = 0;
+        Arrays.fill(SCRATCH, 0);
+        Arrays.fill(NODE_FLAGS, 0);
 
         current = -1;
+        moveLock = 0;
 
         ANIM_RECORDS = RoomParser.readAnimationRecords(container);
 
@@ -144,112 +159,259 @@ public class ScriptVM {
             spawn(type, sub);
             current = actors.size() - 1;
         }
+
+        COLLISION = RoomParser.readCollision(container);
     }
 
     public static void runAll() {
+        deliverMessages();
+
         for (int i = 0; i < actors.size(); i++) {
             current = i;
             ScriptVM vm = actors.get(i);
+
+            vm.baseX = vm.posX;
+            vm.baseY = vm.posY;
+            vm.baseZ = vm.posZ;
             vm.runFrame();
+
             if ((vm.type == 0) && (moveLock & 1) == 0) vm.controller();
             vm.integrate();
         }
+
+        for (ScriptVM actor : actors)
+            actor.updatePosition();
+
     }
 
     public static List<ScriptVM> getActors() {
         return actors;
     }
 
+    public static void deliverMessages() {
+        for (int[] e : queue) {
+            for (ScriptVM vm : actors) {
+                if (vm.type == e[2] && vm.sub == e[1] && vm.msgCursor != 0) {
+                    Node n = new Node();
+                    n.cursor = vm.msgCursor;
+                    n.active = 1;
+                    n.target14 = e[0];
+                    vm.nodes.add(0, n);
+                    Logger.debug("Command: " + e[0] + " Sub: " + e[1] + " Type: " + e[2]);
+                }
+            }
+        }
+
+        queue.clear();
+    }
+
+    public void updatePosition() {
+        if (COLLISION == null) return;
+        if ((posX >> 16) == (baseX >> 16) && (posZ >> 16) == (baseZ >> 16) && posY == baseY) return;
+
+        int t = COLLISION.findTriangle(posX >> 16, posZ >> 16);
+        if (t < 0) {
+            posX = baseX;
+            posY = baseY;
+            posZ = baseZ;
+            return;
+        }
+
+        posY = COLLISION.floorY(t, posX, posZ);
+    }
+
     public void start(int streamStart) {
         this.streamStart = streamStart;
-        cursor = streamStart;
-        active = 1;
-        flags = 0;
 
-        handlers[JumpToEntityOffset] = vm -> {
-            cursor = streamStart + get(0) * 2;
+        Node main = new Node();
+        main.cursor = streamStart;
+        main.active = 1;
+        nodes = new ArrayList<>();
+        nodes.add(main);
+
+        handlers[JumpToEntityOffset] = _ -> {
+            node.cursor = streamStart + get(0) * 2;
             return true;
         };
 
-        handlers[JumpIfZero] = vm -> {
-            if (get(0) == 0) cursor = streamStart + get(1) * 2;
+        handlers[JumpIfZero] = _ -> {
+            if (get(0) == 0) node.cursor = streamStart + get(1) * 2;
             return true;
         };
 
-        handlers[AssignValue] = vm -> {
+        handlers[AssignValue] = _ -> {
             set(0, get(1));
             return true;
         };
 
-        handlers[SetCurrentNodeActive] = vm -> {
-            active = get(0);
+        handlers[SpawnChildNode] = _ -> {
+            Node child = new Node();
+            child.cursor = streamStart + get(0) * 2;
+            child.active = 1;
+            child.flags = 0;
+            nodes.add(nodes.indexOf(node) + 1, child);
+            return true;
+        };
+
+        handlers[RoomChange] = _ -> {
+            pendingRoom = get(0);
             return false;
         };
 
-        handlers[MarkCurrentNodeFree] = vm -> {
-            flags = flags | 0x10;
+        handlers[SelectFieldSetter] = _ -> {
+            int pos = (get(1) < 0) ? 0 : streamStart + get(1) * 2;
+            if (get(0) == 2) msgCursor = pos;
+            else if (get(0) == 1) contactCursor = pos;
+            return true;
+        };
+
+        handlers[GetNodeTarget14] = _ -> {
+            set(0, node.target14);
+            return true;
+        };
+
+        handlers[MarkNodeFree] = _ -> {
+            for (Node n : nodes)
+                if (n != node) n.flags |= 0x10;
+
+            return true;
+        };
+
+        handlers[WaitForFade] = _ -> {
+            if (fadeFrame < fadeDuration) {
+                node.active = 1;
+                node.cursor = node.cursor - 8;
+                return false;
+            }
+            return true;
+        };
+
+        handlers[FadeSceneToBlack] = _ -> {
+            startFade(255, get(0));
+            return true;
+        };
+
+        handlers[FadeSceneIn] = _ -> {
+            startFade(0, get(0));
+            return true;
+        };
+
+        handlers[PlayFieldSFX] = _ -> {
+            queue.add(new int[]{
+                    get(2) & 0xFF, get(1) & 0xFF, get(0) & 0xFFFF
+            });
+
+            return true;
+        };
+
+        handlers[GetPlayerPosition] = _ -> {
+            int selector = get(1);
+            ScriptVM target = (selector == 0) ? getPlayer() : getActor(selector, get(2));
+            if (target == null) {
+                set(6, -1);
+                return true;
+            }
+
+            set(6, 1);
+
+            if (get(0) == 0) {
+                set(3, target.posX);
+                set(4, target.posY);
+                set(5, target.posZ);
+            }
+
+            return true;
+        };
+
+        handlers[IsInRectangle] = _ -> {
+            int[] px = new int[4], pz = new int[4];
+            for (int k = 0; k < 4; k++) {
+                px[k] = get(2 * k) >> 16;
+                pz[k] = get(2 * k + 1) >> 16;
+            }
+            set(10, Collision.pointInPoly(get(8) >> 16, get(9) >> 16, px, pz) ? 1 : 0);
+
+            if (get(10) == 1)
+                Logger.debug("EXIT RECTANGLE: Player is inside");
+
+            return true;
+        };
+
+        handlers[SetCurrentNodeActive] = _ -> {
+            node.active = get(0);
             return false;
         };
 
-        handlers[SpawnEntityAt] = vm -> {
+        handlers[MarkCurrentNodeFree] = _ -> {
+            node.flags = node.flags | 0x10;
+            return false;
+        };
+
+        handlers[SetCurrentFlag40] = _ -> {
+            entityFlags |= 0x40;
+            return true;
+        };
+
+        handlers[SpawnEntityAt] = _ -> {
             ScriptVM a = spawn(get(0), get(1));
             a.posX = get(2);
             a.posY = get(3);
             a.posZ = get(4);
+            findFloor();
             return true;
         };
 
-        handlers[SetGlobalFlag1] = vm -> {
+        handlers[SetGlobalFlag1] = _ -> {
             moveLock |= 1;
             return true;
         };
 
-        handlers[ClearGlobalFlag1] = vm -> {
+        handlers[ClearGlobalFlag1] = _ -> {
             moveLock &= ~1;
             return true;
         };
 
-        handlers[GetGlobalFlags] = vm -> {
+        handlers[GetGlobalFlags] = _ -> {
             set(0, moveLock);
             return true;
         };
 
-        handlers[SetGlobalFlags] = vm -> {
+        handlers[SetGlobalFlags] = _ -> {
             moveLock |= get(0);
             return true;
         };
 
-        handlers[ClearGlobalFlags] = vm -> {
+        handlers[ClearGlobalFlags] = _ -> {
             moveLock &= ~get(0);
             return true;
         };
 
-        handlers[SetSceneFlag2000] = vm -> {
+        handlers[SetSceneFlag2000] = _ -> {
             sceneFlags |= 0x2000;
             return true;
         };
 
-        handlers[ClearSceneFlag2000] = vm -> {
+        handlers[ClearSceneFlag2000] = _ -> {
             sceneFlags &= ~0x2000;
             return true;
         };
 
-        handlers[SetCurrentFlag80] = vm -> {
+        handlers[SetCurrentFlag80] = _ -> {
             entityFlags |= 0x80;
             return true;
         };
 
-        handlers[setCurrentFlag20] = vm -> {
+        handlers[setCurrentFlag20] = _ -> {
             entityFlags |= 0x20;
             return true;
         };
 
-        handlers[ClearCurrentFlag20] = vm -> {
+        handlers[ClearCurrentFlag20] = _ -> {
             entityFlags &= ~0x20;
             return true;
         };
 
-        handlers[ClearMotionVectors] = vm -> {
+        handlers[ClearMotionVectors] = _ -> {
             motionX = 0;
             accelX = 0;
             motionY = 0;
@@ -259,34 +421,39 @@ public class ScriptVM {
             return true;
         };
 
-        handlers[SetEntityMoveSpeed] = vm -> {
+        handlers[SetEntityMoveSpeed] = _ -> {
             moveSpeed = get(0) >> 4;
             return true;
         };
 
-        handlers[ScreenScrollPos] = vm -> {
+        handlers[ScreenScrollPos] = _ -> {
             cameraYaw = get(0);
             cameraYaw2 = get(1);
             return true;
         };
 
-        handlers[SetEntityVec3] = vm -> {
+        handlers[SetEntityVec3] = _ -> {
             switch (get(0)) {
                 case 0:
                     posX = get(1);
                     posY = get(2);
                     posZ = get(3);
-                    Logger.debug("type " + type + " pos " + (posX >> 16) + ", " + (posZ >> 16));
+                    findFloor();
+                    baseX = posX;
+                    baseY = posY;
+                    baseZ = posZ;
+                    break;
                 case 5:
                     rotX = get(1);
                     rotY = get(2);
                     rotZ = get(3);
+                    break;
             }
 
             return true;
         };
 
-        handlers[EvalExpr] = vm -> {
+        handlers[EvalExpr] = _ -> {
             int subOp = get(0);
             int a = get(2);
             int b = get(3);
@@ -311,7 +478,7 @@ public class ScriptVM {
                 case 17 -> a << b;
                 case 18 -> a >> b;
                 case 19 -> a;
-                case 20 -> PSXMath.fixedMul(a, b);
+                case 20 -> fixedMul(a, b);
                 case 21 -> PSXMath.fixedDiv(a, b);
                 case 22 -> a % b;
                 case 23 -> -a;
@@ -322,27 +489,122 @@ public class ScriptVM {
             return true;
         };
 
-        handlers[SetCurrentActionMode] = vm -> {
+        handlers[SetCurrentActionMode] = _ -> {
             setActionMode(get(0));
             entityFlags &= ~0x100;
             return true;
         };
 
-        handlers[SetEntityAnimFrame] = vm -> {
+        handlers[ActorTurnToPoint] = _ -> {
+            if ((node.flags & 0x20) == 0) {
+                node.target14 = get(0);
+                node.targetZ = get(1);
+                node.turnSpeed = get(2);
+                node.flags = node.flags | 0x20;
+            }
+
+            if (((posX - node.target14) >> 16) == 0 && ((posZ - node.targetZ) >> 16) == 0) {
+                node.flags = node.flags & ~0x20;
+                return true;
+            }
+
+            int goal = angleToPoint(node.target14, node.targetZ);
+            rotY = stepAngle(rotY, goal, node.turnSpeed);
+
+            if (rotY != goal) {
+                node.active = 1;
+                node.cursor = node.cursor - 0x14;
+                return false;
+            }
+
+            node.flags = node.flags & ~0x20;
+            return true;
+        };
+
+        handlers[ActorWalkToPoint] = _ -> {
+            if ((node.flags & 0x20) == 0) {
+                if (posX == get(0) && posZ == get(1))
+                    return true;
+
+                node.target14 = get(0);
+                node.targetZ = get(1);
+                node.turnSpeed = get(2);
+                node.flags = node.flags | 0x20;
+            }
+
+            int base = (type == 0) ? 0x50000 : 0x10000;
+            int speed = fixedMul(fixedMul(base, moveFactor), moveSpeed << 4);
+
+            int angle = angleToPoint(node.target14, node.targetZ);
+            if (node.turnSpeed != 0) {
+                angle = stepAngle(rotY, angle, node.turnSpeed);
+                rotY = angle;
+            }
+
+            motionX = fixedMul(-speed, rsin(angle) << 4);
+            motionZ = fixedMul(-speed, rcos(angle) << 4);
+
+            int remX = (node.target14 - posX) >> 16;
+            int remZ = (node.targetZ - posZ) >> 16;
+            int stepX = motionX >> 16;
+            int stepZ = motionZ >> 16;
+
+            if (stepX * stepX + stepZ * stepZ >= remX * remX + remZ * remZ) {
+                posX = node.target14;
+                posZ = node.targetZ;
+                motionX = 0;
+                motionZ = 0;
+                node.flags = node.flags & ~0x20;
+                return true;
+            }
+
+            node.active = 1;
+            node.cursor = node.cursor - 0x14;
+            return false;
+        };
+
+        handlers[ActorFaceActor] = _ -> {
+            if ((node.flags & 0x20) == 0) {
+                ScriptVM target;
+                if (get(0) == 0) target = getPlayer();
+                else target = getActor(get(0), get(1));
+
+                if (target == null)
+                    return true;
+
+                node.targetActor = target;
+                node.target14 = get(2);
+                node.flags = node.flags | 0x20;
+            }
+
+            int goal = facingAngle(this, node.targetActor);
+            rotY = stepAngle(rotY, goal, node.target14);
+
+            if (rotY != goal) {
+                node.active = 1;
+                node.cursor = node.cursor - 0x14;
+                return false;
+            }
+
+            node.flags = node.flags & ~0x20;
+            return true;
+        };
+
+        handlers[SetEntityAnimFrame] = _ -> {
             animStop = Math.min(get(0), animLastFrame);
             entityFlags |= 0x200;
             return true;
         };
 
-        handlers[SetEntityAnimSpeed] = vm -> {
+        handlers[SetEntityAnimSpeed] = _ -> {
             animFrame = Math.min(get(0), animLastFrame) << 16;
             return true;
         };
 
-        handlers[WaitAnimFrameMatch] = vm -> {
-            active = 1;
+        handlers[WaitAnimFrameMatch] = _ -> {
+            node.active = 1;
             if ((animFrame >> 16) != animStop)
-                cursor = cursor - 8;
+                node.cursor = node.cursor - 8;
 
             return false;
         };
@@ -427,16 +689,38 @@ public class ScriptVM {
         entityMode = 21;
     }
 
+    public int angleToPoint(int tx, int tz) {
+        double dx = (long) posX - tx;
+        double dz = (long) posZ - tz;
+        int units = (int) Math.round(Math.atan2(dz, dx) * 2048 / Math.PI);
+        return (0x1400 - units) & 0xFFF;
+    }
+
+    public static void startFade(int target, int duration) {
+        fadeStart = fadeLevel;
+        fadeTarget = target;
+        fadeDuration = duration;
+        fadeFrame = 0;
+    }
+
+    public static void stepFade() {
+        if (fadeFrame >= fadeDuration) return;
+
+        int divisor = Math.max(fadeDuration - 1, 1);
+        fadeLevel = fadeStart + (fadeTarget - fadeStart) * fadeFrame / divisor;
+        fadeFrame = fadeFrame + 1;
+    }
+
     private void move(int base, int newMode) {
         if (entityMode != newMode) {
             setActionMode(newMode);
             entityMode = newMode;
         }
 
-        int s = PSXMath.fixedMul(base, moveFactor);
-        s = PSXMath.fixedMul(s, moveSpeed << 4);
+        int s = fixedMul(base, moveFactor);
+        s = fixedMul(s, moveSpeed << 4);
 
-        int diag = PSXMath.fixedMul(s, 0xB504);
+        int diag = fixedMul(s, 0xB504);
 
         int facing = cameraYaw;
 
@@ -454,7 +738,6 @@ public class ScriptVM {
                 mz = diag;
             } else {
                 facing += 0x800;
-                mx = 0;
                 mz = s;
             }
         } else if ((pad & 0x20) != 0) {
@@ -467,23 +750,20 @@ public class ScriptVM {
                 mx = diag;
                 mz = -diag;
             } else {
-                mx = 0;
                 mz = -s;
             }
         } else if ((pad & 0x40) != 0) {
             facing += 0x400;
             mx = -s;
-            mz = 0;
         } else if ((pad & 0x10) != 0) {
             facing += 0xC00;
             mx = s;
-            mz = 0;
         }
 
         rotY = facing & 0xFFF;
 
-        int c = PSXMath.rcos(cameraYaw & 0xFFF);
-        int sn = PSXMath.rsin(cameraYaw & 0xFFF);
+        int c = rcos(cameraYaw & 0xFFF);
+        int sn = rsin(cameraYaw & 0xFFF);
         motionX = (int) (((long) c * mx + (long) sn * mz) >> 12);
         motionY = 0;
         motionZ = (int) (((long) -sn * mx + (long) c * mz) >> 12);
@@ -508,50 +788,97 @@ public class ScriptVM {
     }
 
     public void runFrame() {
-        if ((flags & 0x50) != 0) return;
-        if (active == 0) return;
+        for (int j = 0; j < nodes.size(); j++) {
+            node = nodes.get(j);
 
-        active = active - 1;
-        if (active != 0) return;
+            if ((node.flags & 0x50) != 0) continue;
+            if (node.active == 0) continue;
 
-        while (true) {
-            int header = (int) u32LE(CONTAINER, cursor);
-            int tail = (int) u32LE(CONTAINER, cursor + 4);
-            int op = header & 0x1FFF;
-            int argc = (header >> 13) & 15;
+            node.active = node.active - 1;
+            if (node.active != 0) continue;
 
-            if (op > 240 || !Decoder.valid[op]) {
-                Logger.error("Non Valid OpCode: " + op);
-                flags |= 0x10;
-                return;
-            }
-
-            int modes = header >> 17;
-            for (int i = 0; i < argc; i++) {
-                if (i == 5) modes = tail;
-                mode[i] = modes & 7;
-                raw[i] = (int) u32LE(CONTAINER, cursor + 8 + 4 * i);
-                modes = modes >> 3;
-            }
-
-            cursor = cursor + 8 + 4 * argc;
-
-            Handler h = handlers[op];
-            if (h == null) {
-                if (!WARNED[op]) {
-                    WARNED[op] = true;
-                    Logger.error("Op: " + op + " Unimplemented");
-                }
-
+            if ((node.flags & 0x10) != 0) {
+                nodes.remove(node);
                 continue;
             }
 
-            if (!h.run(this)) break;
+            while (true) {
+                int header = (int) u32LE(CONTAINER, node.cursor);
+                int tail = (int) u32LE(CONTAINER, node.cursor + 4);
+                int op = header & 0x1FFF;
+                int argc = (header >> 13) & 15;
+
+                if (op > 240 || !Decoder.valid[op]) {
+                    Logger.error("Non Valid OpCode: " + op);
+                    node.flags |= 0x10;
+                    return;
+                }
+
+                int modes = header >> 17;
+                for (int i = 0; i < argc; i++) {
+                    if (i == 5) modes = tail;
+                    mode[i] = modes & 7;
+                    raw[i] = (int) u32LE(CONTAINER, node.cursor + 8 + 4 * i);
+                    modes = modes >> 3;
+                }
+
+                node.cursor = node.cursor + 8 + 4 * argc;
+
+                Handler h = handlers[op];
+                if (h == null) {
+                    if (!WARNED[op]) {
+                        WARNED[op] = true;
+                        Logger.error("Op: " + op + " Unimplemented");
+                    }
+
+                    continue;
+                }
+
+                if (!h.run(this)) break;
+            }
+
         }
+    }
+
+    public int facingAngle(ScriptVM from, ScriptVM to) {
+        int dx = ((from.posX - to.posX) >> 16);
+        int dz = ((from.posZ - to.posZ) >> 16);
+        int units = (int) Math.round(Math.atan2(dz, dx) * 2048 / Math.PI);
+        return (0x1400 - units) & 0xFFF;
+    }
+
+    public int stepAngle(int angle, int target, int speed) {
+        int diff = ((target - angle + 2048) & 0xFFF) - 2048;
+        if (Math.abs(diff) <= speed)
+            return target;
+
+        if (diff > 0)
+            return (angle + speed) & 0xFFF;
+
+        return (angle - speed) & 0xFFF;
+    }
+
+    public void findFloor() {
+        if (COLLISION == null) return;
+        if ((entityFlags & 2) != 0) return;
+
+        int t = COLLISION.findTriangle(posX >> 16, posY >> 16);
+        if (t < 0) return;
+
+        posY = COLLISION.floorY(t, posX, posZ);
     }
 
     public PEAnimation getAnimation() {
         return actions.get(actionMode);
+    }
+
+    public ScriptVM getActor(int type, int sub) {
+        for (ScriptVM vm : actors) {
+            if (vm.getType() == type && vm.getSub() == sub)
+                return vm;
+        }
+
+        return null;
     }
 
     public int getFrame() {
@@ -612,18 +939,6 @@ public class ScriptVM {
 
     public int getStreamStart() {
         return streamStart;
-    }
-
-    public int getCursor() {
-        return cursor;
-    }
-
-    public int getFlags() {
-        return flags;
-    }
-
-    public int getActive() {
-        return active;
     }
 
     public int[] getMode() {

@@ -3,6 +3,7 @@ package com.duckcraftian.upf.pe.disc;
 import com.duckcraftian.upf.pe.gfx.PEAnimation;
 import com.duckcraftian.upf.pe.gfx.PEModel;
 import com.duckcraftian.upf.pe.rooms.BackgroundTile;
+import com.duckcraftian.upf.pe.rooms.Collision;
 import com.duckcraftian.upf.pe.rooms.PSXViewport;
 import com.duckcraftian.upf.pe.script.Decoder;
 import org.tinylog.Logger;
@@ -121,6 +122,94 @@ public class RoomParser {
         }
 
         return start;
+    }
+
+    public static Collision readCollision(byte[] container) {
+        int directoryOffset = (int) u32LE(container, 4);
+        int field = (int) u32LE(container, directoryOffset + 0x18);
+        int tableOffset = field & 0x3FFFFF;
+        int payload = (int) (u32LE(container, tableOffset + 4) & 0xFFFFFF);
+
+        int regionCount = u16LE(container, payload + 2);
+        int vOff = (int) u32LE(container, payload + 0x18);
+        int tOff = (int) u32LE(container, payload + 0x1C);
+        int planes = (int) u32LE(container, payload + 0x20);
+        int rampOff = (int) u32LE(container, payload + 0x24);
+
+        boolean sloped = planes != 0;
+        int vStride = sloped ? 6 : 4;
+        int vzAt = sloped ? 4 : 2;
+        int tStride = sloped ? 28 : 22;
+        int tvAt = sloped ? 8 : 2;
+        int tEnd = sloped ? planes : rampOff;
+        int rCountAt = sloped ? 4 : 2;
+        int rIdsAt = sloped ? 6 : 4;
+
+        int vertexCount = (tOff - vOff) / vStride;
+
+        int[] vx = new int[vertexCount];
+        int[] vz = new int[vertexCount];
+
+        for (int i = 0; i < vertexCount; i++) {
+            vx[i] = s16LE(container, payload + vOff + vStride * i);
+            vz[i] = s16LE(container, payload + vOff + vStride * i + vzAt);
+
+        }
+
+        int triangleCount = (tEnd - tOff) / tStride;
+
+        int[] triRegion = new int[triangleCount];
+        int[] triV = new int[triangleCount * 3];
+
+        int[] triPlane = new int[triangleCount];
+        int[] triDist = new int[triangleCount];
+        for (int i = 0; i < triangleCount; i++) {
+            int at = payload + tOff + tStride * i;
+            triRegion[i] = u8(container, at + 1);
+            triV[3 * i + 0] = u16LE(container, at + tvAt);
+            triV[3 * i + 1] = u16LE(container, at + tvAt + 2);
+            triV[3 * i + 2] = u16LE(container, at + tvAt + 4);
+
+            if (sloped) {
+                triPlane[i] = u16LE(container, at + 2);
+                triDist[i] = (int) u32LE(container, at + 4);
+            }
+
+        }
+
+        int planeCount = sloped ? (rampOff - planes) / 12 : 0;
+
+        int[] planeA = new int[planeCount];
+        int[] planeInvB = new int[planeCount];
+        int[] planeC = new int[planeCount];
+
+        if (sloped) {
+            for (int i = 0; i < planeCount; i++) {
+                int at = payload + planes + 12 * i;
+                planeA[i] = (int) u32LE(container, at);
+                planeInvB[i] = (int) u32LE(container, at + 4);
+                planeC[i] = (int) u32LE(container, at + 8);
+            }
+        }
+
+        int[] regionHeight = new int[regionCount];
+        int[][] regionTris = new int[regionCount][];
+        for (int i = 0; i < regionCount; i++) {
+            int offset = (int) u32LE(container, payload + 0x28 + 4 * i);
+            int count = u16LE(container, payload + offset + rCountAt);
+            regionTris[i] = new int[count];
+
+            for (int j = 0; j < count; j++) {
+                regionTris[i][j] = u16LE(container, payload + offset + rIdsAt + 2 * j);
+            }
+            if (!sloped) {
+                regionHeight[i] = s16LE(container, payload + offset);
+
+            }
+
+        }
+
+        return new Collision(vx, vz, triV, triRegion, triPlane, triDist, regionHeight, regionTris, planeA, planeInvB, planeC);
     }
 
     public static int readEntityBank(byte[] container) {

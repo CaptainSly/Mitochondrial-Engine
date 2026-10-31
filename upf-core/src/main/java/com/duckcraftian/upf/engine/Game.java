@@ -13,6 +13,7 @@ import com.duckcraftian.upf.pe.script.ScriptVM;
 import com.duckcraftian.upf.ps1.disc.DiscFileSystem;
 import com.duckcraftian.upf.utils.Input;
 import org.lwjgl.sdl.SDLScancode;
+import org.tinylog.Logger;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -31,7 +32,7 @@ public class Game implements IDisposable {
 
     private Room room;
 
-    public static final String MAP_NAME = "m088";
+    public Path imagesFiles;
 
     public Game() {
         UPF.REGISTRY_MANAGER.createNamespace(ParasiteEve.NAMESPACE);
@@ -43,8 +44,9 @@ public class Game implements IDisposable {
 
     public void init() {
         viewports = new ArrayList<>();
+        renderer = new PERenderer();
 
-        Path imagesFiles = UPF.getEngineFolder("data").resolve("images.udh");
+        imagesFiles = UPF.getEngineFolder("data").resolve("images.udh");
         if (!Files.exists(imagesFiles)) {
             DiscFileSystem dfs = null;
             try {
@@ -59,12 +61,14 @@ public class Game implements IDisposable {
             }
         }
 
+        loadMap("m010");
+    }
+
+    public void loadMap(String mapName) {
+        Logger.debug("Attempting to load map: " + mapName);
         try {
-            room = RoomLoader.loadRoom(imagesFiles, MAP_NAME);
+            room = RoomLoader.loadRoom(imagesFiles, mapName);
             viewports = room.viewports();
-
-            renderer = new PERenderer();
-
             camera = new PECamera(viewports.get(0));
 
             renderer.setCameraPosition(camera.getCamX(), camera.getCamY());
@@ -89,23 +93,26 @@ public class Game implements IDisposable {
     public void tick() {
         //Player Pad Control
         int pad = 0;
-        if (Input.isKeyDown(SDLScancode.SDL_SCANCODE_W))
-            pad |= 0x08;
+        if (Input.isKeyDown(SDLScancode.SDL_SCANCODE_W)) pad |= 0x08;
 
-        if (Input.isKeyDown(SDLScancode.SDL_SCANCODE_S))
-            pad |= 0x20;
+        if (Input.isKeyDown(SDLScancode.SDL_SCANCODE_S)) pad |= 0x20;
 
-        if (Input.isKeyDown(SDLScancode.SDL_SCANCODE_A))
-            pad |= 0x40;
+        if (Input.isKeyDown(SDLScancode.SDL_SCANCODE_A)) pad |= 0x40;
 
-        if (Input.isKeyDown(SDLScancode.SDL_SCANCODE_D))
-            pad |= 0x10;
+        if (Input.isKeyDown(SDLScancode.SDL_SCANCODE_D)) pad |= 0x10;
 
-        if (Input.isKeyDown(SDLScancode.SDL_SCANCODE_LSHIFT))
-            pad |= 0x01;
+        if (Input.isKeyDown(SDLScancode.SDL_SCANCODE_LSHIFT)) pad |= 0x01;
 
         ScriptVM.pad = pad;
         ScriptVM.runAll();
+        ScriptVM.stepFade();
+
+        int token = ScriptVM.takePendingRoom();
+        if (token != 0) {
+            loadMap(String.format("m%03d", ParasiteEve.mapFromToken(token)));
+            return;
+        }
+
         camera.step();
 
         for (ScriptVM vm : ScriptVM.getActors())
