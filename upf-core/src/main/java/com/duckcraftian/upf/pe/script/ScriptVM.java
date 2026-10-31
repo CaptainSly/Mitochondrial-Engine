@@ -36,13 +36,27 @@ public class ScriptVM {
     public static int fadeFrame = 0;
     public static int fadeDuration = 0;
 
+    public static int viewportIndex = 0;
+    public static boolean viewportChanged = false;
+
+    public static int moveLock;
+
     public static int messageBank;
+    public static int menuChoice = -1;
+
+    public static boolean cameraFrozen = false;
 
     public static int[] playerName = {0x10, 0x48, 0x30};
+    public static int[] pendingScroll = null;
+
     public static Map<Integer, PEModel> models;
+    public static List<Integer> openMessages = new ArrayList<>();
     public static Map<Integer, List<int[]>> messageSections = new HashMap<>();
     public static Map<Integer, Integer> messageSection = new HashMap<>();
-    public static List<Integer> openMessages = new ArrayList<>();
+    public static Map<Integer, List<Integer>> messageDelays = new HashMap<>();
+    public static Map<Integer, Integer> messageTimer = new HashMap<>();
+    public static Map<Integer, List<int[]>> messageChoices = new HashMap<>();
+    public static Map<Integer, Integer> messageCursor = new HashMap<>();
 
     // Entity Specific
     private int type;
@@ -82,7 +96,6 @@ public class ScriptVM {
     private int[] actorVars = new int[ACTOR_COUNT];
     private Handler[] handlers = new Handler[HANDLER_COUNT];
 
-    private static int moveLock;
     private static int sceneFlags;
     private static int current;
     private static int pendingRoom = 0;
@@ -146,6 +159,12 @@ public class ScriptVM {
         return t;
     }
 
+    public static int[] takePendingScroll() {
+        int[] s = pendingScroll;
+        pendingScroll = null;
+        return s;
+    }
+
     public static void loadRoom(byte[] container, byte[] bankContainer) {
         CONTAINER = container;
         BANK_CONTAINER = bankContainer;
@@ -157,6 +176,8 @@ public class ScriptVM {
 
         current = -1;
         moveLock = 0;
+        viewportIndex = 0;
+        cameraFrozen = false;
 
         ANIM_RECORDS = RoomParser.readAnimationRecords(container);
 
@@ -220,6 +241,7 @@ public class ScriptVM {
     }
 
     public void updatePosition() {
+        if ((entityFlags & 0x80) != 0) return;
         if (COLLISION == null) return;
         if ((posX >> 16) == (baseX >> 16) && (posZ >> 16) == (baseZ >> 16) && posY == baseY) return;
 
@@ -267,10 +289,31 @@ public class ScriptVM {
             return true;
         };
 
+        handlers[GetMenuChoice] = _ -> {
+            set(0, menuChoice);
+            return true;
+        };
+
         handlers[OpenNameEntryMenu] = _ -> {
             // EVEN HANK WAS SCARED!
             playerName = new int[]{PSX.code("H"), PSX.code("a"), PSX.code("n"), PSX.code("k")};
             // Hank: I don't wanna lose my dong.
+            return true;
+        };
+
+        handlers[ScrollCamera] = _ -> {
+            pendingScroll = new int[]{get(0), get(1), get(2), 0};
+            return true;
+        };
+
+        handlers[SwapViewports] = _ -> {
+            viewportIndex = get(0);
+            viewportChanged = true;
+            return true;
+        };
+
+        handlers[ScrollCameraAlt] = _ -> {
+            pendingScroll = new int[]{get(0), get(1), get(2), 1};
             return true;
         };
 
@@ -313,6 +356,8 @@ public class ScriptVM {
         };
 
         handlers[FadeSceneIn] = _ -> {
+            Logger.debug("FadeSceneIn dur=" + get(0) + " fadeLevel=" + fadeLevel
+                    + " fadeFrame=" + fadeFrame + "/" + fadeDuration);
             startFade(0, get(0));
             return true;
         };
@@ -359,9 +404,17 @@ public class ScriptVM {
 
         handlers[TextboxOpen] = _ -> {
             int id = get(0);
+            List<Integer> delays = new ArrayList<>();
+            List<int[]> choices = new ArrayList<>();
             openMessages.add(id);
-            messageSections.put(id, PEText.layoutMessage(CONTAINER, messageBank, id));
+            messageSections.put(id, PEText.layoutMessage(CONTAINER, messageBank, id, delays, choices));
+            messageChoices.put(id, choices);
+            messageCursor.put(id, 0);
+            messageDelays.put(id, delays);
             messageSection.put(id, 0);
+            messageTimer.put(id, 0);
+
+            menuChoice = -1;
             return true;
         };
 
@@ -515,6 +568,24 @@ public class ScriptVM {
             return true;
         };
 
+        handlers[UnfreezeCamera] = _ -> {
+            cameraFrozen = false;
+            return true;
+        };
+
+        handlers[FreezeCamera] = _ -> {
+            cameraFrozen = true;
+            return true;
+        };
+
+        handlers[136] = _ -> true;
+        handlers[166] = _ -> true;
+        handlers[234] = _ -> true;
+        handlers[157] = _ -> true;
+        handlers[117] = _ -> true;
+        handlers[116] = _ -> true;
+        handlers[123] = _ -> true;
+
         handlers[SetEntityVec3] = _ -> {
             switch (get(0)) {
                 case 0:
@@ -641,6 +712,9 @@ public class ScriptVM {
                 return true;
             }
 
+            Logger.debug("walk type=" + type + " pos=" + (posX >> 16) + "," + (posZ >> 16)
+                    + " rem=" + remX + "," + remZ + " step=" + stepX + "," + stepZ);
+
             node.active = 1;
             node.cursor = node.cursor - 0x14;
             return false;
@@ -670,6 +744,11 @@ public class ScriptVM {
             }
 
             node.flags = node.flags & ~0x20;
+            return true;
+        };
+
+        handlers[ClearCurrentFlag80] = _ -> {
+            entityFlags &= ~0x80;
             return true;
         };
 
@@ -739,16 +818,57 @@ public class ScriptVM {
     public static void closeMessage(int id) {
         openMessages.remove(Integer.valueOf(id));
         messageSections.remove(id);
+        messageDelays.remove(id);
         messageSection.remove(id);
+        messageTimer.remove(id);
+        messageChoices.remove(id);
+        messageCursor.remove(id);
+    }
+
+    public static void advanceMessage(int id) {
+        int next = messageSection.get(id) + 1;
+        if (next < messageSections.get(id).size()) {
+            messageSection.put(id, next);
+            messageTimer.put(id, 0);
+        } else closeMessage(id);
+    }
+
+    public static void stepMessages() {
+        List<Integer> messages = new ArrayList<>(openMessages);
+        for (int id : messages) {
+            int delay = messageDelays.get(id).get(messageSection.get(id));
+            if (delay > 0) {
+                int t = messageTimer.get(id) + 1;
+                if (t >= delay)
+                    advanceMessage(id);
+                else
+                    messageTimer.put(id, t);
+            }
+        }
+    }
+
+    public static void moveChoice(int dir) {
+        for (int id : openMessages) {
+            int[] choice = messageChoices.get(id).get(messageSection.get(id));
+            if (choice[0] > 0) {
+                int c = messageCursor.get(id) + dir;
+                c = Math.max(0, Math.min(c, choice[0] - 1));
+                messageCursor.put(id, c);
+            }
+        }
     }
 
     public static void confirm() {
         List<Integer> messages = new ArrayList<>(openMessages);
         for (int id : messages) {
-            int next = messageSection.get(id) + 1;
-            if (next < messageSections.get(id).size())
-                messageSection.put(id, next);
-            else closeMessage(id);
+            int step = messageSection.get(id);
+            int[] choice = messageChoices.get(id).get(step);
+            if (choice[0] > 0)
+                menuChoice = messageCursor.get(id);
+
+            int delay = messageDelays.get(id).get(messageSection.get(id));
+            if (delay == 0)
+                advanceMessage(id);
         }
     }
 
@@ -817,6 +937,8 @@ public class ScriptVM {
         int divisor = Math.max(fadeDuration - 1, 1);
         fadeLevel = fadeStart + (fadeTarget - fadeStart) * fadeFrame / divisor;
         fadeFrame = fadeFrame + 1;
+        Logger.debug("fade " + fadeLevel + " frame " + fadeFrame + "/" + fadeDuration
+                + " t=" + (System.nanoTime() / 1_000_000) + "ms");
     }
 
     private void move(int base, int newMode) {
@@ -1033,7 +1155,7 @@ public class ScriptVM {
         return rotZ;
     }
 
-    public int[] getGLOBALS() {
+    public static int[] getGLOBALS() {
         return GLOBALS;
     }
 
@@ -1055,6 +1177,246 @@ public class ScriptVM {
 
     public int getStreamStart() {
         return streamStart;
+    }
+
+    public static Collision getCOLLISION() {
+        return COLLISION;
+    }
+
+    public static int getPad() {
+        return pad;
+    }
+
+    public static int getCameraYaw() {
+        return cameraYaw;
+    }
+
+    public static int getCameraYaw2() {
+        return cameraYaw2;
+    }
+
+    public static int getFadeLevel() {
+        return fadeLevel;
+    }
+
+    public static int getFadeStart() {
+        return fadeStart;
+    }
+
+    public static int getFadeTarget() {
+        return fadeTarget;
+    }
+
+    public static int getFadeFrame() {
+        return fadeFrame;
+    }
+
+    public static int getFadeDuration() {
+        return fadeDuration;
+    }
+
+    public static int getViewportIndex() {
+        return viewportIndex;
+    }
+
+    public static boolean isViewportChanged() {
+        return viewportChanged;
+    }
+
+    public static int getMoveLock() {
+        return moveLock;
+    }
+
+    public static int getMessageBank() {
+        return messageBank;
+    }
+
+    public static int getMenuChoice() {
+        return menuChoice;
+    }
+
+    public static boolean isCameraFrozen() {
+        return cameraFrozen;
+    }
+
+    public static int[] getPlayerName() {
+        return playerName;
+    }
+
+    public static int[] getPendingScroll() {
+        return pendingScroll;
+    }
+
+    public static Map<Integer, PEModel> getModels() {
+        return models;
+    }
+
+    public static List<Integer> getOpenMessages() {
+        return openMessages;
+    }
+
+    public static Map<Integer, List<int[]>> getMessageSections() {
+        return messageSections;
+    }
+
+    public static Map<Integer, Integer> getMessageSection() {
+        return messageSection;
+    }
+
+    public static Map<Integer, List<Integer>> getMessageDelays() {
+        return messageDelays;
+    }
+
+    public static Map<Integer, Integer> getMessageTimer() {
+        return messageTimer;
+    }
+
+    public static Map<Integer, List<int[]>> getMessageChoices() {
+        return messageChoices;
+    }
+
+    public static Map<Integer, Integer> getMessageCursor() {
+        return messageCursor;
+    }
+
+    public int getBaseX() {
+        return baseX;
+    }
+
+    public int getBaseY() {
+        return baseY;
+    }
+
+    public int getBaseZ() {
+        return baseZ;
+    }
+
+    public int getMotionX() {
+        return motionX;
+    }
+
+    public int getMotionY() {
+        return motionY;
+    }
+
+    public int getMotionZ() {
+        return motionZ;
+    }
+
+    public int getAccelX() {
+        return accelX;
+    }
+
+    public int getAccelY() {
+        return accelY;
+    }
+
+    public int getAccelZ() {
+        return accelZ;
+    }
+
+    public int getDeltaX() {
+        return deltaX;
+    }
+
+    public int getDeltaY() {
+        return deltaY;
+    }
+
+    public int getDeltaZ() {
+        return deltaZ;
+    }
+
+    public int getMoveFactor() {
+        return moveFactor;
+    }
+
+    public int getMoveSpeed() {
+        return moveSpeed;
+    }
+
+    public int getEntityFlags() {
+        return entityFlags;
+    }
+
+    public int getEntityMode() {
+        return entityMode;
+    }
+
+    public int getActionMode() {
+        return actionMode;
+    }
+
+    public int getAnimFrame() {
+        return animFrame;
+    }
+
+    public int getAnimStep() {
+        return animStep;
+    }
+
+    public int getAnimStop() {
+        return animStop;
+    }
+
+    public int getAnimLastFrame() {
+        return animLastFrame;
+    }
+
+    public Node getNode() {
+        return node;
+    }
+
+    public int getMsgCursor() {
+        return msgCursor;
+    }
+
+    public int getContactCursor() {
+        return contactCursor;
+    }
+
+    public List<Node> getNodes() {
+        return nodes;
+    }
+
+    public Map<Integer, PEAnimation> getActions() {
+        return actions;
+    }
+
+    public static int getSceneFlags() {
+        return sceneFlags;
+    }
+
+    public static int getCurrent() {
+        return current;
+    }
+
+    public static int getPendingRoom() {
+        return pendingRoom;
+    }
+
+    public static int[][] getAnimRecords() {
+        return ANIM_RECORDS;
+    }
+
+    public static int[][] getBankAnimRecords() {
+        return BANK_ANIM_RECORDS;
+    }
+
+    public static byte[] getBankContainer() {
+        return BANK_CONTAINER;
+    }
+
+    public static byte[] getCONTAINER() {
+        return CONTAINER;
+    }
+
+    public static int[] getSTARTS() {
+        return STARTS;
+    }
+
+    public static List<int[]> getQueue() {
+        return queue;
     }
 
     public int[] getMode() {

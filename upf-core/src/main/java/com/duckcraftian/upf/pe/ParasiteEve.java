@@ -72,7 +72,7 @@ public class ParasiteEve {
     public static final int StopEntityAnim = 13;
     public static final int YieldWhileTableEntrySet = 34;
     public static final int SetFogParams = 3;
-    public static final int LoadGeomState = 130;
+    public static final int SwapViewports = 130;
     public static final int EntityMarkDead = 1;
     public static final int TextboxOpen = 13;
     public static final int TextboxWait = 34;
@@ -80,7 +80,13 @@ public class ParasiteEve {
     public static final int FadeSceneToColor = 135;
     public static final int OpenNameEntryMenu = 239;
     public static final int ActorSnapToAnimAnchor = 205;
-
+    public static final int GetMenuChoice = 67;
+    public static final int FreezeCamera = 91;
+    public static final int UnfreezeCamera = 92;
+    public static final int PlayFMV = 53;
+    public static final int ClearCurrentFlag80 = 50;
+    public static final int ScrollCamera = 3;
+    public static final int ScrollCameraAlt = 70;
 
     public static int mapFromToken(int t) {
         return ((t >> 17) & 31) * 100 + ((t >> 12) & 31) * 10 + ((t >> 7) & 31);

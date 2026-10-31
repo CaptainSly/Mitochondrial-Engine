@@ -4,10 +4,15 @@ uniform usampler2D vram;
 
 flat in ivec2 fragPageClut;
 in vec2 texelPos;
+in vec3 vertColor;
 
 out vec4 color;
 
 void main() {
+    if (fragPageClut.x == -1) {
+        color = vec4(vertColor, 1.0);
+        return;
+    }
     ivec2 texel = ivec2(texelPos);
     int pageX = (fragPageClut.x & 15) * 64;
     int pageY = ((fragPageClut.x >> 4) & 1) * 256;

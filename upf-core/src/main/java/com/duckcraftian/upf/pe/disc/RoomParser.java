@@ -347,6 +347,7 @@ public class RoomParser {
         for (int p = 0; p < partCount; p++) {
             model.getPartVertexStart()[p] = u16LE(container, partsAt + 12 * p);
             model.getPartVertexCount()[p] = u16LE(container, partsAt + 12 * p + 2);
+            model.getPartVisible()[p] = u8(container, partsAt + 12 * p + 4);
         }
 
         for (int v = 0; v < vertexCount; v++) {
@@ -393,6 +394,7 @@ public class RoomParser {
         }
 
         parseSkeleton(container, partsAt, matrixAt, matrixCommandBytes, model);
+        Logger.debug("model n34=" + n34 + " n28=" + n28 + " n24=" + n24 + " n1c=" + n1c + " parts=" + partCount);
         return model;
     }
 

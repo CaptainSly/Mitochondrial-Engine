@@ -23,6 +23,7 @@ public class PEModel {
 
     private int[] partVertexStart;
     private int[] partVertexCount;
+    private int[] partVisible;
     private int[] vertices;
     private int[] colors;
     private int[] primKind;
@@ -39,6 +40,7 @@ public class PEModel {
 
         partVertexStart = new int[partCount];
         partVertexCount = new int[partCount];
+        partVisible = new int[partCount];
         vertices = new int[vertexCount * 3];
         colors = new int[vertexCount];
         primKind = new int[primCount];
@@ -151,8 +153,8 @@ public class PEModel {
     }
 
     public void sortIntoOT(int[] screen, PSXOrderingTable ot) {
-        for (int i = 0; i < n34 + n28; i++) {
-            boolean isQuad = i < n34;
+        for (int i = 0; i < n34 + n28 + n24 + n1c; i++) {
+            boolean isQuad = (i < n34) || (i >= n34 + n28 && i < n34 + n28 + n24);
             int a = primVertex[4 * i];
             int b = primVertex[4 * i + 1];
             int c = primVertex[4 * i + 2];
@@ -189,7 +191,7 @@ public class PEModel {
 
         for (int s = ot.getLength() - 1; s >= 0; s--) {
             for (int p = ot.getHeads()[s]; p != -1; p = ot.getNext()[p]) {
-                boolean isQuad = p < n34;
+                boolean isQuad = (p < n34) || (p >= n34 + n28 && p < n34 + n28 + n24);
                 int[] corner = {primVertex[4 * p], primVertex[4 * p + 1], primVertex[4 * p + 2], primVertex[4 * p + 3]};
 
                 emit(out, p, corner, 0, 1, 2, screen, s);
@@ -209,16 +211,26 @@ public class PEModel {
 
     public void emit(ArrayList<Integer> out, int p, int[] corner, int i, int j, int k, int[] screen, int s) {
         int[] arr = {i, j, k};
+        boolean textured = p < n34 + n28;
         for (int c : arr) {
             int v = corner[c];
             out.add(screen[3 * v]);
             out.add(screen[3 * v + 1]);
             out.add(primUV[8 * p + 2 * c]);
             out.add(primUV[8 * p + 2 * c + 1]);
-            out.add(primPageBits[p]);
-            out.add(primClut[p]);
+            out.add(textured ? primPageBits[p] : -1);
+            out.add(textured ? primClut[p] : 0);
             out.add(s);
+            out.add(textured ? 0 : colors[v] & 0xFFFFFF);
         }
+    }
+
+    public int[] getPartVisible() {
+        return partVisible;
+    }
+
+    public int getPartVertexCount(int idx) {
+        return partVertexCount[idx];
     }
 
     public int[] getMatrixCommands() {

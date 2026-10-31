@@ -1,6 +1,7 @@
 package com.duckcraftian.upf.pe.gfx;
 
 import com.duckcraftian.upf.pe.script.ScriptVM;
+import com.duckcraftian.upf.system.DataTypeHelper;
 import com.duckcraftian.upf.system.Utils;
 
 import java.util.ArrayList;
@@ -46,9 +47,10 @@ public class PEText {
         return width + 1;
     }
 
-    public static List<int[]> layoutMessage(byte[] container, int bank, int id) {
+    public static List<int[]> layoutMessage(byte[] container, int bank, int id, List<Integer> delays, List<int[]> choices) {
         List<int[]> sections = new ArrayList<>();
         List<Integer> out = new ArrayList<>();
+        int[] choiceNow = {0, 0, 0};
 
         int x = 20;
         int y = 174;
@@ -58,6 +60,8 @@ public class PEText {
             pos += 1;
             if (pos >= container.length - 1) {
                 sections.add(new int[0]);
+                delays.add(0);
+                choices.add(new int[]{0, 0, 0});
                 return sections;
             }
         }
@@ -71,14 +75,25 @@ public class PEText {
                 y += 12;
             } else if (b == 0xF8) {
                 sections.add(Utils.intListToArray(out));
+                delays.add(0);
+                choices.add(choiceNow);
+                choiceNow = new int[]{0, 0, 0};
                 out = new ArrayList<>();
                 x = 20;
                 y = 174;
             } else if (b == 0xFB) {
                 pos += 1;
                 int sub = u8(container, pos);
-                if (sub == 0x07 || sub == 0x09)
+                if (sub == 0x09) {
                     pos += 1;
+                    choiceNow = new int[]{DataTypeHelper.u8(container, pos), x, y};
+                } else if (sub == 0x07) {
+                    pos += 1;
+                    sections.add(Utils.intListToArray(out));
+                    choices.add(choiceNow);
+                    choiceNow = new int[]{0, 0, 0};
+                    delays.add(u8(container, pos));
+                }
             } else if (b == 0xFA) {
                 for (int g : ScriptVM.playerName)
                     x += addGlyph(out, g, x, y);
@@ -89,6 +104,12 @@ public class PEText {
         }
 
         sections.add(Utils.intListToArray(out));
+        choices.add(choiceNow);
+        if ((u8(container, pos) == 0xF9))
+            delays.add(1);
+        else
+            delays.add(0);
+
         return sections;
     }
 

@@ -18,6 +18,7 @@ import com.duckcraftian.upf.ps1.gfx.PSXTexturedQuad;
 import com.duckcraftian.upf.ps1.gfx.PSXTriangleBatch;
 import org.joml.Vector2f;
 import org.joml.Vector2i;
+import org.tinylog.Logger;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -42,6 +43,8 @@ public class PERenderer implements IDisposable {
     private FramebufferQuad screen;
 
     private int camX, camY;
+
+    public static boolean dumped = false;
 
     private boolean isDebug = false;
 
@@ -70,8 +73,8 @@ public class PERenderer implements IDisposable {
         polygonShader.createUniform("scroll");
 
         tileTexture = new PSXTexture();
-        triangleBatch = new PSXTriangleBatch();
-        textBatch = new PSXTriangleBatch();
+        triangleBatch = new PSXTriangleBatch(8);
+        textBatch = new PSXTriangleBatch(7);
         psxBuffer = new Framebuffer(320, 224, GL_NEAREST, GL_NEAREST, GL_RGBA8, true);
         screen = new FramebufferQuad(psxBuffer);
     }
@@ -79,7 +82,7 @@ public class PERenderer implements IDisposable {
     public void onRender(List<PSXViewport> viewports) {
 
         // Clamp Camera Position
-        PSXViewport viewport = viewports.get(0);
+        PSXViewport viewport = viewports.get(ScriptVM.viewportIndex);
 
         glEnable(GL_DEPTH_TEST);
         glDepthFunc(GL_LEQUAL);
@@ -110,7 +113,7 @@ public class PERenderer implements IDisposable {
             polygonShader.begin();
             {
                 polygonShader.set("vram", 0);
-                polygonShader.set("scroll", new Vector2i(160 - camX, 112 - camY));
+                polygonShader.set("scroll", new Vector2i(viewport.width() / 2 - camX, viewport.height() / 2 - camY));
                 glActiveTexture(GL_TEXTURE0);
                 tileTexture.bind();
                 triangleBatch.draw();
@@ -186,11 +189,13 @@ public class PERenderer implements IDisposable {
             int[] pos = {vm.getPosX() >> 16, vm.getPosY() >> 16, vm.getPosZ() >> 16};
             int[][] pose = model.pose(anim, vm.getFrame(), rot, pos);
             int[] screen = model.project(pose, viewport.rotation(), viewport.translation());
-            PSXOrderingTable ot = new PSXOrderingTable(1024, model.getN34() + model.getN28());
+            PSXOrderingTable ot = new PSXOrderingTable(1024, model.getN34() + model.getN28() + model.getN24() + model.getN1c());
             model.sortIntoOT(screen, ot);
             for (int value : model.buildTriangles(ot, screen))
                 all.add(value);
         }
+
+        if (ScriptVM.openMessages.contains(22)) dumped = true;
 
         int[] tris = new int[all.size()];
         for (int i = 0; i < all.size(); i++)

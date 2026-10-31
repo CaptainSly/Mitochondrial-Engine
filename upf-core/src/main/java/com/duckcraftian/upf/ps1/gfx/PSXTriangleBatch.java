@@ -14,24 +14,34 @@ public class PSXTriangleBatch implements IDisposable {
     private int vao;
     private int vbo;
     private int vertexCount;
+    private int stride;
+    private int intsPerVertex;
 
-    public PSXTriangleBatch() {
+    public PSXTriangleBatch(int intsPerVertex) {
+        this.intsPerVertex = intsPerVertex;
+        this.stride = intsPerVertex * 4;
         vao = glGenVertexArrays();
         vbo = glGenBuffers();
         glBindVertexArray(vao);
         glBindBuffer(GL_ARRAY_BUFFER, vbo);
         glEnableVertexAttribArray(0);
-        glVertexAttribIPointer(0, 4, GL_INT, 28, 0);
+        glVertexAttribIPointer(0, 4, GL_INT, this.stride, 0);
         glEnableVertexAttribArray(1);
-        glVertexAttribIPointer(1, 2, GL_INT, 28, 16);
+        glVertexAttribIPointer(1, 2, GL_INT, this.stride, 16);
         glEnableVertexAttribArray(2);
-        glVertexAttribIPointer(2, 1, GL_INT, 28, 24);
+        glVertexAttribIPointer(2, 1, GL_INT, this.stride, 24);
+
+        if (intsPerVertex == 8) {
+            glEnableVertexAttribArray(3);
+            glVertexAttribIPointer(3, 1, GL_INT, this.stride, 28);
+        }
+
         glBindBuffer(GL_ARRAY_BUFFER, 0);
         glBindVertexArray(0);
     }
 
     public void upload(int[] tris) {
-        vertexCount = tris.length / 7;
+        vertexCount = tris.length / intsPerVertex;
         IntBuffer buffer = MemoryUtil.memAllocInt(tris.length);
         buffer.put(tris).flip();
         glBindBuffer(GL_ARRAY_BUFFER, vbo);

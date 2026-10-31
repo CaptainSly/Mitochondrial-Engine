@@ -16,8 +16,9 @@ This is currently a glorified tech demo. As progress is made, screenshots will b
 
 The readme_images folder contains progress images.
 
-![script_vm_test](readme_images/script_vm_wip_test.png)
 ![dialogue_test](readme_images/dialogue_test_wip.png)
+![opera_scene_bug](readme_images/opera_hall_scene_bug.png)
+![opera_scene_fix](readme_images/opera_hall_scene_fixed.png)
 
 # System Requirements
 

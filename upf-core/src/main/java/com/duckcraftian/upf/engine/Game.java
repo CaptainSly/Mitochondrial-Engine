@@ -4,6 +4,7 @@ import com.duckcraftian.upf.UPF;
 import com.duckcraftian.upf.impl.IDisposable;
 import com.duckcraftian.upf.pe.ParasiteEve;
 import com.duckcraftian.upf.pe.disc.PERipper;
+import com.duckcraftian.upf.pe.disc.RoomParser;
 import com.duckcraftian.upf.pe.disc.SquareImageParser;
 import com.duckcraftian.upf.pe.gfx.PECamera;
 import com.duckcraftian.upf.pe.gfx.PERenderer;
@@ -43,6 +44,8 @@ public class Game implements IDisposable {
     public Path imagesFiles;
 
     private boolean confirmPressed = false;
+    private boolean upPressed = false;
+    private boolean downPressed = false;
 
     public Game() {
         UPF.REGISTRY_MANAGER.createNamespace(ParasiteEve.NAMESPACE);
@@ -82,11 +85,11 @@ public class Game implements IDisposable {
             throw new RuntimeException(e);
         }
 
-        loadMap("m010");
+        loadMap("m002");
+
     }
 
     public void loadMap(String mapName) {
-        Logger.debug("Attempting to load map: " + mapName);
         try {
             room = RoomLoader.loadRoom(imagesFiles, mapName);
             ScriptVM.models = room.models();
@@ -95,6 +98,8 @@ public class Game implements IDisposable {
 
             renderer.setCameraPosition(camera.getCamX(), camera.getCamY());
             renderer.upload(room);
+
+            Logger.debug("Loading map: " + mapName);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -105,9 +110,16 @@ public class Game implements IDisposable {
     public void update(float delta) {
 
 
-        if (Input.isKeyJustDown(SDLScancode.SDL_SCANCODE_F))
-            confirmPressed = true;
+        if (!ScriptVM.openMessages.isEmpty()) {
+            if (Input.isKeyJustDown(SDLScancode.SDL_SCANCODE_F))
+                confirmPressed = true;
 
+            if (Input.isKeyJustDown(SDLScancode.SDL_SCANCODE_W))
+                upPressed = true;
+
+            if (Input.isKeyJustDown(SDLScancode.SDL_SCANCODE_S))
+                downPressed = true;
+        }
 
         accumulator += delta;
         while (accumulator >= TICK) {
@@ -135,22 +147,51 @@ public class Game implements IDisposable {
             confirmPressed = false;
         }
 
+        if (upPressed) {
+            ScriptVM.moveChoice(-1);
+            upPressed = false;
+        }
+
+        if (downPressed) {
+            ScriptVM.moveChoice(1);
+            downPressed = false;
+        }
+
+
         ScriptVM.pad = pad;
         ScriptVM.runAll();
         ScriptVM.stepFade();
+        ScriptVM.stepMessages();
 
         List<Integer> allDialogue = new ArrayList<>();
         for (int id : ScriptVM.openMessages) {
             List<int[]> sections = ScriptVM.messageSections.get(id);
             int[] verts = sections.get(ScriptVM.messageSection.get(id));
             allDialogue.addAll(Utils.intArrayToList(verts));
+
+            int[] choice = ScriptVM.messageChoices.get(id).get(ScriptVM.messageSection.get(id));
+            if (choice[0] > 0)
+                PEText.addGlyph(allDialogue, 0x2A, choice[1], choice[2] + ScriptVM.messageCursor.get(id) * 12);
         }
         renderer.uploadText(Utils.intListToArray(allDialogue));
+
 
         int token = ScriptVM.takePendingRoom();
         if (token != 0) {
             loadMap(String.format("m%03d", ParasiteEve.mapFromToken(token)));
             return;
+        }
+
+        if (ScriptVM.viewportChanged) {
+            ScriptVM.viewportChanged = false;
+            camera.setViewport(viewports.get(ScriptVM.viewportIndex));
+            renderer.upload(room.models(), viewports.get(ScriptVM.viewportIndex));
+            renderer.upload(RoomParser.parseBackgroundBlock(room.background(), ScriptVM.viewportIndex));
+        }
+
+        int[] scroll = ScriptVM.takePendingScroll();
+        if (scroll != null) {
+            camera.beginScroll(scroll[0], scroll[1], scroll[2], scroll[3] == 1);
         }
 
         camera.step();
@@ -159,14 +200,14 @@ public class Game implements IDisposable {
             vm.advanceAnim();
 
         ScriptVM player = ScriptVM.getPlayer();
-        if ((player != null) && camera.canFollow()) {
+        if ((player != null) && camera.canFollow() && !ScriptVM.cameraFrozen) {
             int x = player.getPosX() >> 16;
             int y = player.getPosY() >> 16;
             int z = player.getPosZ() >> 16;
             camera.follow(x, y, z);
         }
 
-        renderer.upload(room.models(), viewports.get(0));
+        renderer.upload(room.models(), viewports.get(ScriptVM.viewportIndex));
     }
 
     public void render() {

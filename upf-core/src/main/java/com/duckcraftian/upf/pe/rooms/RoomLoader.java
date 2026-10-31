@@ -56,7 +56,7 @@ public class RoomLoader {
                 }
             }
 
-            return new Room(tiles, images, viewports, models);
+            return new Room(tiles, images, viewports, models, background);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

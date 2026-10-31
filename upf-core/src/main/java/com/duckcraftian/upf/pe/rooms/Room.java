@@ -7,5 +7,5 @@ import java.util.List;
 import java.util.Map;
 
 public record Room(List<BackgroundTile> tiles, List<PSXImage> images, List<PSXViewport> viewports,
-                   Map<Integer, PEModel> models) {
+                   Map<Integer, PEModel> models, byte[] background) {
 }
