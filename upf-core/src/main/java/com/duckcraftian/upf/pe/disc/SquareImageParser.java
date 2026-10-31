@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import static com.duckcraftian.upf.system.DataTypeHelper.u16LE;
 import static com.duckcraftian.upf.system.DataTypeHelper.u32LE;
 
 public class SquareImageParser {
@@ -44,6 +45,22 @@ public class SquareImageParser {
         return result;
     }
 
+    public static PSXImage readTIMImage(byte[] blob, int index) {
+        int tim = (int) u32LE(blob, index * 4);
+        int flags = (int) u32LE(blob, tim + 4);
+        int block = tim + 8;
+        if ((flags & 8) != 0)
+            block = (int) (block + u32LE(blob, block));
+
+        int x = u16LE(blob, block + 4);
+        int y = u16LE(blob, block + 6);
+        int w = u16LE(blob, block + 8);
+        int h = u16LE(blob, block + 10);
+
+        byte[] pixels = Arrays.copyOfRange(blob, (block + 12), block + 12 + w * 2 * h);
+        return new PSXImage(x, y, w, h, pixels);
+    }
+
     public static byte[] convertImagesToBytes(List<PSXImage> images) throws IOException {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         try (DataOutputStream out = new DataOutputStream(bytes)) {
@@ -60,6 +77,17 @@ public class SquareImageParser {
         }
 
         return bytes.toByteArray();
+    }
+
+    public static PSXImage readTIMClut(byte[] blob, int index) {
+        int tim = (int) u32LE(blob, index * 4);
+        int block = tim + 8;
+        int x = u16LE(blob, block + 4);
+        int y = u16LE(blob, block + 6);
+        int w = u16LE(blob, block + 8);
+        int h = u16LE(blob, block + 10);
+        byte[] pixels = Arrays.copyOfRange(blob, block + 12, block + 12 + w * 2 * h);
+        return new PSXImage(x, y, w, h, pixels);
     }
 
     public static List<PSXImage> convertBytesToImages(byte[] data) throws IOException {

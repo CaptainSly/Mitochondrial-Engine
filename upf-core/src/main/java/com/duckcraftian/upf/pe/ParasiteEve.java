@@ -76,6 +76,10 @@ public class ParasiteEve {
     public static final int EntityMarkDead = 1;
     public static final int TextboxOpen = 13;
     public static final int TextboxWait = 34;
+    public static final int TextboxClose = 35;
+    public static final int FadeSceneToColor = 135;
+    public static final int OpenNameEntryMenu = 239;
+
 
     public static int mapFromToken(int t) {
         return ((t >> 17) & 31) * 100 + ((t >> 12) & 31) * 10 + ((t >> 7) & 31);

@@ -29,12 +29,15 @@ import static org.lwjgl.opengl.GL13.glActiveTexture;
 
 public class PERenderer implements IDisposable {
 
-    private ShaderProgram defaultShader, tileShader, blitShader, polygonShader;
+    private ShaderProgram defaultShader, tileShader, blitShader, polygonShader, textShader;
     private PSXTexturedQuad quad;
 
     private PSXTexture tileTexture;
     private PETileBatch tileBatch;
+
     private PSXTriangleBatch triangleBatch;
+    private PSXTriangleBatch textBatch;
+
     private Framebuffer psxBuffer;
     private FramebufferQuad screen;
 
@@ -50,6 +53,9 @@ public class PERenderer implements IDisposable {
         defaultShader.createUniform("pageOrigin");
         defaultShader.createUniform("pageSize");
 
+        textShader = new ShaderProgram("shaders/ps1/ps1_text");
+        textShader.createUniform("vram");
+        textShader.createUniform("scroll");
 
         tileShader = new ShaderProgram("shaders/ps1/ps1_tiles");
         tileShader.createUniform("vram");
@@ -65,6 +71,7 @@ public class PERenderer implements IDisposable {
 
         tileTexture = new PSXTexture();
         triangleBatch = new PSXTriangleBatch();
+        textBatch = new PSXTriangleBatch();
         psxBuffer = new Framebuffer(320, 224, GL_NEAREST, GL_NEAREST, GL_RGBA8, true);
         screen = new FramebufferQuad(psxBuffer);
     }
@@ -110,6 +117,18 @@ public class PERenderer implements IDisposable {
                 tileTexture.unbind();
             }
             polygonShader.end();
+
+            textShader.begin();
+            {
+                textShader.set("vram", 0);
+                textShader.set("scroll", new Vector2i(0, 0));
+                glActiveTexture(GL_TEXTURE0);
+                tileTexture.bind();
+                textBatch.draw();
+                tileTexture.unbind();
+            }
+            textShader.end();
+
         }
         screen.end();
         glDisable(GL_DEPTH_TEST);
@@ -137,6 +156,10 @@ public class PERenderer implements IDisposable {
             tileBatch.onDispose();
 
         tileBatch = new PETileBatch(tiles);
+    }
+
+    public void uploadText(int[] verts) {
+        textBatch.upload(verts);
     }
 
     public void upload(Room room) {
@@ -198,10 +221,12 @@ public class PERenderer implements IDisposable {
         blitShader.onDispose();
         tileShader.onDispose();
         polygonShader.onDispose();
+        textShader.onDispose();
 
         tileTexture.onDispose();
 
         triangleBatch.onDispose();
+        textBatch.onDispose();
         tileBatch.onDispose();
     }
 }

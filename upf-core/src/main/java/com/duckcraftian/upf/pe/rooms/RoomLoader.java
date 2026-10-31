@@ -47,7 +47,7 @@ public class RoomLoader {
 
 
             if (bank != 0) {
-                images.addAll(SquareImageParser.convertBytesToImages(UPDHSerializer.getStreamedData(imagesFile, "images/entity/bank" + bank)));
+                images.addAll(SquareImageParser.convertBytesToImages(UPDHSerializer.getStreamedData(imagesFile, "images/entity/bank/" + bank)));
 
                 for (int[] record : RoomParser.readModelRecords(bankContainer)) {
                     PEModel model = RoomParser.parseModel(bankContainer, record[1]);

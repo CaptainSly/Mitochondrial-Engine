@@ -9,7 +9,7 @@ It's written on top of the [UPF](/upf_readme.md), or Untitled Porting Framework.
 
 Maps are visible, 3D Models show. Animations do play, in the case of map001, one of the officers really enjoys waving his arms to the street. 
 
-You can move Aya around, but there isn't any collision, or interaction yet.
+You can move Aya around, but there isn't any interaction yet.
 
 This is currently a glorified tech demo. As progress is made, screenshots will be posted below. 
 
@@ -27,7 +27,7 @@ Graphics Card: Anything that supports OpenGL 4.6
 # Build Instructions
 
 ## Linux
-
+To be included
 
 ## MacOS
 See below

@@ -3,6 +3,7 @@ package com.duckcraftian.upf.pe.script;
 import com.duckcraftian.upf.pe.disc.RoomParser;
 import com.duckcraftian.upf.pe.gfx.PEAnimation;
 import com.duckcraftian.upf.pe.rooms.Collision;
+import com.duckcraftian.upf.ps1.PSX;
 import com.duckcraftian.upf.ps1.PSXMath;
 import org.tinylog.Logger;
 
@@ -31,6 +32,10 @@ public class ScriptVM {
     public static int fadeTarget = 0;
     public static int fadeFrame = 0;
     public static int fadeDuration = 0;
+
+    public static int messageBank;
+
+    public static int[] playerName = {0x10, 0x48, 0x30};
 
     // Entity Specific
     private int type;
@@ -90,6 +95,7 @@ public class ScriptVM {
     private static int[] STARTS;
 
     private static List<ScriptVM> actors = new ArrayList<>();
+    public static List<Integer> openMessages = new ArrayList<>();
     private static List<int[]> queue = new ArrayList<>();
 
     public static ScriptVM spawn(int type, int sub) {
@@ -147,6 +153,8 @@ public class ScriptVM {
         moveLock = 0;
 
         ANIM_RECORDS = RoomParser.readAnimationRecords(container);
+
+        messageBank = RoomParser.readMessageBank(container);
 
         if (bankContainer != null)
             BANK_ANIM_RECORDS = RoomParser.readAnimationRecords(bankContainer);
@@ -253,6 +261,13 @@ public class ScriptVM {
             return true;
         };
 
+        handlers[OpenNameEntryMenu] = _ -> {
+            // EVEN HANK WAS SCARED!
+            playerName = new int[]{PSX.code("H"), PSX.code("a"), PSX.code("n"), PSX.code("k")};
+            // Hank: I don't wanna lose my dong.
+            return true;
+        };
+
         handlers[RoomChange] = _ -> {
             pendingRoom = get(0);
             return false;
@@ -304,6 +319,27 @@ public class ScriptVM {
             return true;
         };
 
+        handlers[TextboxOpen] = _ -> {
+            openMessages.add(get(0));
+            Logger.info(RoomParser.readMessage(CONTAINER, messageBank, get(0)));
+            return true;
+        };
+
+        handlers[TextboxWait] = _ -> {
+            if (openMessages.contains(get(0))) {
+                node.active = 1;
+                node.cursor = node.cursor - 12;
+                return false;
+            }
+
+            return true;
+        };
+
+        handlers[TextboxClose] = _ -> {
+            openMessages.remove(Integer.valueOf(get(0)));
+            return true;
+        };
+
         handlers[GetPlayerPosition] = _ -> {
             int selector = get(1);
             ScriptVM target = (selector == 0) ? getPlayer() : getActor(selector, get(2));
@@ -330,9 +366,16 @@ public class ScriptVM {
                 pz[k] = get(2 * k + 1) >> 16;
             }
             set(10, Collision.pointInPoly(get(8) >> 16, get(9) >> 16, px, pz) ? 1 : 0);
+            return true;
+        };
 
-            if (get(10) == 1)
-                Logger.debug("EXIT RECTANGLE: Player is inside");
+        handlers[FadeSceneToColor] = _ -> {
+            int mode = get(4);
+            int level = get(1);
+
+            if (mode == 2) startFade(level, get(0));
+            else if (mode == 1) setFade(level);
+            else setFade(0);
 
             return true;
         };
@@ -767,6 +810,14 @@ public class ScriptVM {
         motionX = (int) (((long) c * mx + (long) sn * mz) >> 12);
         motionY = 0;
         motionZ = (int) (((long) -sn * mx + (long) c * mz) >> 12);
+    }
+
+    public void setFade(int level) {
+        fadeLevel = level;
+        fadeStart = level;
+        fadeTarget = level;
+        fadeDuration = 0;
+        fadeFrame = 0;
     }
 
     public void advanceAnim() {

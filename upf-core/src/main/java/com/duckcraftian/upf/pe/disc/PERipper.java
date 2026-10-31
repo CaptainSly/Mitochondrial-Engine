@@ -4,6 +4,7 @@ import com.duckcraftian.upf.UPF;
 import com.duckcraftian.upf.pe.ParasiteEve;
 import com.duckcraftian.upf.pe.RoomRange;
 import com.duckcraftian.upf.pe.disc.problems.EntryProblem;
+import com.duckcraftian.upf.ps1.data_types.PSXImage;
 import com.duckcraftian.upf.ps1.disc.exceptions.NotRawImageException;
 import com.duckcraftian.upf.pe.exceptions.SetupFailure;
 import com.duckcraftian.upf.pe.disc.problems.SetupProblem;
@@ -20,10 +21,7 @@ import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 import static com.duckcraftian.upf.pe.ParasiteEve.*;
 import static com.duckcraftian.upf.pe.disc.SquareImageParser.*;
@@ -226,6 +224,17 @@ public class PERipper {
             entries.put("entity/bank/" + bank + "/container", blob);
             entries.put("images/entity/bank/" + bank, convertImagesToBytes(readVramUploads(tex)));
         }
+
+        byte[] fontBlob = fs.readSectors(pe, boundaries[72], boundaries[73] - boundaries[72]);
+        byte[] pack = fs.readSectors(pe, boundaries[2], boundaries[3] - boundaries[2]);
+
+        List<PSXImage> font = List.of(
+                readTIMImage(fontBlob, 0),
+                readTIMClut(fontBlob, 0)
+        );
+
+        entries.put("text/font/images", convertImagesToBytes(font));
+        entries.put("text/font/metrics", Arrays.copyOfRange(pack, 0x7160, 0x7160 + 441));
 
         UPDHSerializer.write(outFile, entries);
     }

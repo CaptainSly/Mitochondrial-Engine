@@ -6,6 +6,8 @@ import com.duckcraftian.upf.pe.rooms.BackgroundTile;
 import com.duckcraftian.upf.pe.rooms.Collision;
 import com.duckcraftian.upf.pe.rooms.PSXViewport;
 import com.duckcraftian.upf.pe.script.Decoder;
+import com.duckcraftian.upf.pe.script.ScriptVM;
+import com.duckcraftian.upf.ps1.PSX;
 import org.tinylog.Logger;
 
 import java.util.ArrayList;
@@ -29,6 +31,45 @@ public class RoomParser {
         System.arraycopy(roomContainer, blockOffset, backgroundBlock, 0, blockSize);
 
         return backgroundBlock;
+    }
+
+    public static int readMessageBank(byte[] container) {
+        int dir = (int) u32LE(container, 4);
+        int field = (int) u32LE(container, dir + 0x20);
+        int table = field & 0x3FFFFF;
+        return (int) u32LE(container, table + 8 + 4) & 0xFFFFFF;
+    }
+
+    public static String readMessage(byte[] container, int bank, int id) {
+        int pos = bank;
+        while (!(u8(container, pos) == 0xFE && u8(container, pos + 1) == id)) {
+            pos += 1;
+            if (pos > container.length)
+                return "?";
+        }
+
+        pos += 2;
+        String text = "";
+        while (u8(container, pos) != 0xFF && u8(container, pos + 1) != 0xF9) {
+            int b = u8(container, pos);
+            if (b == 0xF7)
+                text = text + " / ";
+            else if (b == 0xFB) {
+                pos += 1;
+                int sub = u8(container, pos);
+                if (sub == 0x07 || sub == 0x09)
+                    pos += 1;
+            } else if (b == 0xFA) {
+                for (int i : ScriptVM.playerName)
+                    text = text + PSX.glyph(i);
+            } else if (!PSX.glyph(b).isEmpty()) {
+                text = text + PSX.glyph(b);
+            }
+
+            pos += 1;
+        }
+
+        return text;
     }
 
     public static List<BackgroundTile> parseBackgroundBlock(byte[] block, int group) {
