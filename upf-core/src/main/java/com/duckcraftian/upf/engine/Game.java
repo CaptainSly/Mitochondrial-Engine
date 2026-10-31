@@ -85,7 +85,7 @@ public class Game implements IDisposable {
             throw new RuntimeException(e);
         }
 
-        loadMap("m002");
+        loadMap("m180");
 
     }
 
@@ -160,6 +160,10 @@ public class Game implements IDisposable {
 
         ScriptVM.pad = pad;
         ScriptVM.runAll();
+
+        if (ScriptVM.stepBackgroundAnimations(ScriptVM.viewportIndex))
+            renderer.upload(RoomParser.parseBackgroundBlock(room.background(), ScriptVM.viewportIndex));
+
         ScriptVM.stepFade();
         ScriptVM.stepMessages();
 

@@ -4,7 +4,7 @@ import com.duckcraftian.upf.ps1.PSXMath;
 
 import static com.duckcraftian.upf.ps1.PSXMath.fixedMul;
 
-public record Collision(int[] vx, int[] vz, int[] triV, int[] triRegion, int[] triPlane, int[] triDist,
+public record Collision(int[] vx, int[] vz, int[] triV, int[] triRegion, int[] triPlane, int[] triDist, int[] triKind,
                         int[] regionHeight, int[][] regionTris, int[] planeA, int[] planeInvB, int[] planeC) {
 
     public boolean pointInTri(int t, int x, int z) {

@@ -1,14 +1,13 @@
 package com.duckcraftian.upf.pe.disc;
 
+import com.duckcraftian.upf.pe.gfx.BackgroundAnimation;
 import com.duckcraftian.upf.pe.gfx.PEAnimation;
 import com.duckcraftian.upf.pe.gfx.PEModel;
 import com.duckcraftian.upf.pe.rooms.BackgroundTile;
 import com.duckcraftian.upf.pe.rooms.Collision;
 import com.duckcraftian.upf.pe.rooms.PSXViewport;
-import com.duckcraftian.upf.pe.script.Decoder;
 import com.duckcraftian.upf.pe.script.ScriptVM;
 import com.duckcraftian.upf.ps1.PSX;
-import org.tinylog.Logger;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -83,30 +82,14 @@ public class RoomParser {
         int outY = s16LE(block, 0x3A);
 
 
-        boolean[] shown = new boolean[layerCount];
-
-        int controlCount = u16LE(block, 0x04);
-        int controlOffset = s32LE(block, 0x10);
-        for (int c = 0; c < controlCount; c++) {
-            int controlAddress = controlOffset + c * 16;
-            int slotsAddress = controlAddress + s32LE(block, controlAddress + 12);
-            int firstEntry = u8(block, slotsAddress);
-            shown[firstEntry] = true;
-        }
-
         for (int l = 0; l < layerCount; l++) {
             int entry = entryOffset + l * 0x38;
             int layerGroup = u8(block, entry + 0x24);
 
-            int flags = u8(block, entry);
-            if ((flags & 2) != 0)
-                shown[l] = true;
-
             if (layerGroup != group)
                 continue;
 
-            if (!shown[l])
-                continue;
+            if ((BackgroundAnimation.entryFlags[l] & 2) == 0) continue;
 
 
             long first = u32LE(block, entry);
@@ -156,12 +139,6 @@ public class RoomParser {
         for (int i = 0; i < count; i++)
             start[i] = (int) (payload + u32LE(container, payload + 8 + 4 * i));
 
-        for (int k = 0; k < start.length; k++) {
-            int end = (k + 1 < start.length) ? start[k + 1] : container.length;
-            int words = Decoder.trace(container, start[k], end);
-            Logger.debug("stream " + k + ": " + words + " words");
-        }
-
         return start;
     }
 
@@ -204,8 +181,10 @@ public class RoomParser {
 
         int[] triPlane = new int[triangleCount];
         int[] triDist = new int[triangleCount];
+        int[] triKind = new int[triangleCount];
         for (int i = 0; i < triangleCount; i++) {
             int at = payload + tOff + tStride * i;
+            triKind[i] = u8(container, at);
             triRegion[i] = u8(container, at + 1);
             triV[3 * i + 0] = u16LE(container, at + tvAt);
             triV[3 * i + 1] = u16LE(container, at + tvAt + 2);
@@ -250,7 +229,7 @@ public class RoomParser {
 
         }
 
-        return new Collision(vx, vz, triV, triRegion, triPlane, triDist, regionHeight, regionTris, planeA, planeInvB, planeC);
+        return new Collision(vx, vz, triV, triRegion, triPlane, triDist, triKind, regionHeight, regionTris, planeA, planeInvB, planeC);
     }
 
     public static int readEntityBank(byte[] container) {
@@ -394,7 +373,6 @@ public class RoomParser {
         }
 
         parseSkeleton(container, partsAt, matrixAt, matrixCommandBytes, model);
-        Logger.debug("model n34=" + n34 + " n28=" + n28 + " n24=" + n24 + " n1c=" + n1c + " parts=" + partCount);
         return model;
     }
 

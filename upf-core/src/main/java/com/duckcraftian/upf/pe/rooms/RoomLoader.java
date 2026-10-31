@@ -3,6 +3,7 @@ package com.duckcraftian.upf.pe.rooms;
 import com.duckcraftian.upf.pe.ParasiteEve;
 import com.duckcraftian.upf.pe.disc.RoomParser;
 import com.duckcraftian.upf.pe.disc.SquareImageParser;
+import com.duckcraftian.upf.pe.gfx.BackgroundAnimation;
 import com.duckcraftian.upf.pe.gfx.PEModel;
 import com.duckcraftian.upf.pe.script.ScriptVM;
 import com.duckcraftian.upf.ps1.data_types.PSXImage;
@@ -20,6 +21,7 @@ public class RoomLoader {
     public static Room loadRoom(Path imagesFile, String mapName) {
         try {
             byte[] background = UPDHSerializer.getStreamedData(imagesFile, "rooms/" + mapName + "/background");
+            BackgroundAnimation.initBackground(background);
             List<BackgroundTile> tiles = RoomParser.parseBackgroundBlock(background, 0);
             List<PSXViewport> viewports = RoomParser.parseViewports(background);
 

@@ -3,7 +3,6 @@ package com.duckcraftian.upf.pe.gfx;
 import com.duckcraftian.upf.pe.rooms.PSXViewport;
 import com.duckcraftian.upf.ps1.PSX;
 import com.duckcraftian.upf.ps1.PSXMath;
-import org.tinylog.Logger;
 
 public class PECamera {
 
@@ -77,10 +76,6 @@ public class PECamera {
         camY = (viewport.minY() + viewport.maxY()) / 2;
         snap = true;
 
-        Logger.debug("viewport w=" + viewport.width() + " h=" + viewport.height()
-                + " minX=" + viewport.minX() + " maxX=" + viewport.maxX()
-                + " minY=" + viewport.minY() + " maxY=" + viewport.maxY()
-                + " cam=" + camX + "," + camY);
         loadViewport(r, t);
     }
 

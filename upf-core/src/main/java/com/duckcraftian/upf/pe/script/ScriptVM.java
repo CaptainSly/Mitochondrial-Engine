@@ -1,18 +1,19 @@
 package com.duckcraftian.upf.pe.script;
 
 import com.duckcraftian.upf.pe.disc.RoomParser;
+import com.duckcraftian.upf.pe.gfx.BackgroundAnimation;
 import com.duckcraftian.upf.pe.gfx.PEAnimation;
 import com.duckcraftian.upf.pe.gfx.PEModel;
 import com.duckcraftian.upf.pe.gfx.PEText;
 import com.duckcraftian.upf.pe.rooms.Collision;
 import com.duckcraftian.upf.ps1.PSX;
 import com.duckcraftian.upf.ps1.PSXMath;
-import com.duckcraftian.upf.system.Utils;
 import org.tinylog.Logger;
 
 import java.util.*;
 
 import static com.duckcraftian.upf.pe.ParasiteEve.*;
+import static com.duckcraftian.upf.pe.gfx.BackgroundAnimation.*;
 import static com.duckcraftian.upf.ps1.PSXMath.*;
 import static com.duckcraftian.upf.system.DataTypeHelper.u32LE;
 import static com.duckcraftian.upf.system.DataTypeHelper.u8;
@@ -202,6 +203,13 @@ public class ScriptVM {
         deliverMessages();
 
         for (int i = 0; i < actors.size(); i++) {
+            ScriptVM vm = actors.get(i);
+            if ((vm.entityFlags & 0x10) == 0) continue;
+            if (vm.type == 0) moveLock &= ~0xD;
+            actors.remove(i);
+        }
+
+        for (int i = 0; i < actors.size(); i++) {
             current = i;
             ScriptVM vm = actors.get(i);
 
@@ -232,7 +240,6 @@ public class ScriptVM {
                     n.active = 1;
                     n.target14 = e[0];
                     vm.nodes.addFirst(n);
-                    Logger.debug("Command: " + e[0] + " Sub: " + e[1] + " Type: " + e[2]);
                 }
             }
         }
@@ -246,7 +253,7 @@ public class ScriptVM {
         if ((posX >> 16) == (baseX >> 16) && (posZ >> 16) == (baseZ >> 16) && posY == baseY) return;
 
         int t = COLLISION.findTriangle(posX >> 16, posZ >> 16);
-        if (t < 0) {
+        if (t < 0 || (COLLISION.triKind()[t] & 0x80) != 0) {
             posX = baseX;
             posY = baseY;
             posZ = baseZ;
@@ -322,6 +329,16 @@ public class ScriptVM {
             return false;
         };
 
+        handlers[BlockCollisionTriangle] = _ -> {
+            COLLISION.triKind()[get(0)] |= 0x80;
+            return true;
+        };
+
+        handlers[UnblockCollisionTriangle] = _ -> {
+            COLLISION.triKind()[get(0)] &= 0x7F;
+            return true;
+        };
+
         handlers[SelectFieldSetter] = _ -> {
             int pos = (get(1) < 0) ? 0 : streamStart + get(1) * 2;
             if (get(0) == 2) msgCursor = pos;
@@ -356,8 +373,6 @@ public class ScriptVM {
         };
 
         handlers[FadeSceneIn] = _ -> {
-            Logger.debug("FadeSceneIn dur=" + get(0) + " fadeLevel=" + fadeLevel
-                    + " fadeFrame=" + fadeFrame + "/" + fadeDuration);
             startFade(0, get(0));
             return true;
         };
@@ -378,18 +393,6 @@ public class ScriptVM {
             posX = bone[9] << 16;
             posY = bone[10] << 16;
             posZ = bone[11] << 16;
-
-            Logger.debug("P: " + Utils.arrayToString(p) + " bone3x3: " + Utils.arrayToString(boneMatrix));
-            Logger.debug("205 type=" + type
-                    + " rotY=" + rotY
-                    + " frame=" + getFrame()
-                    + " rootOff=" + getAnimation().channels()[0][getFrame()] + ","
-                    + getAnimation().channels()[1][getFrame()] + ","
-                    + getAnimation().channels()[2][getFrame()]
-                    + " rootRot=" + getAnimation().channels()[3][getFrame()] + ","
-                    + getAnimation().channels()[4][getFrame()] + ","
-                    + getAnimation().channels()[5][getFrame()]);
-
 
             return true;
         };
@@ -578,13 +581,54 @@ public class ScriptVM {
             return true;
         };
 
+        handlers[EntityMarkDead] = _ -> {
+            entityFlags |= 0x10;
+            return false;
+        };
+
+        handlers[PlayFMV] = _ -> true;
+        handlers[SetBackgroundAnimFrame] = _ -> {
+            int c = get(0);
+            ctrlElapsed[c] = 0;
+            ctrlPos[c] = (ctrlPos[c] & 0xFF) | (get(1) << 16);
+            ctrlFlags[c] |= 2;
+            return true;
+        };
+
+        handlers[SetBackgroundAnimRunning] = _ -> {
+            int c = get(0);
+            if (get(1) != 0) ctrlFlags[c] |= 6;
+            else ctrlFlags[c] &= 0xF9;
+
+            return true;
+        };
+
+        handlers[SetBackgroundAnimStep] = _ -> {
+            ctrlStep[get(0)] = (short) (get(1) >> 8);
+            return true;
+        };
+
+        handlers[PlayBackgroundAnimFromTo] = _ -> {
+            int c = get(0), from = get(1), to = get(2);
+            ctrlElapsed[c] = 0;
+            ctrlPos[c] = (ctrlPos[c] & 0xFF) | (from << 16);
+            ctrlFlags[c] |= 6;
+            slotDuration[c][to] = -1;
+            if ((ctrlStep[c] > 0 && to < from) || (ctrlStep[c] < 0 && from < to))
+                ctrlStep[c] = -ctrlStep[c];
+
+            return true;
+        };
+
+        handlers[123] = _ -> true;
         handlers[136] = _ -> true;
+        handlers[WaitForSequenceFrame] = _ -> true;
+        handlers[WaitWhileSequenceRunning] = _ -> true;
+        handlers[Noop145] = _ -> true;
+        handlers[157] = _ -> true;
         handlers[166] = _ -> true;
         handlers[234] = _ -> true;
-        handlers[157] = _ -> true;
-        handlers[117] = _ -> true;
-        handlers[116] = _ -> true;
-        handlers[123] = _ -> true;
+
 
         handlers[SetEntityVec3] = _ -> {
             switch (get(0)) {
@@ -711,9 +755,6 @@ public class ScriptVM {
                 node.flags = node.flags & ~0x20;
                 return true;
             }
-
-            Logger.debug("walk type=" + type + " pos=" + (posX >> 16) + "," + (posZ >> 16)
-                    + " rem=" + remX + "," + remZ + " step=" + stepX + "," + stepZ);
 
             node.active = 1;
             node.cursor = node.cursor - 0x14;
@@ -847,6 +888,45 @@ public class ScriptVM {
         }
     }
 
+    public static boolean stepBackgroundAnimations(int activeGroup) {
+        int[] before = entryFlags.clone();
+        for (int c = 0; c < ctrlFlags.length; c++) {
+            if ((ctrlFlags[c] & 2) == 0 || (ctrlFlags[c] & 0x14) == 0) continue;
+            if ((ctrlPos[c] & 0xFF) != activeGroup) continue;
+
+            for (int j = 0; j < ctrlLength[c]; j++)
+                entryFlags[slotEntry[c][j]] &= ~2;
+
+            int value = ctrlPos[c] >> 8;
+            int frame = value >> 8;
+            entryFlags[slotEntry[c][frame]] |= 2;
+
+            if (slotDuration[c][frame] < 0) {
+                slotDuration[c][frame] = 0;
+                ctrlElapsed[c] = 0;
+                ctrlFlags[c] &= ~4;
+                break;
+            }
+
+            ctrlElapsed[c]++;
+            if (ctrlElapsed[c] >= slotDuration[c][frame]) {
+                ctrlElapsed[c] = 0;
+                value += ctrlStep[c];
+                int length = ctrlLength[c];
+                if ((value >> 8) >= length) {
+                    value = (ctrlFlags[c] & 0x20) != 0 ? value % (length << 8) : 0;
+                    ctrlFlags[c] &= ~4;
+                } else if ((value >> 8) < 0) {
+                    value = (ctrlFlags[c] & 0x20) != 0 ? (length << 8) - ((-value) % (length << 8)) : (length - 1) << 8;
+                    ctrlFlags[c] &= ~4;
+                }
+                ctrlPos[c] = (ctrlPos[c] & 0xFF) | (value << 8);
+            }
+        }
+
+        return !Arrays.equals(before, entryFlags);
+    }
+
     public static void moveChoice(int dir) {
         for (int id : openMessages) {
             int[] choice = messageChoices.get(id).get(messageSection.get(id));
@@ -884,15 +964,6 @@ public class ScriptVM {
         animFrame = 0;
         entityFlags &= ~0x200;
         animLastFrame = anim.frameCount() - 1;
-
-        Logger.debug("action " + mode + " type=" + type
-                + " frame0 rootOff=" + anim.channels()[0][0] + ","
-                + anim.channels()[1][0] + ","
-                + anim.channels()[2][0]
-                + " rootRot=" + anim.channels()[3][0] + ","
-                + anim.channels()[4][0] + ","
-                + anim.channels()[5][0]);
-
     }
 
     public void controller() {
