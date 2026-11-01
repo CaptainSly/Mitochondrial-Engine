@@ -95,6 +95,81 @@ public record Collision(int[] vx, int[] vz, int[] triV, int[] triRegion, int[] t
         return Math.abs(numerator / len);
     }
 
+    public int walkToFace(int t, int previous, int x0, int z0, int x1, int z1) {
+        int deltaX = x1 - x0;
+        int deltaZ = z1 - z0;
+
+        int maxX = 0, minX = 0, maxZ = 0, minZ = 0;
+        if (deltaX < 0) {
+            maxX = x0;
+            minX = x1;
+        } else {
+            maxX = x1;
+            minX = x0;
+        }
+
+        if (deltaZ < 0) {
+            maxZ = z0;
+            minZ = z1;
+        } else {
+            maxZ = z1;
+            minZ = z0;
+        }
+
+        for (int edge = 0; edge < 3; edge++) {
+            int nextIdx = triV[3 * t + edge];
+            int prevIdx = triV[3 * t + (edge + 2) % 3];
+            int nextX = vx[nextIdx];
+            int nextZ = vz[nextIdx];
+            int prevX = vx[prevIdx];
+            int prevZ = vz[prevIdx];
+
+            int edgeX = nextX - prevX;
+            if (edgeX > 0) {
+                if (maxX < prevX || minX >= nextX) continue;
+            } else {
+                if (maxX < nextX || minX >= prevX) continue;
+            }
+
+            int edgeZ = nextZ - prevZ;
+            if (edgeZ > 0) {
+                if (maxZ < prevZ || minZ >= nextZ) continue;
+            } else {
+                if (maxZ < nextZ || minZ >= prevZ) continue;
+            }
+
+            int startX = x0 - nextX;
+            int startZ = z0 - nextZ;
+            int denominator = deltaZ * edgeX - deltaX * edgeZ;
+
+            int along = edgeZ * startX - edgeX * startZ;
+            if (denominator > 0) {
+                if (along < 0 || denominator < along) continue;
+            } else {
+                if (along > 0 || along < denominator) continue;
+            }
+
+            along = deltaX * startZ - deltaZ * startX;
+            if (denominator > 0) {
+                if (along < 0 || denominator < along) continue;
+            } else {
+                if (along > 0 || along < denominator) continue;
+            }
+
+            if (denominator == 0) continue;
+
+            int nb = triNeighbor[3 * t + edge];
+            if (nb == 0xFFFF) continue;
+            if (nb == previous) continue;
+            if (pointInTri(nb, x0, z0)) return nb;
+
+            int r = walkToFace(nb, t, x0, z0, x1, z1);
+            if (r >= 0) return r;
+        }
+
+        return -1;
+    }
+
     private boolean clip(int t, int px, int pz, int r, boolean[] visited, int[] wall) {
         int[] queued = new int[]{-1, -1, -1};
 

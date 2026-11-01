@@ -20,9 +20,7 @@ import org.joml.Vector2f;
 import org.joml.Vector2i;
 import org.tinylog.Logger;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL13.GL_TEXTURE0;
@@ -43,8 +41,6 @@ public class PERenderer implements IDisposable {
     private FramebufferQuad screen;
 
     private int camX, camY;
-
-    public static boolean dumped = false;
 
     private boolean isDebug = false;
 
@@ -180,10 +176,14 @@ public class PERenderer implements IDisposable {
 
         for (ScriptVM vm : ScriptVM.getActors()) {
             PEModel model = models.get(vm.getType());
-            if (model == null) continue;
+            if (model == null) {
+                continue;
+            }
 
             PEAnimation anim = vm.getAnimation();
-            if (anim == null) continue;
+            if (anim == null) {
+                continue;
+            }
 
             int[] rot = PSXMath.rotMatrixYXZ(0, vm.getRotY(), 0);
             int[] pos = {vm.getPosX() >> 16, vm.getPosY() >> 16, vm.getPosZ() >> 16};
@@ -194,8 +194,6 @@ public class PERenderer implements IDisposable {
             for (int value : model.buildTriangles(ot, screen))
                 all.add(value);
         }
-
-        if (ScriptVM.openMessages.contains(22)) dumped = true;
 
         int[] tris = new int[all.size()];
         for (int i = 0; i < all.size(); i++)

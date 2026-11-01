@@ -146,7 +146,7 @@ public class ScriptVM {
         }
 
         if (!vm.actions.isEmpty()) {
-            int start = (type == 0) ? 21 : 0;
+            int start = (type == 0) ? 21 : Collections.min(vm.actions.keySet());
             vm.setActionMode(start);
         }
 
@@ -337,8 +337,16 @@ public class ScriptVM {
                 }
             }
         }
-        
-        int t = COLLISION.findTriangle(posX >> 16, posZ >> 16);
+
+        int oldX = baseX >> 16;
+        int oldZ = baseZ >> 16;
+        x = posX >> 16;
+        z = posZ >> 16;
+
+        int t = face;
+        if (!COLLISION.pointInTri(face, x, z))
+            t = COLLISION.walkToFace(face, -1, x, z, oldX, oldZ);
+
         if (t < 0) {
             posX = baseX;
             posY = baseY;
@@ -347,10 +355,7 @@ public class ScriptVM {
         }
 
         face = t;
-
-        if ((entityFlags & 2) == 0)
-            posY = COLLISION.floorY(t, posX, posZ);
-
+        if ((entityFlags & 2) == 0) posY = COLLISION.floorY(t, posX, posZ);
     }
 
     public void start(int streamStart) {
@@ -1104,8 +1109,6 @@ public class ScriptVM {
         int divisor = Math.max(fadeDuration - 1, 1);
         fadeLevel = fadeStart + (fadeTarget - fadeStart) * fadeFrame / divisor;
         fadeFrame = fadeFrame + 1;
-        Logger.debug("fade " + fadeLevel + " frame " + fadeFrame + "/" + fadeDuration
-                + " t=" + (System.nanoTime() / 1_000_000) + "ms");
     }
 
     private void move(int base, int newMode) {
@@ -1274,10 +1277,6 @@ public class ScriptVM {
 
         if ((entityFlags & 2) == 0)
             posY = COLLISION.floorY(t, posX, posZ);
-
-        if (type == 0) {
-            Logger.debug("face player=" + face + " at " + (posX >> 16) + "," + (posY >> 16));
-        }
     }
 
     public PEAnimation getAnimation() {

@@ -83,7 +83,7 @@ public class Game implements IDisposable {
             throw new RuntimeException(e);
         }
 
-        loadMap("m010");
+        loadMap("m372");
 
     }
 

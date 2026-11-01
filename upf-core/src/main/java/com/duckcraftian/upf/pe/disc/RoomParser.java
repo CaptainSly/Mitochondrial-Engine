@@ -40,38 +40,6 @@ public class RoomParser {
         return (int) u32LE(container, table + 8 + 4) & 0xFFFFFF;
     }
 
-    public static String readMessage(byte[] container, int bank, int id) {
-        int pos = bank;
-        while (!(u8(container, pos) == 0xFE && u8(container, pos + 1) == id)) {
-            pos += 1;
-            if (pos > container.length)
-                return "?";
-        }
-
-        pos += 2;
-        String text = "";
-        while (!(u8(container, pos) == 0xFF && u8(container, pos + 1) == 0xF9)) {
-            int b = u8(container, pos);
-            if (b == 0xF7)
-                text = text + " / ";
-            else if (b == 0xFB) {
-                pos += 1;
-                int sub = u8(container, pos);
-                if (sub == 0x07 || sub == 0x09)
-                    pos += 1;
-            } else if (b == 0xFA) {
-                for (int i : ScriptVM.playerName)
-                    text = text + PSX.glyph(i);
-            } else if (!PSX.glyph(b).isEmpty()) {
-                text = text + PSX.glyph(b);
-            }
-
-            pos += 1;
-        }
-
-        return text;
-    }
-
     public static List<BackgroundTile> parseBackgroundBlock(byte[] block, int group) {
         List<BackgroundTile> tiles = new ArrayList<>();
 
@@ -250,24 +218,6 @@ public class RoomParser {
 
         }
 
-        int bad = 0;
-        int maxEdge = -1;
-        for (int t = 0; t < triangleCount; t++) {
-            for (int k = 0; k < 3; k++) {
-                maxEdge = Math.max(maxEdge, triEdge[3 * t + k]);
-                int n = triNeighbor[3 * t + k];
-                if (n != 0xFFFF) {
-                    boolean found = false;
-                    for (int j = 0; j < 3; j++) {
-                        if (triNeighbor[3 * n + j] == t && triEdge[3 * n + j] == triEdge[3 * t + k]) found = true;
-                    }
-
-                    if (!found) bad++;
-                }
-            }
-        }
-
-        Logger.debug("Coll Edges: header08=" + edgeCount + " maxEdgeId=" + maxEdge + " asymmetric=" + bad);
         return new Collision(vx, vz, triV, triRegion, triPlane, triDist, triKind, triEdge, triNeighbor, regionHeight, regionTris, planeA, planeInvB, planeC, edgeLength, edgeDirX, edgeDirZ);
     }
 
