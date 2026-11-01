@@ -7,6 +7,7 @@ import com.duckcraftian.upf.system.Utils;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.List;
 
 public class PEModel {
 
@@ -188,7 +189,7 @@ public class PEModel {
 
     }
 
-    public int[] buildTriangles(PSXOrderingTable ot, int[] screen) {
+    public int[] buildTriangles(PSXOrderingTable ot, int[] screen, List<Integer> semiOut) {
         ArrayList<Integer> out = new ArrayList<>();
 
         for (int s = ot.getLength() - 1; s >= 0; s--) {
@@ -196,9 +197,13 @@ public class PEModel {
                 boolean isQuad = (p < n34) || (p >= n34 + n28 && p < n34 + n28 + n24);
                 int[] corner = {primVertex[4 * p], primVertex[4 * p + 1], primVertex[4 * p + 2], primVertex[4 * p + 3]};
 
-                emit(out, p, corner, 0, 1, 2, screen, s);
+                int kind = primKind[p];
+                boolean isSemi = (kind == 11 || kind == 16 || kind == 21 || kind == 26);
+                List<Integer> target = isSemi ? semiOut : out;
+
+                emit((ArrayList<Integer>) target, p, corner, 0, 1, 2, screen, s);
                 if (isQuad) {
-                    emit(out, p, corner, 1, 3, 2, screen, s);
+                    emit((ArrayList<Integer>) target, p, corner, 1, 3, 2, screen, s);
                 }
 
             }

@@ -68,6 +68,7 @@ public class ParasiteEve {
     public static final int SetField = 90;
     public static final int FreezeCamera = 91;
     public static final int UnfreezeCamera = 92;
+    public static final int SetEntityMoveFactor = 93;
     public static final int GetPlayerPosition = 94;
     public static final int ClearMotionVectors = 101;
     public static final int SetBackgroundAnimFrame = 116;
@@ -92,6 +93,7 @@ public class ParasiteEve {
     public static final int ClearSceneFlag2000 = 171;
     public static final int ActorTurnToPoint = 184;
     public static final int ActorSnapToAnimAnchor = 205;
+    public static final int SetEntityParent = 212;
     public static final int OpenNameEntryMenu = 239;
 
     public static int mapFromToken(int t) {

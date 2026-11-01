@@ -13,6 +13,9 @@ public class PEText {
 
     public static final int FONT_PAGE = 5;
     public static final int FONT_CLUT = 16148;
+    public static final int ICON_PAGE = 20;
+    public static final int ICON_CLUT = 30611;
+    public static final int POINTER_CLUT = 30547;
 
     public static byte[] metrics;
 
@@ -93,6 +96,8 @@ public class PEText {
                     choices.add(choiceNow);
                     choiceNow = new int[]{0, 0, 0};
                     delays.add(u8(container, pos));
+                } else if (sub <= 0x03) {
+                    x += addIcon(out, sub, x, y);
                 }
             } else if (b == 0xFA) {
                 for (int g : ScriptVM.playerName)
@@ -113,13 +118,55 @@ public class PEText {
         return sections;
     }
 
+    public static void addPointer(List<Integer> out, int x, int y) {
+        int u = 112;
+        int v = 212;
+
+        int x0 = x, x1 = x + 24;
+        int y0 = y + 1, y1 = y + 13;
+        int u0 = u, u1 = u + 24;
+        int v0 = v, v1 = v + 12;
+
+        addVertex(out, x0, y0, u0, v0, ICON_PAGE, POINTER_CLUT);
+        addVertex(out, x1, y0, u1, v0, ICON_PAGE, POINTER_CLUT);
+        addVertex(out, x0, y1, u0, v1, ICON_PAGE, POINTER_CLUT);
+
+        addVertex(out, x1, y0, u1, v0, ICON_PAGE, POINTER_CLUT);
+        addVertex(out, x1, y1, u1, v1, ICON_PAGE, POINTER_CLUT);
+        addVertex(out, x0, y1, u0, v1, ICON_PAGE, POINTER_CLUT);
+    }
+
+    private static int addIcon(List<Integer> out, int n, int x, int y) {
+        int u = 0x40 + 12 * n;
+        int v = 212;
+
+        int x0 = x, x1 = x + 12;
+        int y0 = y + 1, y1 = y + 13;
+        int u0 = u, u1 = u + 12;
+        int v0 = v, v1 = v + 12;
+
+        addVertex(out, x0, y0, u0, v0, ICON_PAGE, ICON_CLUT);
+        addVertex(out, x1, y0, u1, v0, ICON_PAGE, ICON_CLUT);
+        addVertex(out, x0, y1, u0, v1, ICON_PAGE, ICON_CLUT);
+
+        addVertex(out, x1, y0, u1, v0, ICON_PAGE, ICON_CLUT);
+        addVertex(out, x1, y1, u1, v1, ICON_PAGE, ICON_CLUT);
+        addVertex(out, x0, y1, u0, v1, ICON_PAGE, ICON_CLUT);
+
+        return 12;
+    }
+
     private static void addVertex(List<Integer> out, int x, int y, int u, int v) {
+        addVertex(out, x, y, u, v, FONT_PAGE, FONT_CLUT);
+    }
+
+    private static void addVertex(List<Integer> out, int x, int y, int u, int v, int page, int clut) {
         out.add(x);
         out.add(y);
         out.add(u);
         out.add(v);
-        out.add(FONT_PAGE);
-        out.add(FONT_CLUT);
+        out.add(page);
+        out.add(clut);
         out.add(0);
     }
 

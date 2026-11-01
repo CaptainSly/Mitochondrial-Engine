@@ -34,6 +34,7 @@ public class PERenderer implements IDisposable {
     private PSXTexture tileTexture;
     private PETileBatch tileBatch;
 
+    private PSXTriangleBatch semiBatch;
     private PSXTriangleBatch triangleBatch;
     private PSXTriangleBatch textBatch;
 
@@ -67,9 +68,11 @@ public class PERenderer implements IDisposable {
         polygonShader = new ShaderProgram("shaders/ps1/ps1_poly");
         polygonShader.createUniform("vram");
         polygonShader.createUniform("scroll");
+        polygonShader.createUniform("opacity");
 
         tileTexture = new PSXTexture();
         triangleBatch = new PSXTriangleBatch(8);
+        semiBatch = new PSXTriangleBatch(8);
         textBatch = new PSXTriangleBatch(7);
         psxBuffer = new Framebuffer(320, 224, GL_NEAREST, GL_NEAREST, GL_RGBA8, true);
         screen = new FramebufferQuad(psxBuffer);
@@ -110,9 +113,19 @@ public class PERenderer implements IDisposable {
             {
                 polygonShader.set("vram", 0);
                 polygonShader.set("scroll", new Vector2i(viewport.width() / 2 - camX, viewport.height() / 2 - camY));
+                polygonShader.set("opacity", 1.0f);
                 glActiveTexture(GL_TEXTURE0);
                 tileTexture.bind();
                 triangleBatch.draw();
+
+                polygonShader.set("opacity", 0.5f);
+                glEnable(GL_BLEND);
+                glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+                glDepthMask(false);
+                semiBatch.draw();
+                glDepthMask(true);
+                glDisable(GL_BLEND);
+
                 tileTexture.unbind();
             }
             polygonShader.end();
@@ -171,6 +184,7 @@ public class PERenderer implements IDisposable {
 
     public void upload(Map<Integer, PEModel> models, PSXViewport viewport) {
         List<Integer> all = new ArrayList<>();
+        List<Integer> allSemi = new ArrayList<>();
         PSX.GTE.writeControl(29, 0x155);
         PSX.GTE.writeControl(30, 0x100);
 
@@ -188,10 +202,13 @@ public class PERenderer implements IDisposable {
             int[] rot = PSXMath.rotMatrixYXZ(0, vm.getRotY(), 0);
             int[] pos = {vm.getPosX() >> 16, vm.getPosY() >> 16, vm.getPosZ() >> 16};
             int[][] pose = model.pose(anim, vm.getFrame(), rot, pos);
+            if (ScriptVM.debugTick % 30 == 0)
+                Logger.debug("pose: type=" + vm.getType() + " sub=" + vm.getSub() + " frame=" + vm.getFrame()
+                        + " frames=" + anim.frameCount() + " root=" + pose[0][9] + "," + pose[0][10] + "," + pose[0][11]);
             int[] screen = model.project(pose, viewport.rotation(), viewport.translation());
             PSXOrderingTable ot = new PSXOrderingTable(1024, model.getN34() + model.getN28() + model.getN24() + model.getN1c());
             model.sortIntoOT(screen, ot);
-            for (int value : model.buildTriangles(ot, screen))
+            for (int value : model.buildTriangles(ot, screen, allSemi))
                 all.add(value);
         }
 
@@ -199,7 +216,12 @@ public class PERenderer implements IDisposable {
         for (int i = 0; i < all.size(); i++)
             tris[i] = all.get(i);
 
+        int[] semiTris = new int[allSemi.size()];
+        for (int i = 0; i < allSemi.size(); i++)
+            semiTris[i] = allSemi.get(i);
+
         upload(tris);
+        semiBatch.upload(semiTris);
     }
 
     public void upload(PSXImage image) {
@@ -229,6 +251,7 @@ public class PERenderer implements IDisposable {
         tileTexture.onDispose();
 
         triangleBatch.onDispose();
+        semiBatch.onDispose();
         textBatch.onDispose();
         tileBatch.onDispose();
     }

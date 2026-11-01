@@ -91,6 +91,8 @@ public class ScriptVM {
     private int msgCursor;
     private int contactCursor;
 
+    private ScriptVM parent = null;
+
     private List<Node> nodes;
     private Map<Integer, PEAnimation> actions;
 
@@ -120,6 +122,8 @@ public class ScriptVM {
 
     private static List<ScriptVM> actors = new ArrayList<>();
     private static List<int[]> queue = new ArrayList<>();
+
+    public static int debugTick = 0;
 
     public static ScriptVM spawn(int type, int sub) {
         var vm = new ScriptVM();
@@ -209,6 +213,7 @@ public class ScriptVM {
     }
 
     public static void runAll() {
+        debugTick++;
         deliverMessages();
 
         for (int i = 0; i < actors.size(); i++) {
@@ -233,6 +238,24 @@ public class ScriptVM {
 
         for (ScriptVM actor : actors)
             actor.updatePosition();
+
+        for (ScriptVM actor : actors)
+            if (actor.parent != null && (actor.entityFlags & 0x400000) != 0) {
+                actor.posX = actor.parent.posX;
+                actor.posY = actor.parent.posY;
+                actor.posZ = actor.parent.posZ;
+                actor.rotX = actor.parent.rotX;
+                actor.rotY = actor.parent.rotY;
+                actor.rotZ = actor.parent.rotZ;
+
+                if (debugTick % 30 == 0)
+                    Logger.debug("follow: child t" + actor.type + " pos=" + (actor.posX >> 16) + "," + (actor.posY >> 16) + "," + (actor.posZ >> 16)
+                            + " rotY=" + actor.rotY + " | parent t" + actor.parent.type + " pos=" + (actor.parent.posX >> 16) + ","
+                            + (actor.parent.posY >> 16) + "," + (actor.parent.posZ >> 16) + " rotY=" + actor.parent.rotY);
+
+            }
+
+
 
     }
 
@@ -411,6 +434,17 @@ public class ScriptVM {
         handlers[SwapViewports] = _ -> {
             viewportIndex = get(0);
             viewportChanged = true;
+            return true;
+        };
+
+        handlers[SetEntityParent] = _ -> {
+            ScriptVM target = (get(0) == 0) ? getPlayer() : getActor(get(0), get(1));
+            Logger.debug("op212: type=" + type + " sub=" + sub + " asks for type=" + get(0) + " sub=" + get(1)
+                    + " found=" + (target != null));
+            if (target == null) return true;
+            parent = target;
+            target.entityFlags |= 0x100000;
+            entityFlags |= 0x600000;
             return true;
         };
 
@@ -708,6 +742,11 @@ public class ScriptVM {
             return true;
         };
 
+        handlers[SetEntityMoveFactor] = _ -> {
+            moveFactor = get(0);
+            return true;
+        };
+
         handlers[PlayBackgroundAnimFromTo] = _ -> {
             int c = get(0), from = get(1), to = get(2);
             ctrlElapsed[c] = 0;
@@ -914,6 +953,20 @@ public class ScriptVM {
 
     }
 
+    public static void openMessage(int id) {
+        List<Integer> delays = new ArrayList<>();
+        List<int[]> choices = new ArrayList<>();
+        openMessages.add(id);
+        messageSections.put(id, PEText.layoutMessage(CONTAINER, messageBank, id, delays, choices));
+        messageChoices.put(id, choices);
+        messageCursor.put(id, 0);
+        messageDelays.put(id, delays);
+        messageSection.put(id, 0);
+        messageTimer.put(id, 0);
+        menuChoice = -1;
+    }
+
+
     public void integrate() {
         motionX += accelX;
         motionY += accelY;
@@ -1065,6 +1118,11 @@ public class ScriptVM {
         animFrame = 0;
         entityFlags &= ~0x200;
         animLastFrame = anim.frameCount() - 1;
+        if ((entityFlags & 0x100000) != 0) {
+            for (ScriptVM actor : actors)
+                if (actor.parent == this && (actor.entityFlags & 0x200000) != 0)
+                    actor.setActionMode(mode);
+        }
     }
 
     public void controller() {
@@ -1179,6 +1237,11 @@ public class ScriptVM {
 
     public void advanceAnim() {
         entityFlags &= ~8;
+        if (parent != null && (entityFlags & 0x200000) != 0) {
+            setActionMode(parent.actionMode);
+            animFrame = parent.animFrame;
+            return;
+        }
 
         if ((entityFlags & 0x100) != 0) return;
         if ((entityFlags & 0x200) != 0 && (animFrame >> 16) == animStop) return;

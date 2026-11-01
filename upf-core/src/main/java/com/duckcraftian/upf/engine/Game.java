@@ -83,8 +83,7 @@ public class Game implements IDisposable {
             throw new RuntimeException(e);
         }
 
-        loadMap("m372");
-
+        loadMap("m259");
     }
 
     public void loadMap(String mapName) {
@@ -174,7 +173,7 @@ public class Game implements IDisposable {
 
             int[] choice = ScriptVM.messageChoices.get(id).get(ScriptVM.messageSection.get(id));
             if (choice[0] > 0)
-                PEText.addGlyph(allDialogue, 0x2A, choice[1], choice[2] + ScriptVM.messageCursor.get(id) * 12);
+                PEText.addPointer(allDialogue, choice[1], choice[2] + ScriptVM.messageCursor.get(id) * 12);
         }
         renderer.uploadText(Utils.intListToArray(allDialogue));
 

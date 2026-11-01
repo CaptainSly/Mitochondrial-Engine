@@ -227,10 +227,17 @@ public class PERipper {
 
         byte[] fontBlob = fs.readSectors(pe, boundaries[72], boundaries[73] - boundaries[72]);
         byte[] pack = fs.readSectors(pe, boundaries[2], boundaries[3] - boundaries[2]);
+        byte[] ui = fs.readSectors(pe, boundaries[9], boundaries[10] - boundaries[9]);
+
+        PSXImage icons = new PSXImage(272, 468, 12, 12, Arrays.copyOfRange(ui, 0xb358, 0xb358 + 288));
+        PSXImage iconClut = new PSXImage(304, 478, 16, 1, Arrays.copyOfRange(ui, 0xb478, 0xb478 + 32));
+        PSXImage pointer = new PSXImage(284, 468, 8, 12, Arrays.copyOfRange(ui, 0xb498, 0xb498 + 192));
+        PSXImage pointerClut = new PSXImage(304, 477, 16, 1, Arrays.copyOfRange(ui, 0xb558, 0xb558 + 32));
 
         List<PSXImage> font = List.of(
                 readTIMImage(fontBlob, 0),
-                readTIMClut(fontBlob, 0)
+                readTIMClut(fontBlob, 0),
+                icons, iconClut, pointer, pointerClut
         );
 
         entries.put("text/font/images", convertImagesToBytes(font));

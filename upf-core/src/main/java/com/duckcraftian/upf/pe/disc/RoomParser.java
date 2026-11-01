@@ -391,6 +391,9 @@ public class RoomParser {
     }
 
     public static void applyTextureRemap(PEModel model, int vramWord) {
+
+        if (((vramWord >> 8) & 0xF) == 0) return;
+
         int x = (vramWord >> 6) & 0x3C0;
         int y = (vramWord >> 9) & 0x180;
         int paletteRow = ((vramWord >> 18) & 0xFF) + 0x1C0;
