@@ -1,11 +1,11 @@
 package com.duckcraftian.upf.pe.rooms;
 
-import com.duckcraftian.upf.ps1.PSXMath;
-
 import static com.duckcraftian.upf.ps1.PSXMath.fixedMul;
 
 public record Collision(int[] vx, int[] vz, int[] triV, int[] triRegion, int[] triPlane, int[] triDist, int[] triKind,
-                        int[] regionHeight, int[][] regionTris, int[] planeA, int[] planeInvB, int[] planeC) {
+                        int[] triEdge,
+                        int[] triNeighbor, int[] regionHeight, int[][] regionTris, int[] planeA, int[] planeInvB,
+                        int[] planeC, int[] edgeLength, int[] edgeDirX, int[] edgeDirZ) {
 
     public boolean pointInTri(int t, int x, int z) {
         int px = vx[triV[3 * t + 2]];
@@ -35,6 +35,95 @@ public record Collision(int[] vx, int[] vz, int[] triV, int[] triRegion, int[] t
         }
 
         return inside;
+    }
+
+    public boolean edgesTouchCircle(int t, int slot, int px, int pz, int r) {
+        int nextIdx = triV[3 * t + slot];
+        int prevIdx = triV[3 * t + (slot + 2) % 3];
+        int nextX = vx[nextIdx], nextZ = vz[nextIdx];
+        int prevX = vx[prevIdx], prevZ = vz[prevIdx];
+        int e = triEdge[3 * t + slot];
+
+        if (nextX < px - r && prevX < px - r) return false;
+        if (nextX > px + r && prevX > px + r) return false;
+        if (nextZ < pz - r && prevZ < pz - r) return false;
+        if (nextZ > pz + r && prevZ > pz + r) return false;
+
+        int dx = px - nextX;
+        int dz = pz - nextZ;
+        int len = edgeLength[e] >> 16;
+        int dist = Math.abs((dz * (prevX - nextX) - dx * (prevZ - nextZ)) / len);
+        if (dist > r) return false;
+
+        boolean farFromNext = (dx * dx + dz * dz) > r * r;
+
+        int along, ex, ez;
+        if (nextIdx < prevIdx) {
+            along = fixedMul(edgeDirX[e], dx << 16) + fixedMul(edgeDirZ[e], dz << 16);
+            if (along < 0 && farFromNext) return false;
+            if (edgeLength[e] < along) {
+                ex = px - prevX;
+                ez = pz - prevZ;
+                if (ex * ex + ez * ez > r * r) return false;
+            }
+        } else {
+            ex = px - prevX;
+            ez = pz - prevZ;
+            along = fixedMul(edgeDirX[e], ex << 16) + fixedMul(edgeDirZ[e], ez << 16);
+            if (along < 0 && ex * ex + ez * ez > r * r) return false;
+            if (edgeLength[e] < along && farFromNext) return false;
+        }
+
+        return true;
+    }
+
+    public boolean floorClear(int face, int px, int pz, int r, int[] wall) {
+        return floorClear(face, px, pz, r, wall, -1);
+    }
+
+    public boolean floorClear(int face, int px, int pz, int r, int[] wall, int ignoreEdge) {
+        boolean[] visited = new boolean[edgeLength.length];
+        if (ignoreEdge >= 0) visited[ignoreEdge] = true;
+        return clip(face, px, pz, r, visited, wall);
+    }
+
+    public int wallDistance(int x, int z, int[] wall) {
+        int edgeX = wall[2] - wall[0];
+        int edgeZ = wall[3] - wall[1];
+        int numerator = ((z >> 16) - wall[1]) * edgeX - ((x >> 16) - wall[0]) * edgeZ;
+        int len = edgeLength[wall[4]] >> 16;
+        return Math.abs(numerator / len);
+    }
+
+    private boolean clip(int t, int px, int pz, int r, boolean[] visited, int[] wall) {
+        int[] queued = new int[]{-1, -1, -1};
+
+        for (int slot = 0; slot < 3; slot++) {
+            int e = triEdge[3 * t + slot];
+            if (visited[e]) continue;
+            visited[e] = true;
+
+            if (!edgesTouchCircle(t, slot, px, pz, r)) continue;
+
+            int nb = triNeighbor[3 * t + slot];
+            if (nb == 0xFFFF || (triKind[nb] & 0x80) != 0) {
+                int nextIdx = triV[3 * t + slot];
+                int prevIdx = triV[3 * t + (slot + 2) % 3];
+                wall[0] = vx[nextIdx];
+                wall[1] = vz[nextIdx];
+                wall[2] = vx[prevIdx];
+                wall[3] = vz[prevIdx];
+                wall[4] = e;
+                return false;
+            }
+
+            queued[slot] = nb;
+        }
+
+        for (int slot = 0; slot < 3; slot++)
+            if (queued[slot] >= 0 && !clip(queued[slot], px, pz, r, visited, wall)) return false;
+
+        return true;
     }
 
     public static boolean pointInPoly(int x, int z, int[] polyX, int[] polyZ) {

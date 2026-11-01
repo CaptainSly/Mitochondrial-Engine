@@ -82,6 +82,9 @@ public class ScriptVM {
     private int animStop;
     private int animLastFrame;
 
+    private int face = -1;
+    private int hitRadius;
+
     private int streamStart;
 
     private Node node;
@@ -121,6 +124,8 @@ public class ScriptVM {
     public static ScriptVM spawn(int type, int sub) {
         var vm = new ScriptVM();
         vm.type = type;
+        PEModel m = models.get(type);
+        if (m != null) vm.hitRadius = m.getHitRadius();
         vm.moveFactor = (type == 0) ? 0x10000 : 0x50000;
 
         vm.sub = sub;
@@ -133,6 +138,8 @@ public class ScriptVM {
 
         if (type == 0 && BANK_CONTAINER != null) {
             vm.entityMode = 21;
+
+            Logger.debug("Player hitRadius=" + vm.hitRadius);
 
             for (int[] a : BANK_ANIM_RECORDS)
                 if (a[0] == 0) vm.actions.put(a[1], RoomParser.parseAnimation(BANK_CONTAINER, a[2]));
@@ -149,7 +156,9 @@ public class ScriptVM {
 
     public static ScriptVM getPlayer() {
         for (ScriptVM vm : actors)
-            if (vm.type == 0) return vm;
+            if (vm.type == 0) {
+                return vm;
+            }
 
         return null;
     }
@@ -247,20 +256,101 @@ public class ScriptVM {
         queue.clear();
     }
 
+    public void slide(int[] wall, int r) {
+        int dirX = COLLISION.edgeDirX()[wall[4]];
+        int dirZ = COLLISION.edgeDirZ()[wall[4]];
+
+        int deltaX = posX - baseX;
+        int deltaZ = posZ - baseZ;
+        int along = fixedMul(dirX, deltaX) + fixedMul(dirZ, deltaZ);
+
+        int x = fixedMul(dirX, along) + baseX;
+        int z = fixedMul(dirZ, along) + baseZ;
+
+        if (COLLISION.wallDistance(x, z, wall) > r) {
+            posX = x;
+            posZ = z;
+            return;
+        }
+
+        for (int step = 0; ; step++) {
+            for (int dir = 0; dir < 4; dir++) {
+                int cx = x;
+                int cz = z;
+
+                if (dir == 0) cx += step << 16;
+                if (dir == 1) cx -= step << 16;
+                if (dir == 2) cz += step << 16;
+                if (dir == 3) cz -= step << 16;
+                if (COLLISION.wallDistance(cx, cz, wall) > r) {
+                    posX = cx;
+                    posZ = cz;
+                    return;
+                }
+            }
+        }
+
+    }
+
     public void updatePosition() {
         if ((entityFlags & 0x80) != 0) return;
         if (COLLISION == null) return;
         if ((posX >> 16) == (baseX >> 16) && (posZ >> 16) == (baseZ >> 16) && posY == baseY) return;
+        if (face < 0) return;
 
+        int x = posX >> 16;
+        int z = posZ >> 16;
+        int r = hitRadius * moveSpeed / 4096;
+        int[] wall = new int[5];
+
+        if (!COLLISION.floorClear(face, x, z, r, wall)) {
+            if (type != 0) {
+                posX = baseX;
+                posY = baseY;
+                posZ = baseZ;
+                return;
+            }
+
+            slide(wall, r);
+            x = posX >> 16;
+            z = posZ >> 16;
+            int saved = wall[4];
+
+            if (!COLLISION.floorClear(face, x, z, r, wall)) {
+                if (wall[4] == saved) {
+                    if (COLLISION.floorClear(face, x, z, r, wall, saved)) {
+                        posX = baseX;
+                        posY = baseY;
+                        posZ = baseZ;
+                        return;
+                    }
+                }
+
+                slide(wall, r);
+                x = posX >> 16;
+                z = posZ >> 16;
+                if (!COLLISION.floorClear(face, x, z, r, wall)) {
+                    posX = baseX;
+                    posY = baseY;
+                    posZ = baseZ;
+                    return;
+                }
+            }
+        }
+        
         int t = COLLISION.findTriangle(posX >> 16, posZ >> 16);
-        if (t < 0 || (COLLISION.triKind()[t] & 0x80) != 0) {
+        if (t < 0) {
             posX = baseX;
             posY = baseY;
             posZ = baseZ;
             return;
         }
 
-        posY = COLLISION.floorY(t, posX, posZ);
+        face = t;
+
+        if ((entityFlags & 2) == 0)
+            posY = COLLISION.floorY(t, posX, posZ);
+
     }
 
     public void start(int streamStart) {
@@ -348,6 +438,11 @@ public class ScriptVM {
 
         handlers[GetNodeTarget14] = _ -> {
             set(0, node.target14);
+            return true;
+        };
+
+        handlers[SetHitRadius] = _ -> {
+            hitRadius = get(0) >> 16;
             return true;
         };
 
@@ -870,6 +965,7 @@ public class ScriptVM {
         int next = messageSection.get(id) + 1;
         if (next < messageSections.get(id).size()) {
             messageSection.put(id, next);
+            messageCursor.put(id, 0);
             messageTimer.put(id, 0);
         } else closeMessage(id);
     }
@@ -1169,12 +1265,19 @@ public class ScriptVM {
 
     public void findFloor() {
         if (COLLISION == null) return;
-        if ((entityFlags & 2) != 0) return;
+        if ((entityFlags & 0x80) != 0) return;
+
 
         int t = COLLISION.findTriangle(posX >> 16, posZ >> 16);
         if (t < 0) return;
+        face = t;
 
-        posY = COLLISION.floorY(t, posX, posZ);
+        if ((entityFlags & 2) == 0)
+            posY = COLLISION.floorY(t, posX, posZ);
+
+        if (type == 0) {
+            Logger.debug("face player=" + face + " at " + (posX >> 16) + "," + (posY >> 16));
+        }
     }
 
     public PEAnimation getAnimation() {

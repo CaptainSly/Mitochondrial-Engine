@@ -8,6 +8,7 @@ import com.duckcraftian.upf.pe.rooms.Collision;
 import com.duckcraftian.upf.pe.rooms.PSXViewport;
 import com.duckcraftian.upf.pe.script.ScriptVM;
 import com.duckcraftian.upf.ps1.PSX;
+import org.tinylog.Logger;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -49,7 +50,7 @@ public class RoomParser {
 
         pos += 2;
         String text = "";
-        while (u8(container, pos) != 0xFF && u8(container, pos + 1) != 0xF9) {
+        while (!(u8(container, pos) == 0xFF && u8(container, pos + 1) == 0xF9)) {
             int b = u8(container, pos);
             if (b == 0xF7)
                 text = text + " / ";
@@ -162,6 +163,8 @@ public class RoomParser {
         int tEnd = sloped ? planes : rampOff;
         int rCountAt = sloped ? 4 : 2;
         int rIdsAt = sloped ? 6 : 4;
+        int edgeAt = sloped ? 14 : 8;
+        int neighAt = sloped ? 20 : 14;
 
         int vertexCount = (tOff - vOff) / vStride;
 
@@ -178,7 +181,8 @@ public class RoomParser {
 
         int[] triRegion = new int[triangleCount];
         int[] triV = new int[triangleCount * 3];
-
+        int[] triEdge = new int[triangleCount * 3];
+        int[] triNeighbor = new int[triangleCount * 3];
         int[] triPlane = new int[triangleCount];
         int[] triDist = new int[triangleCount];
         int[] triKind = new int[triangleCount];
@@ -186,14 +190,31 @@ public class RoomParser {
             int at = payload + tOff + tStride * i;
             triKind[i] = u8(container, at);
             triRegion[i] = u8(container, at + 1);
-            triV[3 * i + 0] = u16LE(container, at + tvAt);
+            triV[3 * i] = u16LE(container, at + tvAt);
             triV[3 * i + 1] = u16LE(container, at + tvAt + 2);
             triV[3 * i + 2] = u16LE(container, at + tvAt + 4);
+
+            for (int k = 0; k < 3; k++) {
+                triEdge[3 * i + k] = u16LE(container, at + edgeAt + 2 * k);
+                triNeighbor[3 * i + k] = u16LE(container, at + neighAt + 2 * k);
+            }
 
             if (sloped) {
                 triPlane[i] = u16LE(container, at + 2);
                 triDist[i] = (int) u32LE(container, at + 4);
             }
+
+        }
+
+        int edgeCount = u16LE(container, payload + 8);
+        int[] edgeLength = new int[edgeCount];
+        int[] edgeDirX = new int[edgeCount];
+        int[] edgeDirZ = new int[edgeCount];
+        for (int i = 0; i < edgeCount; i++) {
+            int at = payload + rampOff + 12 * i;
+            edgeLength[i] = (int) u32LE(container, at);
+            edgeDirX[i] = (int) u32LE(container, at + 4);
+            edgeDirZ[i] = (int) u32LE(container, at + 8);
 
         }
 
@@ -229,7 +250,25 @@ public class RoomParser {
 
         }
 
-        return new Collision(vx, vz, triV, triRegion, triPlane, triDist, triKind, regionHeight, regionTris, planeA, planeInvB, planeC);
+        int bad = 0;
+        int maxEdge = -1;
+        for (int t = 0; t < triangleCount; t++) {
+            for (int k = 0; k < 3; k++) {
+                maxEdge = Math.max(maxEdge, triEdge[3 * t + k]);
+                int n = triNeighbor[3 * t + k];
+                if (n != 0xFFFF) {
+                    boolean found = false;
+                    for (int j = 0; j < 3; j++) {
+                        if (triNeighbor[3 * n + j] == t && triEdge[3 * n + j] == triEdge[3 * t + k]) found = true;
+                    }
+
+                    if (!found) bad++;
+                }
+            }
+        }
+
+        Logger.debug("Coll Edges: header08=" + edgeCount + " maxEdgeId=" + maxEdge + " asymmetric=" + bad);
+        return new Collision(vx, vz, triV, triRegion, triPlane, triDist, triKind, triEdge, triNeighbor, regionHeight, regionTris, planeA, planeInvB, planeC, edgeLength, edgeDirX, edgeDirZ);
     }
 
     public static int readEntityBank(byte[] container) {
@@ -314,6 +353,9 @@ public class RoomParser {
         int quadTexturesAt = matrixAt + roundUp4(matrixCommandBytes);
         int triangleTexturesAt = quadTexturesAt + 16 * n34;
 
+        int hitAt = descriptionAt + 12 * primCount;
+        int hitRadius = s16LE(container, hitAt + 6);
+
         PEModel model = new PEModel(partCount, vertexCount, primCount);
         model.setN34(n34);
         model.setN28(n28);
@@ -321,6 +363,7 @@ public class RoomParser {
         model.setN1c(n1c);
         model.setByteSize(triangleTexturesAt + 12 * n28 - offset);
         model.setAnchorY(s16LE(container, offset + 0x10));
+        model.setHitRadius(hitRadius);
         model.setAnchorMatrixIndex(u16LE(container, offset + 0x12));
 
         for (int p = 0; p < partCount; p++) {

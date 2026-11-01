@@ -37,16 +37,12 @@ public class RoomLoader {
             int bank = RoomParser.readEntityBank(container);
             byte[] bankContainer = UPDHSerializer.getStreamedData(imagesFile, "entity/bank/" + bank + "/container");
 
-
-            ScriptVM.loadRoom(container, bankContainer);
-
             Map<Integer, PEModel> models = new HashMap<>();
             for (int[] record : modelRecords) {
                 PEModel model = RoomParser.parseModel(container, record[1]);
                 RoomParser.applyTextureRemap(model, record[2]);
                 models.put(record[0], model);
             }
-
 
             if (bank != 0) {
                 images.addAll(SquareImageParser.convertBytesToImages(UPDHSerializer.getStreamedData(imagesFile, "images/entity/bank/" + bank)));
@@ -58,6 +54,8 @@ public class RoomLoader {
                 }
             }
 
+            ScriptVM.models = models;
+            ScriptVM.loadRoom(container, bankContainer);
             return new Room(tiles, images, viewports, models, background);
         } catch (IOException e) {
             throw new RuntimeException(e);

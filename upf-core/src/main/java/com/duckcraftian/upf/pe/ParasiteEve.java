@@ -56,6 +56,7 @@ public class ParasiteEve {
     public static final int RoomChange = 49;
     public static final int ClearCurrentFlag80 = 50;
     public static final int PlayFMV = 53;
+    public static final int SetHitRadius = 62;
     public static final int ClearGlobalFlag1 = 63;
     public static final int SetGlobalFlag1 = 64;
     public static final int SetCurrentFlag40 = 65;

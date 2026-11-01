@@ -90,7 +90,6 @@ public class Game implements IDisposable {
     public void loadMap(String mapName) {
         try {
             room = RoomLoader.loadRoom(imagesFiles, mapName);
-            ScriptVM.models = room.models();
             viewports = room.viewports();
             camera = new PECamera(viewports.get(0));
 

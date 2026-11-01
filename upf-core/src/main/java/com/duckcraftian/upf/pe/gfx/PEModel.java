@@ -19,6 +19,7 @@ public class PEModel {
     private int byteSize;
     private int AnchorY;
     private int anchorMatrixIndex;
+    private int hitRadius;
 
 
     private int[] partVertexStart;
@@ -146,6 +147,7 @@ public class PEModel {
                     screen[3 * index + 1] = (short) (sxy >> 16);
                     screen[3 * index + 2] = PSX.GTE.readData(17 + k);
                 }
+
             }
         }
 
@@ -319,6 +321,14 @@ public class PEModel {
 
     public int getVertexCount() {
         return vertexCount;
+    }
+
+    public int getHitRadius() {
+        return hitRadius;
+    }
+
+    public void setHitRadius(int hitRadius) {
+        this.hitRadius = hitRadius;
     }
 
     public int[] getPartVertexStart() {
