@@ -202,9 +202,6 @@ public class PERenderer implements IDisposable {
             int[] rot = PSXMath.rotMatrixYXZ(0, vm.getRotY(), 0);
             int[] pos = {vm.getPosX() >> 16, vm.getPosY() >> 16, vm.getPosZ() >> 16};
             int[][] pose = model.pose(anim, vm.getFrame(), rot, pos);
-            if (ScriptVM.debugTick % 30 == 0)
-                Logger.debug("pose: type=" + vm.getType() + " sub=" + vm.getSub() + " frame=" + vm.getFrame()
-                        + " frames=" + anim.frameCount() + " root=" + pose[0][9] + "," + pose[0][10] + "," + pose[0][11]);
             int[] screen = model.project(pose, viewport.rotation(), viewport.translation());
             PSXOrderingTable ot = new PSXOrderingTable(1024, model.getN34() + model.getN28() + model.getN24() + model.getN1c());
             model.sortIntoOT(screen, ot);

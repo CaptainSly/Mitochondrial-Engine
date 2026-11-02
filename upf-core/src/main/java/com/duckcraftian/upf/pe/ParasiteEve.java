@@ -37,6 +37,7 @@ public class ParasiteEve {
     public static final int AssignValue = 10;
     public static final int SetEntityVec3 = 11;
     public static final int TextboxOpen = 13;
+    public static final int IsButtonDown = 17;
     public static final int SpawnChildNode = 18;
     public static final int SelectFieldSetter = 20;
     public static final int SetEntityMoveSpeed = 27;
@@ -47,6 +48,7 @@ public class ParasiteEve {
     public static final int MarkCurrentNodeFree = 32;
     public static final int TextboxWait = 34;
     public static final int TextboxClose = 35;
+    public static final int GetTouchingActor = 36;
     public static final int ClearGlobalFlags = 43;
     public static final int GetGlobalFlags = 44;
     public static final int SetGlobalFlags = 45;
@@ -62,6 +64,7 @@ public class ParasiteEve {
     public static final int SetCurrentFlag40 = 65;
     public static final int GetMenuChoice = 67;
     public static final int ActorWalkToPoint = 68;
+    public static final int GetAngleToEntity = 69;
     public static final int ScrollCameraAlt = 70;
     public static final int ActorFaceActor = 75;
     public static final int SetEntityAnimSpeed = 78;

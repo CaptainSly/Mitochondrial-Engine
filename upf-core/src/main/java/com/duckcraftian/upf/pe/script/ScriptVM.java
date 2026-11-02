@@ -1,7 +1,6 @@
 package com.duckcraftian.upf.pe.script;
 
 import com.duckcraftian.upf.pe.disc.RoomParser;
-import com.duckcraftian.upf.pe.gfx.BackgroundAnimation;
 import com.duckcraftian.upf.pe.gfx.PEAnimation;
 import com.duckcraftian.upf.pe.gfx.PEModel;
 import com.duckcraftian.upf.pe.gfx.PEText;
@@ -15,8 +14,7 @@ import java.util.*;
 import static com.duckcraftian.upf.pe.ParasiteEve.*;
 import static com.duckcraftian.upf.pe.gfx.BackgroundAnimation.*;
 import static com.duckcraftian.upf.ps1.PSXMath.*;
-import static com.duckcraftian.upf.system.DataTypeHelper.u32LE;
-import static com.duckcraftian.upf.system.DataTypeHelper.u8;
+import static com.duckcraftian.upf.system.DataTypeHelper.*;
 
 public class ScriptVM {
 
@@ -40,6 +38,8 @@ public class ScriptVM {
     public static int viewportIndex = 0;
     public static boolean viewportChanged = false;
 
+    public static int padTrigger, padRelease, padOld;
+
     public static int moveLock;
 
     public static int messageBank;
@@ -49,6 +49,8 @@ public class ScriptVM {
 
     public static int[] playerName = {0x10, 0x48, 0x30};
     public static int[] pendingScroll = null;
+
+    public static int serialCounter;
 
     public static Map<Integer, PEModel> models;
     public static List<Integer> openMessages = new ArrayList<>();
@@ -65,7 +67,9 @@ public class ScriptVM {
 
     private int baseX, baseY, baseZ;
     private int posX, posY, posZ;
-    private int rotX, rotY, rotZ;
+    private int rotX, rotY, rotZ, savedRotY;
+    private int bodyX, bodyY, bodyZ, bodyRadius;
+    private int cylinderX, cylinderZ, cylinderRadius;
     private int motionX, motionY, motionZ;
     private int accelX, accelY, accelZ;
     private int deltaX, deltaY, deltaZ;
@@ -83,13 +87,17 @@ public class ScriptVM {
     private int animLastFrame;
 
     private int face = -1;
+    private int faceMirror = -1;
     private int hitRadius;
+    private boolean hasBody;
 
     private int streamStart;
 
     private Node node;
     private int msgCursor;
     private int contactCursor;
+
+    private int serial;
 
     private ScriptVM parent = null;
 
@@ -128,6 +136,8 @@ public class ScriptVM {
     public static ScriptVM spawn(int type, int sub) {
         var vm = new ScriptVM();
         vm.type = type;
+        vm.serial = serialCounter;
+        serialCounter++;
         PEModel m = models.get(type);
         if (m != null) vm.hitRadius = m.getHitRadius();
         vm.moveFactor = (type == 0) ? 0x10000 : 0x50000;
@@ -193,6 +203,8 @@ public class ScriptVM {
         viewportIndex = 0;
         cameraFrozen = false;
 
+        serialCounter = 1;
+
         ANIM_RECORDS = RoomParser.readAnimationRecords(container);
 
         messageBank = RoomParser.readMessageBank(container);
@@ -216,6 +228,10 @@ public class ScriptVM {
         debugTick++;
         deliverMessages();
 
+        padTrigger = pad & ~padOld;
+        padRelease = padOld & ~pad;
+        padOld = pad;
+
         for (int i = 0; i < actors.size(); i++) {
             ScriptVM vm = actors.get(i);
             if ((vm.entityFlags & 0x10) == 0) continue;
@@ -230,6 +246,7 @@ public class ScriptVM {
             vm.baseX = vm.posX;
             vm.baseY = vm.posY;
             vm.baseZ = vm.posZ;
+            vm.savedRotY = vm.rotY;
             vm.runFrame();
 
             if ((vm.type == 0) && (moveLock & 1) == 0) vm.controller();
@@ -239,6 +256,18 @@ public class ScriptVM {
         for (ScriptVM actor : actors)
             actor.updatePosition();
 
+        for (ScriptVM actor : actors) {
+            actor.updateBodySphere();
+            if ((actor.getType() == 0) && (debugTick % 30) == 0) {
+//                Logger.debug("POS: " + (actor.posX >> 16) + ", " + (actor.posY >> 16) + ", " + (actor.posZ >> 16) +
+//                        "| body: " + actor.bodyX + ", " + actor.bodyY + ", " + actor.bodyZ +
+//                        " | cylinder: " + actor.cylinderX + ", " + actor.cylinderZ +
+//                        " | animation: " + actor.actionMode + ", " + actor.getFrame());
+            }
+        }
+
+        resolveContacts();
+
         for (ScriptVM actor : actors)
             if (actor.parent != null && (actor.entityFlags & 0x400000) != 0) {
                 actor.posX = actor.parent.posX;
@@ -247,20 +276,32 @@ public class ScriptVM {
                 actor.rotX = actor.parent.rotX;
                 actor.rotY = actor.parent.rotY;
                 actor.rotZ = actor.parent.rotZ;
-
-                if (debugTick % 30 == 0)
-                    Logger.debug("follow: child t" + actor.type + " pos=" + (actor.posX >> 16) + "," + (actor.posY >> 16) + "," + (actor.posZ >> 16)
-                            + " rotY=" + actor.rotY + " | parent t" + actor.parent.type + " pos=" + (actor.parent.posX >> 16) + ","
-                            + (actor.parent.posY >> 16) + "," + (actor.parent.posZ >> 16) + " rotY=" + actor.parent.rotY);
-
             }
-
 
 
     }
 
     public static List<ScriptVM> getActors() {
         return actors;
+    }
+
+    public static void dumpActors() {
+        Logger.debug("Actor Size: " + actors.size());
+
+        for (ScriptVM actor : actors) {
+            String line = actor.type + "/" + actor.sub + " serial " + actor.serial + " | pos: " + (actor.posX >> 16) + ", " + (actor.posY >> 16) + ", " + (actor.posZ >> 16) + " | mode: " + actor.actionMode + " frame: " + actor.getFrame();
+            PEModel model = models.get(actor.type);
+            if (model == null)
+                line = line + " no model";
+            else {
+                line = line + " cluts:";
+                for (int i : model.getPrimClut()) {
+                    line = line + " " + ((i & 0x3F) * 16) + ", " + (i >> 6);
+                }
+            }
+
+            Logger.debug(line);
+        }
     }
 
     public static void deliverMessages() {
@@ -277,6 +318,24 @@ public class ScriptVM {
         }
 
         queue.clear();
+    }
+
+    public void linkContact(ScriptVM other) {
+        if (contactCursor == 0) return;
+
+        for (Node node : nodes)
+            if ((node.flags & 1) != 0 && (node.flags & 0x10) == 0 && (node.trigger == other.serial)) return;
+
+        Node newNode = new Node();
+        newNode.cursor = contactCursor;
+        newNode.active = 1;
+        newNode.flags = 1;
+        newNode.trigger = other.serial;
+        newNode.target18 = other.type;
+        newNode.target1c = other.sub;
+        nodes.addFirst(newNode);
+
+        Logger.debug("Contact: " + type + "/" + sub + " <- " + other.type + "/" + other.sub + " serial " + other.serial);
     }
 
     public void slide(int[] wall, int r) {
@@ -320,6 +379,7 @@ public class ScriptVM {
         if (COLLISION == null) return;
         if ((posX >> 16) == (baseX >> 16) && (posZ >> 16) == (baseZ >> 16) && posY == baseY) return;
         if (face < 0) return;
+        faceMirror = face;
 
         int x = posX >> 16;
         int z = posZ >> 16;
@@ -421,8 +481,8 @@ public class ScriptVM {
 
         handlers[OpenNameEntryMenu] = _ -> {
             // EVEN HANK WAS SCARED!
-            playerName = new int[]{PSX.code("H"), PSX.code("a"), PSX.code("n"), PSX.code("k")};
             // Hank: I don't wanna lose my dong.
+            playerName = new int[]{PSX.code("H"), PSX.code("a"), PSX.code("n"), PSX.code("k")};
             return true;
         };
 
@@ -472,6 +532,55 @@ public class ScriptVM {
             int pos = (get(1) < 0) ? 0 : streamStart + get(1) * 2;
             if (get(0) == 2) msgCursor = pos;
             else if (get(0) == 1) contactCursor = pos;
+            return true;
+        };
+
+        handlers[GetTouchingActor] = _ -> {
+            set(0, node.target18);
+            set(1, node.target1c);
+            return true;
+        };
+
+        handlers[GetAngleToEntity] = _ -> {
+            ScriptVM target = null;
+            if (get(0) == 0)
+                target = getPlayer();
+            else target = getActor(get(0), get(1));
+
+            if (target == null) {
+                set(2, -1);
+                return true;
+            }
+
+            int dx = (this.posX - target.posX) >> 16;
+            int dz = (this.posZ - target.posZ) >> 16;
+            int units = (int) Math.round(Math.atan2(dz, dx) * 2048 / Math.PI);
+
+            int angle = 0x1400 - units;
+            if (angle >= 0x1001)
+                angle -= 0x1000;
+
+            angle -= rotY;
+            if (angle < 0)
+                angle += 0x1000;
+
+            set(2, angle);
+            return true;
+        };
+
+        handlers[IsButtonDown] = _ -> {
+            int mode = get(0);
+            int mask = get(1);
+
+            int state = 0;
+            if (mode == 0) state = pad;
+            else if (mode == 1) state = padTrigger;
+            else if (mode == 2) state = padRelease;
+            else return true;
+
+            if ((state & mask) == mask) set(2, 1);
+            else set(2, 0);
+
             return true;
         };
 
@@ -759,7 +868,6 @@ public class ScriptVM {
             return true;
         };
 
-        handlers[123] = _ -> true;
         handlers[136] = _ -> true;
         handlers[WaitForSequenceFrame] = _ -> true;
         handlers[WaitWhileSequenceRunning] = _ -> true;
@@ -951,6 +1059,134 @@ public class ScriptVM {
             return false;
         };
 
+    }
+
+    public void updateBodySphere() {
+        PEModel model = models.get(type);
+        PEAnimation anim = getAnimation();
+
+        if (model == null || anim == null) {
+
+            if (model == null)
+                hasBody = false;
+
+            bodyX = posX >> 16;
+            bodyY = posY >> 16;
+            bodyZ = posZ >> 16;
+            cylinderRadius = 0;
+            bodyRadius = 0;
+            return;
+        }
+
+        hasBody = true;
+
+        int[] rot = PSXMath.rotMatrixYXZ(0, rotY, 0);
+        int[] at = new int[]{posX >> 16, posY >> 16, posZ >> 16};
+        int[][] pose = model.pose(anim, getFrame(), rot, at);
+        int[] anchor = pose[model.getAnchorMatrixIndex()];
+        int[] root = pose[0];
+
+        int offX = (short) (model.getBodyX() + anim.bodyX());
+        int offY = (short) (model.getBodyY() + anim.bodyY());
+        int offZ = (short) (model.getBodyZ() + anim.bodyZ());
+
+        int[] bodyTurned = mulVector(Arrays.copyOfRange(root, 0, 9), offX, offY, offZ);
+        bodyX = bodyTurned[0] + root[9];
+        bodyY = bodyTurned[1] + root[10];
+        bodyZ = bodyTurned[2] + root[11];
+        bodyRadius = anim.bodyRadius() * moveSpeed / 4096;
+
+        int[] cylTurned = mulVector(Arrays.copyOfRange(anchor, 0, 9), 0, model.getAnchorY(), 0);
+        cylinderX = cylTurned[0] + anchor[9];
+        cylinderZ = cylTurned[2] + anchor[11];
+        cylinderRadius = hitRadius * moveSpeed / 4096;
+
+    }
+
+    public static void resolveContacts() {
+
+        for (ScriptVM actor : actors) {
+            actor.entityFlags &= ~0x40000;
+            actor.entityFlags &= ~0x02000000;
+        }
+
+        for (int i = 0; i < actors.size(); i++) {
+            ScriptVM self = actors.get(i);
+            if ((self.entityFlags & 0x20) != 0) continue;
+
+            for (int j = i + 1; j < actors.size(); j++) {
+                ScriptVM other = actors.get(j);
+
+                if (self.parent == other || other.parent == self) continue;
+                if ((self.entityFlags & 0x20000) != 0 && other != getPlayer()) continue;
+                if ((other.entityFlags & 0x20000) != 0 && self != getPlayer()) continue;
+                if ((other.entityFlags & 0x20) != 0) continue;
+
+                int dx = self.bodyX - other.bodyX;
+                int dy = self.bodyY - other.bodyY;
+                int dz = self.bodyZ - other.bodyZ;
+                int reach = self.bodyRadius + other.bodyRadius;
+
+                int bodyDist = dx * dx + dy * dy + dz * dz;
+                int reachSq = reach * reach;
+
+                if (!self.hasBody || !other.hasBody) {
+                    if (bodyDist <= reachSq) {
+                        self.linkContact(other);
+                        other.linkContact(self);
+                    }
+
+                    continue;
+                }
+
+                if (bodyDist > reachSq) continue;
+                if (self.cylinderRadius == 0 || other.cylinderRadius == 0) continue;
+
+                int cx = self.cylinderX - other.cylinderX;
+                int cz = self.cylinderZ - other.cylinderZ;
+                int side = self.cylinderRadius + other.cylinderRadius;
+
+                int cylDist = cx * cx + cz * cz;
+                int sideSq = side * side;
+
+                if (cylDist > sideSq) {
+                    if (cylDist <= sideSq + 10000) {
+                        self.linkContact(other);
+                        other.linkContact(self);
+                    }
+
+                    continue;
+                }
+
+                if (self != getPlayer() && (self.entityFlags & 0x01000000) == 0)
+                    self.rotY = self.savedRotY;
+
+                if (other != getPlayer() && (other.entityFlags & 0x01000000) == 0)
+                    other.rotY = other.savedRotY;
+
+                int selfHeadX = (self.posX - self.baseX) >> 16;
+                int selfHeadZ = (self.posZ - self.baseZ) >> 16;
+
+                if (selfHeadX * cx + selfHeadZ * cz < 0) rollBack(self);
+
+                int otherHeadX = (other.posX - other.baseX) >> 16;
+                int otherHeadZ = (other.posZ - other.baseZ) >> 16;
+
+                if (otherHeadX * cx + otherHeadZ * cz > 0) rollBack(other);
+
+                self.linkContact(other);
+                other.linkContact(self);
+            }
+        }
+
+    }
+
+    public static void rollBack(ScriptVM actor) {
+        actor.posX = actor.baseX;
+        actor.posY = actor.baseY;
+        actor.posZ = actor.baseZ;
+        actor.face = actor.faceMirror;
+        actor.entityFlags |= 0x40000;
     }
 
     public static void openMessage(int id) {

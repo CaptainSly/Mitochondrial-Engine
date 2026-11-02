@@ -21,6 +21,9 @@ public class PEModel {
     private int AnchorY;
     private int anchorMatrixIndex;
     private int hitRadius;
+    private int bodyX;
+    private int bodyY;
+    private int bodyZ;
 
 
     private int[] partVertexStart;
@@ -298,6 +301,30 @@ public class PEModel {
 
     public void setN1c(int n1c) {
         this.n1c = n1c;
+    }
+
+    public int getBodyX() {
+        return bodyX;
+    }
+
+    public void setBodyX(int bodyX) {
+        this.bodyX = bodyX;
+    }
+
+    public int getBodyY() {
+        return bodyY;
+    }
+
+    public void setBodyY(int bodyY) {
+        this.bodyY = bodyY;
+    }
+
+    public int getBodyZ() {
+        return bodyZ;
+    }
+
+    public void setBodyZ(int bodyZ) {
+        this.bodyZ = bodyZ;
     }
 
     public void setByteSize(int byteSize) {

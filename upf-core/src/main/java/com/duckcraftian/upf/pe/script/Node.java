@@ -6,8 +6,12 @@ public class Node {
     public int active;
     public int flags;
     public int target14;
+    public int target18;
+    public int target1c;
     public int targetZ;
     public int turnSpeed;
+    public int trigger;
+
 
     public ScriptVM targetActor;
 

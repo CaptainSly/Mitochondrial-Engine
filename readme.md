@@ -7,12 +7,38 @@ It's written on top of the [UPF](/upf_readme.md), or Untitled Porting Framework.
 
 # Current Status
 
-Maps are visible, 3D Models show. Animations do play. 
-
-You can move Aya around, but there isn't any interaction yet. As a debug check, Aya will be renamed to 'Hank'. This will be removed later... maybe.
-Dialogue does show up on the screen, you can progress through it with 'F'. You will encounter a softlock after talking to Eve before the first battle. 
-
-This is currently a glorified walking simulator. As progress is made, screenshots will be posted below. 
+The following is implemented and working:
+- Disc and Data verification and ripping
+- Rooms and Rendering
+    - Load rooms by any map number
+    - Pre rendered backgrounds are drawn, animated tiles (interactable animated tiles) work.
+    - Viewport moving, swapping
+    - Camera freezing and Unfreezing
+    - Room changes via scripts
+    - 3D Models with Skeletal Animation. 
+    - 4bpp/8bpp texture loading with original palettes
+    - See-through surfaces
+    - Attaching Models to one another for overlays, following
+- Player 
+    - Player Movement, walk, run and idle with original speeds (WASD + LShift)
+- NPC
+    - Per actor speed scale
+    - Scripted Walking, Turning toward point, facing an actor, snapping to animation anchors
+- Collision
+    - Floor meshes with real heights and sloped floors
+    - Circle against edges and slide against walls like the original game does
+    - Scripts that block and unblock individual floor triangles
+    - Actors blocking each other 
+- Interaction
+    - Touching/Nearly Touching an actor starts their contact script
+    - Reading the controller from scripts (held, just pressed, just released) (F = 'x')
+- Dialogue
+    - "Message Boxes" with typed out spaces and per-section timing
+    - Several Messages open at once, and choice prompts with a cursor (W/S to move, F to pick)
+    - Hand Pointer shows up for choices
+    - Controller Button Icons (Hasn't been seen in testing yet, but is implemented in)
+- Scripting
+    - A VM that runs the original room scripts: Currently 75 Op Handlers are implemented
 
 The readme_images folder contains progress images.
 
@@ -64,7 +90,7 @@ See below
 **A:** When the port is functional, and has been modernized you should be able to create custom items, weapons, armors, skills, enemies, etc. But currently, nothing. The current scope right now is to port the code, then once it's functional, modernize the code so it's no longer using PS1 style functionality, and uses more modern game dev approach. Allowing for finer grain control over the data, while still functioning the way the game played on the PS1. 
 
 # License
-"Copyright (C) 2026 Azraein". The license will be moved to GPLv3 in the future.  
+"Copyright (C) 2026 Azraein". The license will be moved to GPLv3 in the future.
 
 "Parasite Eve" Game Assets are not covered by the license and are not redistributed.
 

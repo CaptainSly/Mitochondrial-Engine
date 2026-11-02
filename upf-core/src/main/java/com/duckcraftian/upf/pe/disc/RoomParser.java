@@ -304,6 +304,9 @@ public class RoomParser {
         int triangleTexturesAt = quadTexturesAt + 16 * n34;
 
         int hitAt = descriptionAt + 12 * primCount;
+        int bodyX = s16LE(container, hitAt);
+        int bodyY = s16LE(container, hitAt + 2);
+        int bodyZ = s16LE(container, hitAt + 4);
         int hitRadius = s16LE(container, hitAt + 6);
 
         PEModel model = new PEModel(partCount, vertexCount, primCount);
@@ -313,6 +316,9 @@ public class RoomParser {
         model.setN1c(n1c);
         model.setByteSize(triangleTexturesAt + 12 * n28 - offset);
         model.setAnchorY(s16LE(container, offset + 0x10));
+        model.setBodyX(bodyX);
+        model.setBodyY(bodyY);
+        model.setBodyZ(bodyZ);
         model.setHitRadius(hitRadius);
         model.setAnchorMatrixIndex(u16LE(container, offset + 0x12));
 
@@ -413,6 +419,10 @@ public class RoomParser {
         int encoding = u8(container, offset);
         int lastBone = u8(container, offset + 1);
         int frameCount = u8(container, offset + 2);
+        int bodyX = s16LE(container, offset + 4);
+        int bodyY = s16LE(container, offset + 6);
+        int bodyZ = s16LE(container, offset + 8);
+        int bodyRadius = s16LE(container, offset + 0x0A);
         int boneCount = lastBone + 1;
         int channelCount = 3 + 3 * boneCount;
 
@@ -449,7 +459,7 @@ public class RoomParser {
                 cursor = cursor + 4 * ((frameCount >> 2) + 1);
         }
 
-        return new PEAnimation(frameCount, boneCount, (cursor - offset), channels);
+        return new PEAnimation(frameCount, boneCount, (cursor - offset), bodyX, bodyY, bodyZ, bodyRadius, channels);
     }
 
     public static void parseSkeleton(byte[] container, int partsAt, int matrixAt, int matrixCommandBytes, PEModel model) {

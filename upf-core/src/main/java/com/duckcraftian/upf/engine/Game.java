@@ -83,7 +83,7 @@ public class Game implements IDisposable {
             throw new RuntimeException(e);
         }
 
-        loadMap("m259");
+        loadMap("m317");
     }
 
     public void loadMap(String mapName) {
@@ -115,6 +115,9 @@ public class Game implements IDisposable {
                 downPressed = true;
         }
 
+        if (Input.isKeyJustDown(SDLScancode.SDL_SCANCODE_F8))
+            ScriptVM.dumpActors();
+
         accumulator += delta;
         while (accumulator >= TICK) {
             accumulator -= TICK;
@@ -140,6 +143,10 @@ public class Game implements IDisposable {
 
         if (Input.isKeyDown(SDLScancode.SDL_SCANCODE_LSHIFT))
             pad |= 0x01;
+
+        if (Input.isKeyDown(SDLScancode.SDL_SCANCODE_F))
+            pad |= (0x100 | 0x20000000);
+
 
         if (confirmPressed) {
             ScriptVM.confirm();
