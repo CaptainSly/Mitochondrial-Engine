@@ -25,6 +25,8 @@ public class PEModel {
     private int bodyY;
     private int bodyZ;
 
+    // Debug
+    private int minSlot, maxSlot;
 
     private int[] partVertexStart;
     private int[] partVertexCount;
@@ -159,6 +161,9 @@ public class PEModel {
     }
 
     public void sortIntoOT(int[] screen, PSXOrderingTable ot) {
+        minSlot = Integer.MAX_VALUE;
+        maxSlot = 0;
+
         for (int i = 0; i < n34 + n28 + n24 + n1c; i++) {
             boolean isQuad = (i < n34) || (i >= n34 + n28 && i < n34 + n28 + n24);
             int a = primVertex[4 * i];
@@ -187,7 +192,10 @@ public class PEModel {
             } else PSX.GTE.execute(PSX.CMD_AVSZ3);
 
             int slot = Math.min(PSX.GTE.readData(7), ot.getLength() - 1);
+            minSlot = Math.min(minSlot, slot);
+            maxSlot = Math.max(maxSlot, slot);
             ot.add(slot, i);
+
         }
 
     }
@@ -233,6 +241,22 @@ public class PEModel {
             out.add(s);
             out.add(textured ? 0 : colors[v] & 0xFFFFFF);
         }
+    }
+
+    public int getMinSlot() {
+        return minSlot;
+    }
+
+    public void setMinSlot(int minSlot) {
+        this.minSlot = minSlot;
+    }
+
+    public int getMaxSlot() {
+        return maxSlot;
+    }
+
+    public void setMaxSlot(int maxSlot) {
+        this.maxSlot = maxSlot;
     }
 
     public int[] getPartVisible() {

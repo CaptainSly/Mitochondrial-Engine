@@ -40,15 +40,17 @@ public class ParasiteEve {
     public static final int IsButtonDown = 17;
     public static final int SpawnChildNode = 18;
     public static final int SelectFieldSetter = 20;
+    public static final int Random = 26;
     public static final int SetEntityMoveSpeed = 27;
     public static final int PlayFieldSFX = 28;
-    public static final int CondBranch = 29;
+    public static final int JumpIfNotEqual = 29;
     public static final int SetCurrentFlag80 = 30;
     public static final int GetNodeTarget14 = 31;
     public static final int MarkCurrentNodeFree = 32;
     public static final int TextboxWait = 34;
     public static final int TextboxClose = 35;
     public static final int GetTouchingActor = 36;
+    public static final int SetBit = 42;
     public static final int ClearGlobalFlags = 43;
     public static final int GetGlobalFlags = 44;
     public static final int SetGlobalFlags = 45;
@@ -68,6 +70,10 @@ public class ParasiteEve {
     public static final int ScrollCameraAlt = 70;
     public static final int ActorFaceActor = 75;
     public static final int SetEntityAnimSpeed = 78;
+    public static final int TestGameStateFlags = 81;
+    public static final int SetGameStateFlags = 82;
+    public static final int ClearGameStateFlags = 83;
+    public static final int GetField = 89;
     public static final int SetField = 90;
     public static final int FreezeCamera = 91;
     public static final int UnfreezeCamera = 92;
@@ -80,6 +86,7 @@ public class ParasiteEve {
     public static final int ClearCurrentFlag20 = 120;
     public static final int setCurrentFlag20 = 121;
     public static final int SetBackgroundAnimStep = 123;
+    public static final int SetBackgroundAnimFlags = 126;
     public static final int BlockCollisionTriangle = 128;
     public static final int UnblockCollisionTriangle = 129;
     public static final int SwapViewports = 130;
@@ -87,6 +94,7 @@ public class ParasiteEve {
     public static final int FadeSceneToBlack = 133;
     public static final int FadeSceneIn = 134;
     public static final int FadeSceneToColor = 135;
+    public static final int FindByTypeId = 139;
     public static final int WaitForSequenceFrame = 140;
     public static final int WaitWhileSequenceRunning = 143;
     public static final int Noop145 = 145;

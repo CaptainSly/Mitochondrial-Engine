@@ -31,7 +31,10 @@ public class PSXMath {
     }
 
     public static int fixedDiv(int a, int b) {
-        return (a / (b >> 8)) << 8;
+        int d = b >> 8;
+        if (d == 0) return (a >= 0 ? -1 : 1) << 8;
+
+        return (a / d) << 8;
     }
 
     public static int rcos(int angle) {

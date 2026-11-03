@@ -60,6 +60,12 @@ public class RoomParser {
 
             if ((BackgroundAnimation.entryFlags[l] & 2) == 0) continue;
 
+            int minOrder = Integer.MAX_VALUE;
+            int maxOrder = Integer.MIN_VALUE;
+            int minX = Integer.MAX_VALUE;
+            int maxX = Integer.MIN_VALUE;
+            int minY = Integer.MAX_VALUE;
+            int maxY = Integer.MIN_VALUE;
 
             long first = u32LE(block, entry);
             int layerDepth = (int) ((first >> 8) & 0xFFF);
@@ -87,6 +93,12 @@ public class RoomParser {
                 int u = (int) (w1 & 0xFF);
                 int v = (int) ((w0 >> 24) & 0xFF);
                 int orderIndex = field26 + layerDepth + tileDepth;
+                minOrder = Math.min(minOrder, orderIndex);
+                maxOrder = Math.max(maxOrder, orderIndex);
+                minX = Math.min(minX, x);
+                maxX = Math.max(maxX, x);
+                minY = Math.min(minY, y);
+                maxY = Math.max(maxY, y);
 
                 tiles.add(new BackgroundTile(x, y, clutX, clutY, pageX, pageY, u, v, orderIndex));
             }

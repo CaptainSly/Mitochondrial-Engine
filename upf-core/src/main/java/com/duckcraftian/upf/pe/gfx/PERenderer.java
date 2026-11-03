@@ -203,7 +203,7 @@ public class PERenderer implements IDisposable {
             int[] pos = {vm.getPosX() >> 16, vm.getPosY() >> 16, vm.getPosZ() >> 16};
             int[][] pose = model.pose(anim, vm.getFrame(), rot, pos);
             int[] screen = model.project(pose, viewport.rotation(), viewport.translation());
-            PSXOrderingTable ot = new PSXOrderingTable(1024, model.getN34() + model.getN28() + model.getN24() + model.getN1c());
+            PSXOrderingTable ot = new PSXOrderingTable(4096, model.getN34() + model.getN28() + model.getN24() + model.getN1c());
             model.sortIntoOT(screen, ot);
             for (int value : model.buildTriangles(ot, screen, allSemi))
                 all.add(value);

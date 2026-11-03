@@ -41,6 +41,7 @@ public class ScriptVM {
     public static int padTrigger, padRelease, padOld;
 
     public static int moveLock;
+    public static int gameStateFlags = 0;
 
     public static int messageBank;
     public static int menuChoice = -1;
@@ -97,6 +98,8 @@ public class ScriptVM {
     private int msgCursor;
     private int contactCursor;
 
+    private int[] fields;
+
     private int serial;
 
     private ScriptVM parent = null;
@@ -133,10 +136,14 @@ public class ScriptVM {
 
     public static int debugTick = 0;
 
+    // TODO REMOVE THIS ONCE RNJESUS COMES TO TAKE HIS THRONE!
+    public static final Random rnJesus = new Random();
+
     public static ScriptVM spawn(int type, int sub) {
         var vm = new ScriptVM();
         vm.type = type;
         vm.serial = serialCounter;
+        vm.fields = new int[256];
         serialCounter++;
         PEModel m = models.get(type);
         if (m != null) vm.hitRadius = m.getHitRadius();
@@ -256,15 +263,8 @@ public class ScriptVM {
         for (ScriptVM actor : actors)
             actor.updatePosition();
 
-        for (ScriptVM actor : actors) {
+        for (ScriptVM actor : actors)
             actor.updateBodySphere();
-            if ((actor.getType() == 0) && (debugTick % 30) == 0) {
-//                Logger.debug("POS: " + (actor.posX >> 16) + ", " + (actor.posY >> 16) + ", " + (actor.posZ >> 16) +
-//                        "| body: " + actor.bodyX + ", " + actor.bodyY + ", " + actor.bodyZ +
-//                        " | cylinder: " + actor.cylinderX + ", " + actor.cylinderZ +
-//                        " | animation: " + actor.actionMode + ", " + actor.getFrame());
-            }
-        }
 
         resolveContacts();
 
@@ -301,7 +301,13 @@ public class ScriptVM {
             }
 
             Logger.debug(line);
+
+            if (actor == getPlayer()) {
+                Logger.debug("Aya slot min/max: " + model.getMinSlot() + " / " + model.getMaxSlot());
+            }
+
         }
+
     }
 
     public static void deliverMessages() {
@@ -494,6 +500,86 @@ public class ScriptVM {
         handlers[SwapViewports] = _ -> {
             viewportIndex = get(0);
             viewportChanged = true;
+            return true;
+        };
+
+        handlers[JumpIfZero] = _ -> {
+            int a = get(0);
+            int target = get(1);
+
+            if (a == 0)
+                node.cursor = streamStart + target * 2;
+
+            return true;
+        };
+
+        handlers[SetBit] = _ -> {
+            int current = get(0);
+            int bit = get(1);
+            set(0, current | (1 << bit));
+            return true;
+        };
+
+        handlers[Random] = _ -> {
+            int start = get(1);
+            int stop = get(2);
+            int word = 0;
+            int r = 0;
+
+            if (start == stop)
+                word = rnJesus.nextInt();
+            else {
+                r = rnJesus.nextInt() & 0xFFFF;
+                word = (int) (((((long) r) * ((long) (stop - start))) >> 16) + start);
+            }
+
+            set(0, word);
+            return true;
+        };
+
+        handlers[SetGameStateFlags] = _ -> {
+            gameStateFlags |= get(0);
+            return true;
+        };
+
+        handlers[TestGameStateFlags] = _ -> {
+            set(1, (gameStateFlags & get(0)) != 0 ? 1 : 0);
+            return true;
+        };
+
+        handlers[ClearGameStateFlags] = _ -> {
+            gameStateFlags &= ~get(0);
+            return true;
+        };
+
+        handlers[SetField] = _ -> {
+            int id = get(0) & 0xFF;
+            int value = get(1);
+
+            fields[id] = value;
+            return true;
+        };
+
+        handlers[GetField] = _ -> {
+            int id = get(0) & 0xFF;
+            set(1, fields[id]);
+            return true;
+        };
+
+        handlers[JumpIfNotEqual] = _ -> {
+            int a = get(0);
+            int b = get(1);
+            int target = get(2);
+
+            if (a != b)
+                node.cursor = streamStart + target * 2;
+
+            return true;
+        };
+
+        handlers[SetBackgroundAnimFlags] = _ -> {
+            int c = get(0);
+            ctrlFlags[c] = ctrlFlags[c] | (get(1) & 0x30);
             return true;
         };
 
@@ -709,6 +795,7 @@ public class ScriptVM {
         };
 
         handlers[FadeSceneToColor] = _ -> {
+
             int mode = get(4);
             int level = get(1);
 
@@ -902,6 +989,7 @@ public class ScriptVM {
             int subOp = get(0);
             int a = get(2);
             int b = get(3);
+
             int result = switch (subOp) {
                 case 0 -> a + b;
                 case 1 -> a - b;
@@ -931,6 +1019,29 @@ public class ScriptVM {
             };
 
             set(1, result);
+            return true;
+        };
+
+        handlers[FindByTypeId] = _ -> {
+            int wantType = get(0);
+            int wantSub = get(1);
+            int id = get(2) & 0xFF;
+
+            ScriptVM found = null;
+            for (ScriptVM actor : actors)
+                if (wantType == 0) {
+                    if (actor.type == 0) {
+                        found = actor;
+                        break;
+                    }
+                } else if (actor.type == wantType && actor.sub == wantSub && (actor.entityFlags & 0x10) == 0) {
+                    found = actor;
+                    break;
+                }
+
+            if (found != null)
+                set(3, found.fields[id]);
+
             return true;
         };
 
