@@ -26,6 +26,8 @@ public class ScriptVM {
 
     public static Collision COLLISION;
 
+    public static boolean backgroundDirty = false;
+
     public static int pad;
     public static int cameraYaw, cameraYaw2;
 
@@ -42,6 +44,10 @@ public class ScriptVM {
 
     public static int moveLock;
     public static int gameStateFlags = 0;
+    public static int battleModeState = 0;
+    public static int battleEscapeFlag = 0;
+
+    public static int menuDimLevel;
 
     public static int messageBank;
     public static int menuChoice = -1;
@@ -207,6 +213,7 @@ public class ScriptVM {
 
         current = -1;
         moveLock = 0;
+        menuDimLevel = 0x60;
         viewportIndex = 0;
         cameraFrozen = false;
 
@@ -455,6 +462,11 @@ public class ScriptVM {
         main.active = 1;
         nodes = new ArrayList<>();
         nodes.add(main);
+
+        handlers[SetBackgroundDimLevel] = _ -> {
+            menuDimLevel = get(0);
+            return true;
+        };
 
         handlers[JumpToEntityOffset] = _ -> {
             node.cursor = streamStart + get(0) * 2;
@@ -726,6 +738,40 @@ public class ScriptVM {
             return true;
         };
 
+        handlers[SetBattleModeState6] = _ -> {
+            battleModeState = 6;
+            return true;
+        };
+
+        handlers[GetBattleModeState] = _ -> {
+            set(0, battleModeState);
+            return true;
+        };
+        handlers[ClearBattleModeState] = _ -> {
+            battleModeState = 0;
+            return true;
+        };
+
+        handlers[SetMoveLockBit2] = _ -> {
+            moveLock |= 4;
+            return true;
+        };
+
+        handlers[SetNodeFlag80] = _ -> {
+            node.flags |= 0x80;
+            return true;
+        };
+
+        handlers[SetEntityFlag1000000] = _ -> {
+            entityFlags |= 0x1000000;
+            return true;
+        };
+
+        handlers[SetEscapeFlag] = _ -> {
+            battleEscapeFlag = 1;
+            return true;
+        };
+
         handlers[PlayFieldSFX] = _ -> {
             queue.add(new int[]{
                     get(2) & 0xFF, get(1) & 0xFF, get(0) & 0xFFFF
@@ -916,7 +962,6 @@ public class ScriptVM {
             return false;
         };
 
-        handlers[PlayFMV] = _ -> true;
         handlers[SetBackgroundAnimFrame] = _ -> {
             int c = get(0);
             ctrlElapsed[c] = 0;
@@ -955,6 +1000,8 @@ public class ScriptVM {
             return true;
         };
 
+
+        handlers[PlayFMV] = _ -> true;
         handlers[136] = _ -> true;
         handlers[WaitForSequenceFrame] = _ -> true;
         handlers[WaitWhileSequenceRunning] = _ -> true;
@@ -963,6 +1010,10 @@ public class ScriptVM {
         handlers[166] = _ -> true;
         handlers[234] = _ -> true;
 
+        handlers[DrawActorLit] = _ -> {
+
+            return true;
+        };
 
         handlers[SetEntityVec3] = _ -> {
             switch (get(0)) {
@@ -1021,6 +1072,7 @@ public class ScriptVM {
             set(1, result);
             return true;
         };
+
 
         handlers[FindByTypeId] = _ -> {
             int wantType = get(0);
@@ -1146,8 +1198,57 @@ public class ScriptVM {
             return true;
         };
 
+        handlers[SetRenderEntryEnabled] = _ -> {
+            int layer = get(0);
+            int enabled = get(1);
+
+            if (enabled != 0)
+                entryFlags[layer] |= 2;
+            else
+                entryFlags[layer] &= ~2;
+
+            return true;
+        };
+
+        handlers[SetBackgroundLayerPosition] = _ -> {
+            int l = get(0);
+            int x = (short) get(1);
+            int y = (short) get(2);
+            int depth = get(3);
+
+            int sx = ((short) (entryBaseX[l] + x));
+            if (sx < entryMinX[l])
+                sx = entryMinX[l];
+            else if (sx > entryMaxX[l])
+                sx = entryMaxX[l];
+
+            int sy = ((short) (entryBaseY[l] + y));
+            if (sy < entryMinY[l])
+                sy = entryMinY[l];
+            else if (sy > entryMaxY[l])
+                sy = entryMaxY[l];
+
+            entryScrX[l] = sx;
+            entryScrY[l] = sy;
+            entryDepth[l] = (entryBaseDepth[l] + depth) & 0xFFF;
+            backgroundDirty = true;
+            return true;
+        };
+
         handlers[ClearCurrentFlag80] = _ -> {
             entityFlags &= ~0x80;
+            return true;
+        };
+
+        handlers[GetBackgroundAnimFrame] = _ -> {
+            int c = get(0);
+            set(1, ctrlPos[c] >> 16);
+            return true;
+        };
+
+        handlers[SetBackgroundAnimFlagsInverted] = _ -> {
+            int c = get(0);
+            ctrlFlags[c] |= (~get(1)) & 0x30;
             return true;
         };
 
@@ -1212,6 +1313,12 @@ public class ScriptVM {
         cylinderZ = cylTurned[2] + anchor[11];
         cylinderRadius = hitRadius * moveSpeed / 4096;
 
+    }
+
+    public static boolean takeBackgroundDirty() {
+        boolean dirty = backgroundDirty;
+        backgroundDirty = false;
+        return dirty;
     }
 
     public static void resolveContacts() {
@@ -1390,7 +1497,6 @@ public class ScriptVM {
     }
 
     public static boolean stepBackgroundAnimations(int activeGroup) {
-        int[] before = entryFlags.clone();
         for (int c = 0; c < ctrlFlags.length; c++) {
             if ((ctrlFlags[c] & 2) == 0 || (ctrlFlags[c] & 0x14) == 0) continue;
             if ((ctrlPos[c] & 0xFF) != activeGroup) continue;
@@ -1425,7 +1531,9 @@ public class ScriptVM {
             }
         }
 
-        return !Arrays.equals(before, entryFlags);
+        boolean changed = !Arrays.equals(lastFlags, entryFlags);
+        lastFlags = Arrays.copyOf(entryFlags, entryFlags.length);
+        return changed;
     }
 
     public static void moveChoice(int dir) {

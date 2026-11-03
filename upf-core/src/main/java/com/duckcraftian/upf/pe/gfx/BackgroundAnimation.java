@@ -1,12 +1,17 @@
 package com.duckcraftian.upf.pe.gfx;
 
+import java.util.Arrays;
+
 import static com.duckcraftian.upf.system.DataTypeHelper.*;
 
 public class BackgroundAnimation {
 
     public static int[] ctrlFlags, ctrlPos, ctrlStep, ctrlElapsed, ctrlLength;
     public static int[][] slotEntry, slotDuration;
-    public static int[] entryFlags;
+    public static int[] entryFlags, entryDepth, entryBaseDepth;
+    public static int[] entryScrX, entryScrY, entryBaseX, entryBaseY;
+    public static int[] entryMinX, entryMaxX, entryMinY, entryMaxY;
+    public static int[] lastFlags;
 
     public static void initBackground(byte[] block) {
         int controlCount = u16LE(block, 0x04);
@@ -15,8 +20,32 @@ public class BackgroundAnimation {
         int entryOffset = s32LE(block, 0x14);
 
         entryFlags = new int[layerCount];
-        for (int l = 0; l < layerCount; l++)
-            entryFlags[l] = u8(block, entryOffset + l * 0x38);
+        entryDepth = new int[layerCount];
+        entryBaseDepth = new int[layerCount];
+        entryScrX = new int[layerCount];
+        entryScrY = new int[layerCount];
+        entryBaseX = new int[layerCount];
+        entryBaseY = new int[layerCount];
+        entryMinX = new int[layerCount];
+        entryMaxX = new int[layerCount];
+        entryMinY = new int[layerCount];
+        entryMaxY = new int[layerCount];
+        for (int l = 0; l < layerCount; l++) {
+            int entry = entryOffset + l * 0x38;
+            entryFlags[l] = u8(block, entry);
+
+            int packed = (int) u32LE(block, entry);
+            entryDepth[l] = (packed >> 8) & 0xFFF;
+            entryBaseDepth[l] = (packed >> 20) & 0xFFF;
+            entryScrX[l] = s16LE(block, entry + 0x0C);
+            entryScrY[l] = s16LE(block, entry + 0x0E);
+            entryBaseX[l] = s16LE(block, entry + 0x08);
+            entryBaseY[l] = s16LE(block, entry + 0x0A);
+            entryMinX[l] = s16LE(block, entry + 0x010);
+            entryMaxX[l] = s16LE(block, entry + 0x012);
+            entryMinY[l] = s16LE(block, entry + 0x014);
+            entryMaxY[l] = s16LE(block, entry + 0x016);
+        }
 
         ctrlFlags = new int[controlCount];
         ctrlPos = new int[controlCount];
@@ -47,6 +76,7 @@ public class BackgroundAnimation {
             entryFlags[slotEntry[c][0]] |= 2;
         }
 
+        lastFlags = Arrays.copyOf(entryFlags, entryFlags.length);
     }
 
 }

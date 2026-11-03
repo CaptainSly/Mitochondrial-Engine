@@ -83,7 +83,7 @@ public class Game implements IDisposable {
             throw new RuntimeException(e);
         }
 
-        loadMap("m010");
+        loadMap("m091");
     }
 
     public void loadMap(String mapName) {
@@ -166,7 +166,10 @@ public class Game implements IDisposable {
         ScriptVM.pad = pad;
         ScriptVM.runAll();
 
-        if (ScriptVM.stepBackgroundAnimations(ScriptVM.viewportIndex))
+        boolean changed = ScriptVM.stepBackgroundAnimations(ScriptVM.viewportIndex);
+        boolean dirty = ScriptVM.takeBackgroundDirty();
+
+        if (changed || dirty)
             renderer.upload(RoomParser.parseBackgroundBlock(room.background(), ScriptVM.viewportIndex));
 
         ScriptVM.stepFade();

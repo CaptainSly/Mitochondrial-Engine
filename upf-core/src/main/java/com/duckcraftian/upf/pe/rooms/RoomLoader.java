@@ -35,7 +35,9 @@ public class RoomLoader {
             int[][] modelRecords = RoomParser.readModelRecords(container);
 
             int bank = RoomParser.readEntityBank(container);
-            byte[] bankContainer = UPDHSerializer.getStreamedData(imagesFile, "entity/bank/" + bank + "/container");
+            byte[] bankContainer = null;
+            if (bank != 0)
+                bankContainer = UPDHSerializer.getStreamedData(imagesFile, "entity/bank/" + bank + "/container");
 
             Map<Integer, PEModel> models = new HashMap<>();
             for (int[] record : modelRecords) {

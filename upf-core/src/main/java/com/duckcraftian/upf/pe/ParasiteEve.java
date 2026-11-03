@@ -80,13 +80,17 @@ public class ParasiteEve {
     public static final int SetEntityMoveFactor = 93;
     public static final int GetPlayerPosition = 94;
     public static final int ClearMotionVectors = 101;
+    public static final int SetBackgroundLayerPosition = 113;
+    public static final int SetRenderEntryEnabled = 114;
     public static final int SetBackgroundAnimFrame = 116;
     public static final int SetBackgroundAnimRunning = 117;
     public static final int IsInRectangle = 119;
     public static final int ClearCurrentFlag20 = 120;
     public static final int setCurrentFlag20 = 121;
+    public static final int GetBackgroundAnimFrame = 122;
     public static final int SetBackgroundAnimStep = 123;
     public static final int SetBackgroundAnimFlags = 126;
+    public static final int SetBackgroundAnimFlagsInverted = 127;
     public static final int BlockCollisionTriangle = 128;
     public static final int UnblockCollisionTriangle = 129;
     public static final int SwapViewports = 130;
@@ -94,17 +98,26 @@ public class ParasiteEve {
     public static final int FadeSceneToBlack = 133;
     public static final int FadeSceneIn = 134;
     public static final int FadeSceneToColor = 135;
+    public static final int SetBattleModeState6 = 137;
     public static final int FindByTypeId = 139;
     public static final int WaitForSequenceFrame = 140;
     public static final int WaitWhileSequenceRunning = 143;
     public static final int Noop145 = 145;
+    public static final int GetBattleModeState = 148;
+    public static final int ClearBattleModeState = 149;
     public static final int PlayBackgroundAnimFromTo = 154;
+    public static final int DrawActorLit = 155;
     public static final int WaitForFade = 156;
     public static final int SetSceneFlag2000 = 170;
     public static final int ClearSceneFlag2000 = 171;
+    public static final int SetMoveLockBit2 = 174;
     public static final int ActorTurnToPoint = 184;
+    public static final int SetNodeFlag80 = 199;
     public static final int ActorSnapToAnimAnchor = 205;
+    public static final int SetEscapeFlag = 207;
     public static final int SetEntityParent = 212;
+    public static final int SetEntityFlag1000000 = 220;
+    public static final int SetBackgroundDimLevel = 225;
     public static final int OpenNameEntryMenu = 239;
 
     public static int mapFromToken(int t) {
