@@ -234,16 +234,29 @@ public class PERipper {
         PSXImage pointer = new PSXImage(284, 468, 8, 12, Arrays.copyOfRange(ui, 0xb498, 0xb498 + 192));
         PSXImage pointerClut = new PSXImage(304, 477, 16, 1, Arrays.copyOfRange(ui, 0xb558, 0xb558 + 32));
 
-        List<PSXImage> font = List.of(
+        // At least we don't have a gallon of PCP.
+        PSXImage shadow = new PSXImage(704, 64, 32, 64, Arrays.copyOfRange(ui, 0x7f18, 0x7f18 + 4096));
+        PSXImage shadowClut = new PSXImage(256, 456, 64, 1, Arrays.copyOfRange(ui, 0x8f18, 0x8f18 + 128));
+
+        // A gallon?
+
+        List<PSXImage> font = List.of( // A literal gallon. Out of a milk jug. I don't even know where he got it from; he never leaves the-
                 readTIMImage(fontBlob, 0),
                 readTIMClut(fontBlob, 0),
-                icons, iconClut, pointer, pointerClut
+                icons, iconClut, pointer, pointerClut, shadow, shadowClut
         );
 
         entries.put("text/font/images", convertImagesToBytes(font));
         entries.put("text/font/metrics", Arrays.copyOfRange(pack, 0x7160, 0x7160 + 441));
 
-        UPDHSerializer.write(outFile, entries);
+        // KAMI!?! I NEED YOU TO TELL ME THAT I CAN LEAVE THE LOOKOUT IF I WANT TO.
+        byte[] exe = fs.readFile(fs.findFile(DISC_1_PROGRAM));
+        long loadAddress = u32LE(exe, 0x18);
+        int at = (int) ((NORMAL_TABLE_RAM - loadAddress) + 0x800); // Mr. Popo, you may leave the lookout if you-
+
+        entries.put("render/normals", Arrays.copyOfRange(exe, at, ((int) (at + NORMAL_TABLE_BYTES))));
+
+        UPDHSerializer.write(outFile, entries); // BITCH DON'T TELL ME WHAT TO DO!
     }
 
     public int[] readResidentBoundaries(DiscFileSystem fs) throws IOException {

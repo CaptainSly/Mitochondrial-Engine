@@ -11,6 +11,9 @@ public class ParasiteEve {
 
     public static final long DISC_1_PROG_TBL_RAM = 0x80093378;
     public static final long RESIDENT_TABLE_RAM = 0x800930D8;
+    public static final long NORMAL_TABLE_RAM = 0x80091A58;
+
+    public static final long NORMAL_TABLE_BYTES = 240 * 8;
 
     public static final long PLAYER_TEXTURE_WORD = 0x2F200;
 
@@ -108,6 +111,7 @@ public class ParasiteEve {
     public static final int PlayBackgroundAnimFromTo = 154;
     public static final int DrawActorLit = 155;
     public static final int WaitForFade = 156;
+    public static final int ScaleAnimValue = 157;
     public static final int SetSceneFlag2000 = 170;
     public static final int ClearSceneFlag2000 = 171;
     public static final int SetMoveLockBit2 = 174;
@@ -118,10 +122,60 @@ public class ParasiteEve {
     public static final int SetEntityParent = 212;
     public static final int SetEntityFlag1000000 = 220;
     public static final int SetBackgroundDimLevel = 225;
+    public static final int DispatchScriptCmd = 237;
     public static final int OpenNameEntryMenu = 239;
 
     public static int mapFromToken(int t) {
         return ((t >> 17) & 31) * 100 + ((t >> 12) & 31) * 10 + ((t >> 7) & 31);
     }
+
+    public static String glyph(int b) {
+        if (b <= 0x09) return String.valueOf(b);
+        if (b == 0x0F) return " ";
+        if (b >= 0x10 && b <= 0x29) return String.valueOf((char) ('A' + (b - 0x10)));
+        if (b >= 0x30 && b <= 0x49) return String.valueOf((char) ('a' + (b - 0x30)));
+        if (b == 0x2A) return "&";
+        if (b == 0x2B) return "!";
+        if (b == 0x2C) return "?";
+        if (b == 0x2D) return "\"";
+        if (b == 0x2E) return "'";
+        if (b == 0x2F) return ".";
+        if (b == 0x4A) return ":";
+        if (b == 0x4B) return ",";
+        return "";
+    }
+
+    public static int code(String s) {
+        if (s == null || s.length() != 1) return -1;
+        char c = s.charAt(0);
+
+        if (c >= '0' && c <= '9') return c - '0';          // 0x00-0x09
+        if (c >= 'A' && c <= 'Z') return 0x10 + (c - 'A'); // 0x10-0x29
+        if (c >= 'a' && c <= 'z') return 0x30 + (c - 'a'); // 0x30-0x49
+
+        switch (c) {
+            case ' ':
+                return 0x0F;
+            case '&':
+                return 0x2A;
+            case '!':
+                return 0x2B;
+            case '?':
+                return 0x2C;
+            case '"':
+                return 0x2D;
+            case '\'':
+                return 0x2E;
+            case '.':
+                return 0x2F;
+            case ':':
+                return 0x4A;
+            case ',':
+                return 0x4B;
+            default:
+                return -1; // no mapping
+        }
+    }
+
 
 }

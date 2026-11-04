@@ -4,6 +4,7 @@ import com.duckcraftian.upf.ps1.PSX;
 import com.duckcraftian.upf.ps1.PSXMath;
 import com.duckcraftian.upf.ps1.gfx.PSXOrderingTable;
 import com.duckcraftian.upf.system.Utils;
+import org.tinylog.Logger;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -25,9 +26,6 @@ public class PEModel {
     private int bodyY;
     private int bodyZ;
 
-    // Debug
-    private int minSlot, maxSlot;
-
     private int[] partVertexStart;
     private int[] partVertexCount;
     private int[] partVisible;
@@ -40,11 +38,18 @@ public class PEModel {
     private int[] primPageBits;
     private int[] partTranslationZ;
     private int[] matrixCommands;
+    private int[] normalIndex;
+
+    public static int[] normals;
+
+    // Debug
+    private int minSlot, maxSlot;
 
     public PEModel(int partCount, int vertexCount, int primCount) {
         this.partCount = partCount;
         this.vertexCount = vertexCount;
 
+        normalIndex = new int[vertexCount];
         partVertexStart = new int[partCount];
         partVertexCount = new int[partCount];
         partVisible = new int[partCount];
@@ -57,6 +62,43 @@ public class PEModel {
         primUV = new int[primCount * 8];
     }
 
+    public int[] light(int[][] pose, int shade, int negY, int posY, int roomR, int roomG, int roomB) {
+        int[] lit = new int[vertexCount];
+        int ambient = shade * 16;
+
+        int s0 = Math.clamp(shade + posY, 0, 255) << 4;
+        int s1 = Math.clamp(shade + negY, 0, 255) << 4;
+
+        int[] room = new int[]{roomR, roomG, roomB};
+
+        int minUp = 99999;
+        int maxUp = -99999;
+        int minCh = 255;
+        int maxCh = 0;
+
+        for (int p = 0; p < partCount; p++) {
+            for (int v = partVertexStart[p]; v < partVertexStart[p] + partVertexCount[p]; v++) {
+                int i = normalIndex[v];
+                int up = PSXMath.mulVector(pose[p], normals[3 * i], normals[3 * i + 1], normals[3 * i + 2])[1];
+                int ir0 = Math.max(0, up);
+                int ir1 = Math.max(0, -up);
+
+                int out = 0;
+                for (int k = 0; k < 3; k++) {
+                    int l0 = s0 * room[k] / 256;
+                    int l1 = s1 * room[k] / 256;
+                    int c = ambient + ((l0 * ir0) >> 12) + ((l1 * ir1) >> 12);
+                    int ch = Math.min(255, (0x80 * c) >> 12);
+                    out |= (ch << (8 * k));
+                }
+
+                lit[v] = out;
+            }
+        }
+
+        return lit;
+    }
+
     public int[][] pose(PEAnimation anim, int frame, int[] worldRot, int[] worldTrans) {
         int[][] result = new int[partCount][12];
         int[] curRot = worldRot;
@@ -64,8 +106,7 @@ public class PEModel {
         ArrayDeque<int[]> stack = new ArrayDeque<>();
 
         for (int cmd : matrixCommands) {
-            if (cmd == -1)
-                stack.push(Utils.combineIntArray(curRot, curTrans));
+            if (cmd == -1) stack.push(Utils.combineIntArray(curRot, curTrans));
             else if (cmd == -2) {
                 int[][] parts = Utils.splitIntArray(stack.pop(), 9);
                 curRot = parts[0];
@@ -177,8 +218,7 @@ public class PEModel {
             PSX.GTE.execute(PSX.CMD_NCLIP);
 
             int winding = PSX.GTE.readData(24);
-            if (winding < 0)
-                continue;
+            if (winding < 0) continue;
 
             PSX.GTE.writeData(17, screen[3 * a + 2]);
             PSX.GTE.writeData(18, screen[3 * b + 2]);
@@ -200,7 +240,7 @@ public class PEModel {
 
     }
 
-    public int[] buildTriangles(PSXOrderingTable ot, int[] screen, List<Integer> semiOut) {
+    public int[] buildTriangles(PSXOrderingTable ot, int[] screen, int[] lit, List<Integer> semiOut) {
         ArrayList<Integer> out = new ArrayList<>();
 
         for (int s = ot.getLength() - 1; s >= 0; s--) {
@@ -212,9 +252,9 @@ public class PEModel {
                 boolean isSemi = (kind == 11 || kind == 16 || kind == 21 || kind == 26);
                 List<Integer> target = isSemi ? semiOut : out;
 
-                emit((ArrayList<Integer>) target, p, corner, 0, 1, 2, screen, s);
+                emit((ArrayList<Integer>) target, p, corner, 0, 1, 2, screen, lit, s);
                 if (isQuad) {
-                    emit((ArrayList<Integer>) target, p, corner, 1, 3, 2, screen, s);
+                    emit((ArrayList<Integer>) target, p, corner, 1, 3, 2, screen, lit, s);
                 }
 
             }
@@ -227,7 +267,7 @@ public class PEModel {
         return result;
     }
 
-    public void emit(ArrayList<Integer> out, int p, int[] corner, int i, int j, int k, int[] screen, int s) {
+    public void emit(ArrayList<Integer> out, int p, int[] corner, int i, int j, int k, int[] screen, int[] lit, int s) {
         int[] arr = {i, j, k};
         boolean textured = p < n34 + n28;
         for (int c : arr) {
@@ -239,7 +279,7 @@ public class PEModel {
             out.add(textured ? primPageBits[p] : -1);
             out.add(textured ? primClut[p] : 0);
             out.add(s);
-            out.add(textured ? 0 : colors[v] & 0xFFFFFF);
+            out.add(textured ? lit[v] : colors[v] & 0xFFFFFF);
         }
     }
 
@@ -277,6 +317,10 @@ public class PEModel {
 
     public int[] getPartTranslationZ() {
         return partTranslationZ;
+    }
+
+    public int[] getNormalIndex() {
+        return normalIndex;
     }
 
     public void setPartTranslationZ(int[] partTranslationZ) {

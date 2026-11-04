@@ -331,6 +331,7 @@ public class RoomParser {
             model.getVertices()[3 * v] = s16LE(container, verticesAt + 8 * v);
             model.getVertices()[3 * v + 1] = s16LE(container, verticesAt + 8 * v + 2);
             model.getVertices()[3 * v + 2] = s16LE(container, verticesAt + 8 * v + 4);
+            model.getNormalIndex()[v] = s16LE(container, verticesAt + 8 * v + 6);
             model.getColors()[v] = (int) u32LE(container, colorsAt + 4 * v);
         }
 

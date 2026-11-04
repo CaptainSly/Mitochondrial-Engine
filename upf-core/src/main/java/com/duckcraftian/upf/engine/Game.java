@@ -7,6 +7,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.duckcraftian.upf.pe.gfx.PEModel;
 import org.lwjgl.sdl.SDLScancode;
 import org.tinylog.Logger;
 
@@ -28,6 +29,8 @@ import com.duckcraftian.upf.ps1.disc.DiscFileSystem;
 import com.duckcraftian.upf.serialization.UPDHSerializer;
 import com.duckcraftian.upf.system.Utils;
 import com.duckcraftian.upf.utils.Input;
+
+import static com.duckcraftian.upf.system.DataTypeHelper.s16LE;
 
 public class Game implements IDisposable {
 
@@ -79,11 +82,20 @@ public class Game implements IDisposable {
 
             byte[] fontMetrics = UPDHSerializer.getStreamedData(imagesFiles, "text/font/metrics");
             PEText.metrics = fontMetrics;
+            byte[] normals = UPDHSerializer.getStreamedData(imagesFiles, "render/normals");
+
+            PEModel.normals = new int[240 * 3];
+            for (int i = 0; i < 240; i ++) {
+                PEModel.normals[3 * i] = s16LE(normals, 8 * i);
+                PEModel.normals[3 * i + 1] = s16LE(normals, 8 * i + 2);
+                PEModel.normals[3 * i + 2] = s16LE(normals, 8 * i + 4);
+            }
+
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
 
-        loadMap("m091");
+        loadMap("m341");
     }
 
     public void loadMap(String mapName) {

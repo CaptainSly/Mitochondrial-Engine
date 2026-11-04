@@ -5,7 +5,6 @@ import com.duckcraftian.upf.pe.gfx.PEAnimation;
 import com.duckcraftian.upf.pe.gfx.PEModel;
 import com.duckcraftian.upf.pe.gfx.PEText;
 import com.duckcraftian.upf.pe.rooms.Collision;
-import com.duckcraftian.upf.ps1.PSX;
 import com.duckcraftian.upf.ps1.PSXMath;
 import org.tinylog.Logger;
 
@@ -14,7 +13,8 @@ import java.util.*;
 import static com.duckcraftian.upf.pe.ParasiteEve.*;
 import static com.duckcraftian.upf.pe.gfx.BackgroundAnimation.*;
 import static com.duckcraftian.upf.ps1.PSXMath.*;
-import static com.duckcraftian.upf.system.DataTypeHelper.*;
+import static com.duckcraftian.upf.system.DataTypeHelper.u32LE;
+import static com.duckcraftian.upf.system.DataTypeHelper.u8;
 
 public class ScriptVM {
 
@@ -39,6 +39,12 @@ public class ScriptVM {
 
     public static int viewportIndex = 0;
     public static boolean viewportChanged = false;
+
+    public static boolean textboxSharedBackdrop = false;
+
+    public static int roomLightR = 0xFF;
+    public static int roomLightG = 0xFF;
+    public static int roomLightB = 0xFF;
 
     public static int padTrigger, padRelease, padOld;
 
@@ -83,6 +89,14 @@ public class ScriptVM {
 
     private int moveFactor;
     private int moveSpeed = 0x1000;
+
+    private int shade = 0x80;
+    private int lightNegativeY = 0xC;
+    private int lightPositiveY = 0x18;
+    private int shadowMatrixIndex = 0;
+    private int shadowIntensity = 0x80;
+    private int shadowRadius;
+
     private int entityFlags;
 
     private int entityMode;
@@ -150,11 +164,13 @@ public class ScriptVM {
         vm.type = type;
         vm.serial = serialCounter;
         vm.fields = new int[256];
+
         serialCounter++;
+
         PEModel m = models.get(type);
         if (m != null) vm.hitRadius = m.getHitRadius();
         vm.moveFactor = (type == 0) ? 0x10000 : 0x50000;
-
+        vm.shadowRadius = vm.hitRadius * 2;
         vm.sub = sub;
         vm.start(STARTS[type]);
         vm.actions = new HashMap<>();
@@ -218,6 +234,9 @@ public class ScriptVM {
         cameraFrozen = false;
 
         serialCounter = 1;
+        roomLightR = 0xFF;
+        roomLightG = 0xFF;
+        roomLightB = 0xFF;
 
         ANIM_RECORDS = RoomParser.readAnimationRecords(container);
 
@@ -468,6 +487,37 @@ public class ScriptVM {
             return true;
         };
 
+        handlers[DispatchScriptCmd] = _ -> {
+            int sub = get(0);
+            switch (sub) {
+                case 2601:
+                    shadowIntensity = get(1) & 0xFF;
+                    break;
+                case 2500:
+                    spawnAt(get(1), get(2), get(3), get(4), get(5), false);
+                    break;
+                case 2600:
+                    shadowMatrixIndex = get(1) & 0xFF;
+                    break;
+                case 2300:
+                    textboxSharedBackdrop = (get(1) != 0);
+                    break;
+                case 2700:
+                    roomLightR = get(1);
+                    roomLightG = get(2);
+                    roomLightB = get(3);
+                    break;
+                case 2100, 2101, 2900, 3200, 2201:
+                    Logger.debug("Just keep rolling rolling rolling");
+                    break; // BACK UP, BACK UP! WHATCHYA GONNA DO NOW!
+                default:
+                    Logger.error("Op 237 sub-command " + sub + " unimplemented");
+                    break;
+            }
+
+            return true;
+        };
+
         handlers[JumpToEntityOffset] = _ -> {
             node.cursor = streamStart + get(0) * 2;
             return true;
@@ -500,7 +550,7 @@ public class ScriptVM {
         handlers[OpenNameEntryMenu] = _ -> {
             // EVEN HANK WAS SCARED!
             // Hank: I don't wanna lose my dong.
-            playerName = new int[]{PSX.code("H"), PSX.code("a"), PSX.code("n"), PSX.code("k")};
+            playerName = new int[]{code("H"), code("a"), code("n"), code("k")};
             return true;
         };
 
@@ -868,11 +918,7 @@ public class ScriptVM {
         };
 
         handlers[SpawnEntityAt] = _ -> {
-            ScriptVM a = spawn(get(0), get(1));
-            a.posX = get(2);
-            a.posY = get(3);
-            a.posZ = get(4);
-            findFloor();
+            spawnAt(get(0), get(1), get(2), get(3), get(4), true);
             return true;
         };
 
@@ -994,6 +1040,7 @@ public class ScriptVM {
             ctrlPos[c] = (ctrlPos[c] & 0xFF) | (from << 16);
             ctrlFlags[c] |= 6;
             slotDuration[c][to] = -1;
+
             if ((ctrlStep[c] > 0 && to < from) || (ctrlStep[c] < 0 && from < to))
                 ctrlStep[c] = -ctrlStep[c];
 
@@ -1006,12 +1053,21 @@ public class ScriptVM {
         handlers[WaitForSequenceFrame] = _ -> true;
         handlers[WaitWhileSequenceRunning] = _ -> true;
         handlers[Noop145] = _ -> true;
-        handlers[157] = _ -> true;
+
+        handlers[ScaleAnimValue] = _ -> {
+            shadowRadius = (hitRadius * 2 * get(0)) >> 16;
+            return true;
+        };
+
         handlers[166] = _ -> true;
         handlers[234] = _ -> true;
 
         handlers[DrawActorLit] = _ -> {
+            shade = get(0);
+            lightNegativeY = get(1);
+            lightPositiveY = get(2);
 
+            // Yeah! Scie...err Software Engineering. BITCH!
             return true;
         };
 
@@ -1441,6 +1497,16 @@ public class ScriptVM {
             case 4 -> NODE_FLAGS[raw[i]];
             default -> raw[i];
         };
+    }
+
+    public void spawnAt(int type, int sub, int x, int y, int z, boolean snapToFloor) {
+        ScriptVM a = spawn(type, sub);
+        a.posX = x;
+        a.posY = y;
+        a.posZ = z;
+
+        if (snapToFloor)
+            a.findFloor();
     }
 
     public void set(int i, int value) {
@@ -1970,6 +2036,18 @@ public class ScriptVM {
         return messageCursor;
     }
 
+    public int getShade() {
+        return shade;
+    }
+
+    public int getLightNegativeY() {
+        return lightNegativeY;
+    }
+
+    public int getLightPositiveY() {
+        return lightPositiveY;
+    }
+
     public int getBaseX() {
         return baseX;
     }
@@ -2018,6 +2096,10 @@ public class ScriptVM {
         return deltaZ;
     }
 
+    public int getShadowRadius() {
+        return shadowRadius;
+    }
+
     public int getMoveFactor() {
         return moveFactor;
     }
@@ -2040,6 +2122,18 @@ public class ScriptVM {
 
     public int getAnimFrame() {
         return animFrame;
+    }
+
+    public int getCylinderRadius() {
+        return cylinderRadius;
+    }
+
+    public int getShadowMatrixIndex() {
+        return shadowMatrixIndex;
+    }
+
+    public int getShadowIntensity() {
+        return shadowIntensity;
     }
 
     public int getAnimStep() {
