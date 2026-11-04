@@ -63,7 +63,7 @@ public class PEModel {
     }
 
     public int[] light(int[][] pose, int shade, int negY, int posY, int roomR, int roomG, int roomB) {
-        int[] lit = new int[vertexCount];
+        int[] lit = new int[vertexCount * 2];
         int ambient = shade * 16;
 
         int s0 = Math.clamp(shade + posY, 0, 255) << 4;
@@ -71,28 +71,48 @@ public class PEModel {
 
         int[] room = new int[]{roomR, roomG, roomB};
 
-        int minUp = 99999;
-        int maxUp = -99999;
-        int minCh = 255;
-        int maxCh = 0;
-
         for (int p = 0; p < partCount; p++) {
-            for (int v = partVertexStart[p]; v < partVertexStart[p] + partVertexCount[p]; v++) {
-                int i = normalIndex[v];
-                int up = PSXMath.mulVector(pose[p], normals[3 * i], normals[3 * i + 1], normals[3 * i + 2])[1];
-                int ir0 = Math.max(0, up);
-                int ir1 = Math.max(0, -up);
+            int start = partVertexStart[p];
+            int stop = start + partVertexCount[p];
 
-                int out = 0;
-                for (int k = 0; k < 3; k++) {
-                    int l0 = s0 * room[k] / 256;
-                    int l1 = s1 * room[k] / 256;
-                    int c = ambient + ((l0 * ir0) >> 12) + ((l1 * ir1) >> 12);
-                    int ch = Math.min(255, (0x80 * c) >> 12);
-                    out |= (ch << (8 * k));
+            for (int first = start; first < stop; first += 3) {
+                int base = 0;
+                for (int v = first; v < Math.min(first + 3, stop); v++) {
+                    if (((colors[v] >> 24) & 0xFF) != 0) {
+                        base = colors[v];
+                        break;
+                    }
                 }
 
-                lit[v] = out;
+                for (int v = first; v < Math.min(first + 3, stop); v++) {
+                    int i = normalIndex[v];
+                    int up = PSXMath.mulVector(pose[p], normals[3 * i], normals[3 * i + 1], normals[3 * i + 2])[1];
+                    int ir0 = Math.max(0, up);
+                    int ir1 = Math.max(0, -up);
+
+                    int out = 0;
+                    int outCol = 0;
+                    for (int k = 0; k < 3; k++) {
+                        int l0 = s0 * room[k] / 256;
+                        int l1 = s1 * room[k] / 256;
+                        int c = ambient + ((l0 * ir0) >> 12) + ((l1 * ir1) >> 12);
+                        int ch = Math.min(255, (0x80 * c) >> 12);
+                        out |= (ch << (8 * k));
+
+                        if (base != 0) {
+                            int baseCh = (base >> (8 * k)) & 0xFF;
+                            int chCol = Math.min(255, (baseCh * c) >> 12);
+                            outCol |= (chCol << (8 * k));
+                        }
+                    }
+
+                    lit[v] = out;
+                    if (base != 0)
+                        lit[vertexCount + v] = outCol;
+                    else
+                        lit[vertexCount + v] = colors[v] & 0xFFFFFF;
+                }
+
             }
         }
 
@@ -279,7 +299,7 @@ public class PEModel {
             out.add(textured ? primPageBits[p] : -1);
             out.add(textured ? primClut[p] : 0);
             out.add(s);
-            out.add(textured ? lit[v] : colors[v] & 0xFFFFFF);
+            out.add(textured ? lit[v] : lit[vertexCount + v] & 0xFFFFFF);
         }
     }
 
