@@ -8,6 +8,7 @@ import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import static com.duckcraftian.upf.ps1.disc.DiscConstants.*;
@@ -95,6 +96,18 @@ public class DiscFileSystem implements IDisposable {
             int remaining = (int) (entry.size() - copied);
             byte[] chunk = disc.readData(entry.lba() + i);
             System.arraycopy(chunk, 0, out, i * FORM1_DATA_SIZE, Math.min(FORM1_DATA_SIZE, remaining));
+        }
+
+        return out;
+    }
+
+    public byte[] readRawFile(DiscEntry entry) throws IOException {
+        int sectors = (int) ((entry.size() + 2047) / 2048);
+        byte[] out = new byte[sectors * RAW_SECTOR_SIZE];
+
+        for (int i = 0; i < sectors; i++) {
+            byte[] raw = disc.readRawSector(entry.lba() + i);
+            System.arraycopy(raw, 0, out, i * RAW_SECTOR_SIZE, RAW_SECTOR_SIZE);
         }
 
         return out;

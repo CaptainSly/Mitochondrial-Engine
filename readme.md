@@ -19,6 +19,7 @@ The following is implemented and working:
     - 4bpp/8bpp texture loading with original palettes
     - See-through surfaces
     - Attaching Models to one another for overlays, following
+    - Models and rooms now have lighting
 - Player 
     - Player Movement, walk, run and idle with original speeds (WASD + LShift)
 - NPC
@@ -38,7 +39,7 @@ The following is implemented and working:
     - Hand Pointer shows up for choices
     - Controller Button Icons (Hasn't been seen in testing yet, but is implemented in)
 - Scripting
-    - A VM that runs the original room scripts: Currently 75 Op Handlers are implemented
+    - A VM that runs the original room scripts: Currently 90 Op Handlers are implemented
 
 The readme_images folder contains progress images.
 

@@ -232,7 +232,7 @@ public class PERipperTest {
     @Test
     void ripImagesTest(@TempDir Path tempDir) throws IOException {
         Path file = tempDir.resolve("images.udh");
-        ripper.ripImages(d1_fs, file);
+        ripper.ripImages(d1_fs, d2_fs, file);
         assertTrue(Files.exists(tempDir.resolve("images.udh")));
 
         RoomRange range = ripper.readRoomTable(d1_fs).get(0);

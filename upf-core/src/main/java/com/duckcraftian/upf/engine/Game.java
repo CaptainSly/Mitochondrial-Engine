@@ -60,18 +60,20 @@ public class Game implements IDisposable {
         viewports = new ArrayList<>();
         renderer = new PERenderer();
 
-        imagesFiles = UPF.getEngineFolder("data").resolve("images.udh");
+        imagesFiles = UPF.getEngineFolder("data").resolve("pe.udh");
         if (!Files.exists(imagesFiles)) {
-            DiscFileSystem dfs = null;
+            DiscFileSystem dfs = null, dfs2 = null;
             try {
                 dfs = new DiscFileSystem("pe_disc_1");
+                dfs2 = new DiscFileSystem("pe_disc_2");
                 ripper = new PERipper();
-                ripper.ripImages(dfs, imagesFiles);
+                ripper.ripImages(dfs, dfs2, imagesFiles);
 
             } catch (URISyntaxException | IOException e) {
                 throw new RuntimeException(e);
             } finally {
                 dfs.onDispose();
+                dfs2.onDispose();
             }
         }
 
@@ -85,7 +87,7 @@ public class Game implements IDisposable {
             byte[] normals = UPDHSerializer.getStreamedData(imagesFiles, "render/normals");
 
             PEModel.normals = new int[240 * 3];
-            for (int i = 0; i < 240; i ++) {
+            for (int i = 0; i < 240; i++) {
                 PEModel.normals[3 * i] = s16LE(normals, 8 * i);
                 PEModel.normals[3 * i + 1] = s16LE(normals, 8 * i + 2);
                 PEModel.normals[3 * i + 2] = s16LE(normals, 8 * i + 4);

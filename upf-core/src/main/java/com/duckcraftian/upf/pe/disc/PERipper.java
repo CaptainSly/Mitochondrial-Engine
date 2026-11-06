@@ -14,6 +14,7 @@ import com.duckcraftian.upf.ps1.disc.RawDiscEntry;
 import com.duckcraftian.upf.serialization.UPDHSerializer;
 import com.duckcraftian.upf.system.FileUtils;
 import com.duckcraftian.upf.utils.ProgressListener;
+import org.tinylog.Logger;
 
 import java.io.File;
 import java.io.IOException;
@@ -175,9 +176,32 @@ public class PERipper {
         return ranges;
     }
 
-    public void ripImages(DiscFileSystem fs, Path outFile) throws IOException {
-        List<RoomRange> ranges = readRoomTable(fs);
-        DiscEntry pe = fs.findFile("PE.IMG");
+    public void ripMovies(DiscFileSystem fs1, DiscFileSystem fs2, LinkedHashMap<String, byte[]> entries) throws IOException {
+        DiscEntry pe = fs1.findFile("PE.IMG");
+        String[] dirPath = {"FMV1", "FMV2", "XASTREAM"};
+        for (String dir : dirPath) {
+            DiscFileSystem fs = null;
+            if (dir.equals("FMV1"))
+                fs = fs1;
+            else fs = fs2;
+
+            DiscEntry directory = fs.findFile(dir);
+            for (DiscEntry file : fs.listDir(directory.lba(), directory.size())) {
+                String name = file.name().substring(0, file.name().indexOf("."));
+                if (name.contains("PEDISC0")) continue;
+                entries.put("movies/" + name, fs.readRawFile(file));
+                Logger.debug("Added: movies/" + name + " size=" + file.size());
+            }
+
+            int[] b = readResidentBoundaries(fs1);
+            byte[] blob = fs1.readSectors(pe, b[70], b[71] - b[70]);
+            entries.put("movies/table", Arrays.copyOfRange(blob, 269840, 269840 + 47 * 20));
+        }
+    }
+
+    public void ripImages(DiscFileSystem fs1, DiscFileSystem fs2, Path outFile) throws IOException {
+        List<RoomRange> ranges = readRoomTable(fs1);
+        DiscEntry pe = fs1.findFile("PE.IMG");
         LinkedHashMap<String, byte[]> entries = new LinkedHashMap<>();
 
         for (int i = 0; i < ranges.size(); i++) {
@@ -194,9 +218,9 @@ public class PERipper {
             else if (map >= 100)
                 mapName = "m" + map;
 
-            byte[] scratch = fs.readSectors(pe, range.start(), (int) range.scratch());
-            byte[] texture = fs.readSectors(pe, range.start() + range.scratch(), (int) range.texture());
-            byte[] room = fs.readSectors(pe, range.start() + range.scratch() + range.texture(), (int) range.room());
+            byte[] scratch = fs1.readSectors(pe, range.start(), (int) range.scratch());
+            byte[] texture = fs1.readSectors(pe, range.start() + range.scratch(), (int) range.texture());
+            byte[] room = fs1.readSectors(pe, range.start() + range.scratch() + range.texture(), (int) range.room());
 
             byte[] scratchConvert = convertImagesToBytes(readVramUploads(scratch));
             byte[] textureConvert = convertImagesToBytes(readVramUploads(texture));
@@ -212,22 +236,22 @@ public class PERipper {
             entries.put("rooms/" + mapName + "/container", room);
         }
 
-        int[] boundaries = readResidentBoundaries(fs);
+        int[] boundaries = readResidentBoundaries(fs1);
 
         for (int bank = 10; bank <= 13; bank++) {
             int modelRange = bank + 8;
             int texRange = bank + 3;
 
-            byte[] blob = fs.readSectors(pe, boundaries[modelRange], boundaries[modelRange + 1] - boundaries[modelRange]);
-            byte[] tex = fs.readSectors(pe, boundaries[texRange], boundaries[texRange + 1] - boundaries[texRange]);
+            byte[] blob = fs1.readSectors(pe, boundaries[modelRange], boundaries[modelRange + 1] - boundaries[modelRange]);
+            byte[] tex = fs1.readSectors(pe, boundaries[texRange], boundaries[texRange + 1] - boundaries[texRange]);
 
             entries.put("entity/bank/" + bank + "/container", blob);
             entries.put("images/entity/bank/" + bank, convertImagesToBytes(readVramUploads(tex)));
         }
 
-        byte[] fontBlob = fs.readSectors(pe, boundaries[72], boundaries[73] - boundaries[72]);
-        byte[] pack = fs.readSectors(pe, boundaries[2], boundaries[3] - boundaries[2]);
-        byte[] ui = fs.readSectors(pe, boundaries[9], boundaries[10] - boundaries[9]);
+        byte[] fontBlob = fs1.readSectors(pe, boundaries[72], boundaries[73] - boundaries[72]);
+        byte[] pack = fs1.readSectors(pe, boundaries[2], boundaries[3] - boundaries[2]);
+        byte[] ui = fs1.readSectors(pe, boundaries[9], boundaries[10] - boundaries[9]);
 
         PSXImage icons = new PSXImage(272, 468, 12, 12, Arrays.copyOfRange(ui, 0xb358, 0xb358 + 288));
         PSXImage iconClut = new PSXImage(304, 478, 16, 1, Arrays.copyOfRange(ui, 0xb478, 0xb478 + 32));
@@ -250,13 +274,38 @@ public class PERipper {
         entries.put("text/font/metrics", Arrays.copyOfRange(pack, 0x7160, 0x7160 + 441));
 
         // KAMI!?! I NEED YOU TO TELL ME THAT I CAN LEAVE THE LOOKOUT IF I WANT TO.
-        byte[] exe = fs.readFile(fs.findFile(DISC_1_PROGRAM));
+        byte[] exe = fs1.readFile(fs1.findFile(DISC_1_PROGRAM));
         long loadAddress = u32LE(exe, 0x18);
         int at = (int) ((NORMAL_TABLE_RAM - loadAddress) + 0x800); // Mr. Popo, you may leave the lookout if you-
 
         entries.put("render/normals", Arrays.copyOfRange(exe, at, ((int) (at + NORMAL_TABLE_BYTES))));
 
-        UPDHSerializer.write(outFile, entries); // BITCH DON'T TELL ME WHAT TO DO!
+        // BITCH DON'T TELL ME WHAT TO DO!
+
+        int dirAt = (int) (SOUND_DIR_RAM - loadAddress) + 0x800;
+        long baseLBA = u32LE(exe, dirAt);
+
+        int[] offsets = new int[251];
+        for (int i = 0; i < offsets.length; i++)
+            offsets[i] = u16LE(exe, dirAt + 4 + i * 2);
+
+        for (int item = 0; item < 250; item++) {
+            int sectors = offsets[item + 1] - offsets[item];
+            if (sectors > 0) {
+                String soundName = "s";
+                if (item <= 9)
+                    soundName = "s00" + item;
+                else if (item >= 10 && item < 100)
+                    soundName = "s0" + item;
+                else if (item >= 100)
+                    soundName = "s" + item;
+
+                entries.put("sound/bank/" + soundName, fs1.readSectors(pe, baseLBA + offsets[item], sectors));
+            }
+        }
+
+        ripMovies(fs1, fs2, entries);
+        UPDHSerializer.write(outFile, entries);
     }
 
     public int[] readResidentBoundaries(DiscFileSystem fs) throws IOException {

@@ -12,6 +12,7 @@ public class ParasiteEve {
     public static final long DISC_1_PROG_TBL_RAM = 0x80093378;
     public static final long RESIDENT_TABLE_RAM = 0x800930D8;
     public static final long NORMAL_TABLE_RAM = 0x80091A58;
+    public static final long SOUND_DIR_RAM = 0x8009317C;
 
     public static final long NORMAL_TABLE_BYTES = 240 * 8;
 
