@@ -13,6 +13,9 @@ public class ParasiteEve {
     public static final long RESIDENT_TABLE_RAM = 0x800930D8;
     public static final long NORMAL_TABLE_RAM = 0x80091A58;
     public static final long SOUND_DIR_RAM = 0x8009317C;
+    public static final long AKAO_LENGTHS_RAM = 0x8009B85C;
+    public static final long AKAO_NOTE_LENGTHS_RAM = 0x8009B8DC;
+    public static final long AKAO_PAN_TABLE_RAM = 0x8009B8F8;
 
     public static final long NORMAL_TABLE_BYTES = 240 * 8;
 

@@ -20,7 +20,7 @@ public class SpuAdpcm {
             int nib = (i % 2) == 0 ? b & 0x0F : b >> 4;
 
             if (nib >= 8) nib -= 16;
-            int s = nib * (1 << (12 - shift)) + (old * F0[filter] + older * F1[filter]) >> 6;
+            int s = nib * (1 << (12 - shift)) + ((old * F0[filter] + older * F1[filter]) >> 6);
 
             if (s > 32767) s = 32767;
             if (s < -32768) s = -32768;

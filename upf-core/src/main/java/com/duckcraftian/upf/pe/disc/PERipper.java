@@ -282,12 +282,21 @@ public class PERipper {
 
         // BITCH DON'T TELL ME WHAT TO DO!
 
-        int dirAt = (int) (SOUND_DIR_RAM - loadAddress) + 0x800;
-        long baseLBA = u32LE(exe, dirAt);
+        int akaoDirAt = (int) (AKAO_LENGTHS_RAM - loadAddress) + 0x800;
+        entries.put("sound/akao/lengths", Arrays.copyOfRange(exe, akaoDirAt, akaoDirAt + 128));
+
+        int akaoNoteDirAt = (int) (AKAO_NOTE_LENGTHS_RAM - loadAddress) + 0x800;
+        entries.put("sound/akao/noteLengths", Arrays.copyOfRange(exe, akaoNoteDirAt, akaoNoteDirAt + 22));
+
+        int akaoPanTableAt = (int) (AKAO_PAN_TABLE_RAM - loadAddress) + 0x800;
+        entries.put("sound/akao/panTable", Arrays.copyOfRange(exe, akaoPanTableAt, akaoPanTableAt + 512));
+
+        int soundDirAt = (int) (SOUND_DIR_RAM - loadAddress) + 0x800;
+        long baseLBA = u32LE(exe, soundDirAt);
 
         int[] offsets = new int[251];
         for (int i = 0; i < offsets.length; i++)
-            offsets[i] = u16LE(exe, dirAt + 4 + i * 2);
+            offsets[i] = u16LE(exe, soundDirAt + 4 + i * 2);
 
         for (int item = 0; item < 250; item++) {
             int sectors = offsets[item + 1] - offsets[item];

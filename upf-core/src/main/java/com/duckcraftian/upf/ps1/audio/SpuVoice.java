@@ -46,6 +46,11 @@ public class SpuVoice {
         envCounter = 0;
     }
 
+    public void setVolume(float left, float right) {
+        volL = left;
+        volR = right;
+    }
+
     public void render(int frames, float[] outL, float[] outR) {
         for (int i = 0; i < frames; i++) {
             if (phase == OFF) {

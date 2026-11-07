@@ -1,8 +1,11 @@
 package com.duckcraftian.upf.pe.audio;
 
 import com.duckcraftian.upf.UPF;
+import com.duckcraftian.upf.pe.disc.PERipper;
 import com.duckcraftian.upf.ps1.audio.SpuVoice;
 import com.duckcraftian.upf.ps1.audio.XaAdpcm;
+import com.duckcraftian.upf.ps1.disc.DiscFileSystem;
+import com.duckcraftian.upf.serialization.UPDHSerializer;
 import com.duckcraftian.upf.system.Utils;
 import com.google.gson.GsonBuilder;
 import org.junit.jupiter.api.Test;
@@ -14,6 +17,7 @@ import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -167,8 +171,81 @@ class AKAOBankTest {
         AudioSystem.write(ais, AudioFileFormat.Type.WAVE, Path.of("/mnt/secondary/DevEnv/ParasiteEve/.tmp/jingletest1.wav").toFile());
         ais.close();
         bis.close();
-
     }
 
+    @Test
+    void sequencerTest() throws IOException {
+        Path imagesFiles = UPF.getEngineFolder("data").resolve("pe.udh");
+        byte[] container = UPDHSerializer.getStreamedData(imagesFiles, "rooms/m010/container");
+        byte[] lengths = UPDHSerializer.getStreamedData(imagesFiles, "sound/akao/lengths");
+        byte[] noteLengths = UPDHSerializer.getStreamedData(imagesFiles, "sound/akao/noteLengths");
+        byte[] panTable = UPDHSerializer.getStreamedData(imagesFiles, "sound/akao/panTable");
+
+        byte[] bank0 = UPDHSerializer.getStreamedData(imagesFiles, "sound/bank/s000");
+        byte[] bank25 = UPDHSerializer.getStreamedData(imagesFiles, "sound/bank/s025");
+
+        AKAOSequence seq = new AKAOSequence(lengths, noteLengths, panTable);
+        seq.loadInstruments(bank0);
+        seq.loadInstruments(bank25);
+
+        Logger.debug("Lengths size=" + lengths.length);
+
+        int[] starts = seq.channelStarts(container, 0);
+        seq.start(starts);
+
+        int seconds = 8;
+        int total = 44100 * seconds;
+        float[] wavL = new float[total];
+        float[] wavR = new float[total];
+
+        float[] chunkL = new float[256];
+        float[] chunkR = new float[256];
+
+        int frame = 0;
+
+        for (int t = 0; t < (240 * seconds); t++) {
+            seq.tick();
+            int due = ((t + 1) * 44100) / 240 - (t * 44100) / 240;
+            seq.render(due, chunkL, chunkR);
+            for (int k = 0; k < due; k++) {
+                wavL[frame + k] = chunkL[k];
+                wavR[frame + k] = chunkR[k];
+            }
+
+            frame = frame + due;
+        }
+
+        for (int i = 0; i < starts.length; i++) {
+            Logger.debug("Sequencer: " + i + " events: " + seq.channels[i].events + ", pc=" + seq.channels[i].pc);
+        }
+
+        Logger.debug(seq.musicalTick + ", tempo: " + ((seq.tempo >> 16) & 0xFFFF));
+
+        byte[] pcm = new byte[total * 4];
+
+        for (int i = 0; i < total; i++) {
+            int l = (int) (Math.clamp(wavL[i], -1.0, 1.0) * 32767);
+            int r = (int) (Math.clamp(wavR[i], -1.0, 1.0) * 32767);
+            pcm[4 * i] = (byte) (l & 0xFF);
+            pcm[4 * i + 1] = (byte) ((l >> 8) & 0xFF);
+            pcm[4 * i + 2] = (byte) (r & 0xFF);
+            pcm[4 * i + 3] = (byte) ((r >> 8) & 0xFF);
+        }
+
+        AudioFormat format = new AudioFormat(44100, 16, 2, true, false);
+        ByteArrayInputStream bis = new ByteArrayInputStream(pcm);
+        AudioInputStream ais = new AudioInputStream(bis, format, frame);
+        AudioSystem.write(ais, AudioFileFormat.Type.WAVE, Path.of("/mnt/secondary/DevEnv/ParasiteEve/.tmp/seq_m010_t0.wav").toFile());
+        ais.close();
+        bis.close();
+
+        int stop = 0;
+        for (int i = 0; i < starts.length; i++) {
+            if (i < starts.length - 1) stop = starts[i + 1];
+            else stop = seq.getPayload().length;
+
+            seq.walkChannel(starts[i], stop);
+        }
+    }
 
 }
