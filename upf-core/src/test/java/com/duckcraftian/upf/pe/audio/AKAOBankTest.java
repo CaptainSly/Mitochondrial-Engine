@@ -1,6 +1,7 @@
 package com.duckcraftian.upf.pe.audio;
 
 import com.duckcraftian.upf.UPF;
+import com.duckcraftian.upf.engine.audio.AudioOutput;
 import com.duckcraftian.upf.pe.disc.PERipper;
 import com.duckcraftian.upf.ps1.audio.SpuVoice;
 import com.duckcraftian.upf.ps1.audio.XaAdpcm;
@@ -246,6 +247,33 @@ class AKAOBankTest {
 
             seq.walkChannel(starts[i], stop);
         }
+    }
+
+    @Test
+    void playTest() throws InterruptedException, IOException {
+        Path imagesFiles = UPF.getEngineFolder("data").resolve("pe.udh");
+        byte[] container = UPDHSerializer.getStreamedData(imagesFiles, "rooms/m010/container");
+        byte[] lengths = UPDHSerializer.getStreamedData(imagesFiles, "sound/akao/lengths");
+        byte[] noteLengths = UPDHSerializer.getStreamedData(imagesFiles, "sound/akao/noteLengths");
+        byte[] panTable = UPDHSerializer.getStreamedData(imagesFiles, "sound/akao/panTable");
+
+        byte[] bank0 = UPDHSerializer.getStreamedData(imagesFiles, "sound/bank/s000");
+        byte[] bank25 = UPDHSerializer.getStreamedData(imagesFiles, "sound/bank/s025");
+
+        AKAOSequence seq = new AKAOSequence(lengths, noteLengths, panTable);
+        seq.loadInstruments(bank0);
+        seq.loadInstruments(bank25);
+
+        int[] starts = seq.channelStarts(container, 0);
+        seq.start(starts);
+
+
+        AKAOAudioSource source = new AKAOAudioSource(seq);
+        AudioOutput output = new AudioOutput(source);
+        output.start(480);
+        output.waitUntilDone();
+
+        Logger.debug("Musical Tick: " + seq.musicalTick + ", tempo: " + ((seq.tempo >> 16) & 0xFFFF) + " noteOnCount=" + seq.noteOnCount + ", keyOffCount=" + seq.keyOffCount);
     }
 
 }

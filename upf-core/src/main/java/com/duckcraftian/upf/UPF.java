@@ -1,6 +1,7 @@
 package com.duckcraftian.upf;
 
 import com.duckcraftian.upf.assets.Color;
+import com.duckcraftian.upf.engine.audio.AudioOutput;
 import com.duckcraftian.upf.engine.system.Window;
 import com.duckcraftian.upf.system.event.EventBus;
 import com.duckcraftian.upf.system.registries.PluginRegistryManager;
@@ -11,6 +12,8 @@ import org.joml.Vector3f;
 
 import java.io.File;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
 public class UPF {
 
@@ -82,5 +85,6 @@ public class UPF {
     public static RegistryManager REGISTRY_MANAGER;
     public static EventBus EVENT_BUS;
 
+    public static AudioOutput AUDIO;
 
 }

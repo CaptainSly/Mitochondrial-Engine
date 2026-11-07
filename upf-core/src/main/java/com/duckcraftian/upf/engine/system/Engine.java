@@ -2,6 +2,7 @@ package com.duckcraftian.upf.engine.system;
 
 import com.duckcraftian.upf.UPF;
 import com.duckcraftian.upf.engine.Game;
+import com.duckcraftian.upf.engine.audio.AudioOutput;
 import com.duckcraftian.upf.system.event.EventBus;
 import com.duckcraftian.upf.system.registries.PluginRegistryManager;
 import com.duckcraftian.upf.system.registries.RegistryManager;
@@ -186,6 +187,9 @@ public class Engine {
     }
 
     private void dispose() {
+        if (UPF.AUDIO != null)
+            UPF.AUDIO.onDispose();
+
         Logger.info("Disposing");
         pluginLoader.onDispose();
 
