@@ -8,6 +8,7 @@ import com.duckcraftian.upf.pe.rooms.Collision;
 import com.duckcraftian.upf.ps1.PSXMath;
 import org.tinylog.Logger;
 
+import java.io.IOException;
 import java.util.*;
 
 import static com.duckcraftian.upf.pe.ParasiteEve.*;
@@ -1048,7 +1049,6 @@ public class ScriptVM {
         };
 
 
-        handlers[PlayFMV] = _ -> true;
         handlers[136] = _ -> true;
         handlers[WaitForSequenceFrame] = _ -> true;
         handlers[WaitWhileSequenceRunning] = _ -> true;
@@ -1059,8 +1059,36 @@ public class ScriptVM {
             return true;
         };
 
+        handlers[PlayFMV] = _ -> {
+
+            return true;
+        };
+
         handlers[166] = _ -> true;
-        handlers[234] = _ -> true;
+
+        handlers[SoundCommand] = _ -> {
+            int sub = get(0);
+            if (sub == 0xC8 || sub == 0x198) {
+                try {
+                    PEAUDIO.startMusic(CONTAINER, get(1));
+                    set(5, 0);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            } else if (sub == 0xC9) {
+                PEAUDIO.stopMusic(get(1));
+            } else if (sub == 0xCD) {
+                PEAUDIO.setMusicVolume(get(1), get(2));
+            } else if (sub == 0xCE) {
+                PEAUDIO.slideMusicVolume(get(1), get(2) * 2, get(3));
+            } else if (sub == 0xCF) {
+                PEAUDIO.slideMusicVolumeFromTo(get(1), get(2) * 2, get(3), get(4));
+            } else {
+                Logger.error("Op 234 Sub Command 0x" + Integer.toHexString(sub) + " unimplemented");
+            }
+
+            return true;
+        };
 
         handlers[DrawActorLit] = _ -> {
             shade = get(0);

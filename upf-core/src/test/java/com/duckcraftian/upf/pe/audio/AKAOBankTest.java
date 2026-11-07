@@ -276,4 +276,66 @@ class AKAOBankTest {
         Logger.debug("Musical Tick: " + seq.musicalTick + ", tempo: " + ((seq.tempo >> 16) & 0xFFFF) + " noteOnCount=" + seq.noteOnCount + ", keyOffCount=" + seq.keyOffCount);
     }
 
+    @Test
+    void musicCommandTest() throws IOException, InterruptedException {
+        Path imagesFiles = UPF.getEngineFolder("data").resolve("pe.udh");
+        byte[] container = UPDHSerializer.getStreamedData(imagesFiles, "rooms/m010/container");
+        byte[] lengths = UPDHSerializer.getStreamedData(imagesFiles, "sound/akao/lengths");
+        byte[] noteLengths = UPDHSerializer.getStreamedData(imagesFiles, "sound/akao/noteLengths");
+        byte[] panTable = UPDHSerializer.getStreamedData(imagesFiles, "sound/akao/panTable");
+
+        byte[] bank0 = UPDHSerializer.getStreamedData(imagesFiles, "sound/bank/s000");
+        byte[] bank25 = UPDHSerializer.getStreamedData(imagesFiles, "sound/bank/s025");
+
+        AKAOSequence seq = new AKAOSequence(lengths, noteLengths, panTable);
+        seq.loadInstruments(bank0);
+        seq.loadInstruments(bank25);
+
+        int[] starts = seq.channelStarts(container, 0);
+        seq.start(starts);
+
+        AKAOAudioSource source = new AKAOAudioSource();
+        AudioOutput output = new AudioOutput(source);
+        output.start(1200);
+        Thread.sleep(1000);
+        source.play(5, seq);
+        Thread.sleep(3000);
+        source.setVolume(5, 50);
+        Thread.sleep(3000);
+        source.setVolume(5, 86);
+        Thread.sleep(3000);
+        source.stop(5);
+        output.waitUntilDone();
+    }
+
+    @Test
+    void drumTest() throws IOException {
+        Path imagesFiles = UPF.getEngineFolder("data").resolve("pe.udh");
+        byte[] container = UPDHSerializer.getStreamedData(imagesFiles, "rooms/m005/container");
+        byte[] lengths = UPDHSerializer.getStreamedData(imagesFiles, "sound/akao/lengths");
+        byte[] noteLengths = UPDHSerializer.getStreamedData(imagesFiles, "sound/akao/noteLengths");
+        byte[] panTable = UPDHSerializer.getStreamedData(imagesFiles, "sound/akao/panTable");
+
+        byte[] bank0 = UPDHSerializer.getStreamedData(imagesFiles, "sound/bank/s000");
+        byte[] bank23 = UPDHSerializer.getStreamedData(imagesFiles, "sound/bank/s023");
+
+        AKAOSequence seq = new AKAOSequence(lengths, noteLengths, panTable);
+        seq.loadInstruments(bank0);
+        seq.loadInstruments(bank23);
+
+        int track = AKAOSequence.findTrack(container, 40);
+
+        int[] starts = seq.channelStarts(container, track);
+        seq.start(starts);
+
+        float[] chunkL = new float[256];
+        float[] chunkR = new float[256];
+
+        for (int t = 0; t < 240 * 30; t++) {
+            seq.tick();
+            int due = ((t + 1) * 44100) / 240 - (t * 44100) / 240;
+            seq.render(due, chunkL, chunkR);
+        }
+    }
+
 }

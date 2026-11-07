@@ -26,10 +26,14 @@ public class AKAOSequence {
     float[] mixR;
     int noteOnCount;
     int keyOffCount;
+    int bankPitch;
+    int bankSlideDuration;
+    int bankSlideDelta;
     long tempo;
     private int tempoSlideDuration;
     private int tempoDelta;
     private int accumulator;
+    int drumHitCount;
     int musicalTick;
 
     public AKAOSequence(byte[] lengths, byte[] noteLengths, byte[] panTable) {
@@ -41,6 +45,9 @@ public class AKAOSequence {
         mixL = new float[256];
         mixR = new float[256];
         bankGain = 127;
+        bankPitch = 127 << 16;
+        bankSlideDuration = 0;
+        bankSlideDelta = 0;
     }
 
     public void start(int[] starts) {
@@ -66,6 +73,7 @@ public class AKAOSequence {
         tempoDelta = 0;
         accumulator = 1;
         musicalTick = 0;
+        drumHitCount = 0;
         noteOnCount = 0;
         keyOffCount = 0;
     }
@@ -102,6 +110,33 @@ public class AKAOSequence {
         }
 
         applyVolume(ch);
+    }
+
+    public void setBankGain(int value) {
+        bankPitch = (value & 0x7F) << 16;
+        bankSlideDuration = 0;
+        bankGain = (bankPitch >> 16) & 0x7F;
+    }
+
+    public void slideBankGain(int target, int duration) {
+        int steps = duration;
+        if (steps == 0) steps = 1;
+        int goal = (target & 0x7F) << 16;
+        bankSlideDelta = (goal - bankPitch) / steps;
+        bankSlideDuration = steps;
+    }
+
+    public void slideBankGainFromTo(int start, int target, int duration) {
+        setBankGain(start);
+        slideBankGain(target, duration);
+    }
+
+    public void stepBankSlide() {
+        if (bankSlideDuration != 0) {
+            bankPitch = bankPitch + bankSlideDelta;
+            bankSlideDuration = bankSlideDuration - 1;
+            bankGain = (bankPitch >> 16) & 0x7F;
+        }
     }
 
     public void applyVolume(AKAOChannel ch) {
@@ -153,12 +188,38 @@ public class AKAOSequence {
         channel.gateLength = channel.noteLength - 2;
         if (nextIsTie(channel)) channel.gateLength = channel.noteLength;
         if (op < 0x84) {
-            int note = op / 11 + channel.octave * 12;
-            if (channel.rangePending) selectByRange(channel, note);
-            channel.currentNote = note;
-            noteOn(idx, note + channel.transpose);
+            if (channel.drumMode)
+                drumHit(idx, channel.drumTable + 6 * (op / 11));
+            else {
+                int note = op / 11 + channel.octave * 12;
+                if (channel.rangePending) selectByRange(channel, note);
+                channel.currentNote = note;
+                noteOn(idx, note + channel.transpose);
+            }
         } else if (op >= 0x8F)
             keyOff(channel);
+    }
+
+    public void drumHit(int idx, int row) {
+        AKAOChannel ch = channels[idx];
+        int instrument = u8(payload, row);
+        int note = u8(payload, row + 1);
+        int rowVol = u8(payload, row + 2) | (u8(payload, row + 3) << 8);
+        int pan = u8(payload, row + 4);
+        if (ch.instrument != instrument) {
+            ch.instrument = instrument;
+            ch.attackOverride = -1;
+            ch.sustainRateOverride = -1;
+            ch.sustainModeOverride = -1;
+            ch.releaseRate = -1;
+        }
+        ch.volume = (ch.drumVolume * rowVol) << 2;
+        ch.pan = ((pan + 0x40) & 0xFF) << 8;
+        keyOff(ch);
+        noteOn(idx, note);
+        drumHitCount = drumHitCount + 1;
+        if (drumHitCount <= 3)
+            Logger.debug("Musical Tick: " + musicalTick + ", " + idx + " " + ((row - ch.drumTable) / 6) + " " + instrument + " " + note + " " + ch.volumeLeft + " " + ch.volumeRight);
     }
 
     private boolean nextIsTie(AKAOChannel channel) {
@@ -231,6 +292,12 @@ public class AKAOSequence {
                 tempoDelta = (int) ((target - current) / tempoSlideDuration);
                 tempo = current;
                 ch.pc = ch.pc + 3;
+            } else if (sub == 0x04) {
+                ch.drumTable = ch.pc + 2 + s16LE(payload, ch.pc);
+                ch.drumMode = true;
+                ch.pc = ch.pc + 2;
+            } else if (sub == 0x05) {
+                ch.drumMode = false;
             } else if (sub == 0x06) {
                 ch.pc = ch.pc + 2 + s16LE(payload, ch.pc);
             } else if (sub == 0x14) {
@@ -262,8 +329,12 @@ public class AKAOSequence {
         } else if (opCode == 0xA6) ch.octave = (ch.octave + 1) & 0xF;
         else if (opCode == 0xA7) ch.octave = (ch.octave - 1) & 0xF;
         else if (opCode == 0xA8) {
-            ch.volume = s8(payload, ch.pc) << 23;
-            ch.expressionDuration = 0;
+            if (ch.drumMode) ch.drumVolume = u8(payload, ch.pc) << 7;
+            else {
+                ch.volume = s8(payload, ch.pc) << 23;
+                ch.expressionDuration = 0;
+            }
+
             ch.pc = ch.pc + 1;
         } else if (opCode == 0xA9) {
             int d = u8(payload, ch.pc);
@@ -276,6 +347,9 @@ public class AKAOSequence {
             ch.pc = ch.pc + 2;
         } else if (opCode == 0xAA) {
             ch.pan = ((u8(payload, ch.pc) + 0x40) & 0xFF) << 8;
+            ch.pc = ch.pc + 1;
+        } else if (opCode == 0xAD) {
+            ch.attackOverride = u8(payload, ch.pc);
             ch.pc = ch.pc + 1;
         } else if (opCode == 0xB2) {
             ch.releaseRate = u8(payload, ch.pc);
@@ -419,6 +493,35 @@ public class AKAOSequence {
             AKAOInstrument instrument = new AKAOInstrument(bankBytes, recordOffset, pcm, loopStart, loops);
             instruments[(int) (first + k)] = instrument;
         }
+    }
+
+    public void stopAll() {
+        for (int i = 0; i < channels.length; i++) {
+            channels[i].ended = true;
+            keyOff(channels[i]);
+        }
+    }
+
+    public static int findTrack(byte[] container, int key) {
+        long dirOffset = u32LE(container, 4);
+        long tracksWord = u32LE(container, (int) (dirOffset + 0x30));
+        long count = tracksWord >> 22;
+        long tableOffset = tracksWord & 0x3FFFFF;
+
+        for (int i = 0; i < count; i++) {
+            long w2 = u32LE(container, (int) (tableOffset + 12 * i + 8));
+            if ((w2 >> 16) == key) return i;
+        }
+
+        return -1;
+    }
+
+    public static int trackBank(byte[] container, int track) {
+        long dirOffset = u32LE(container, 4);
+        long tracksWord = u32LE(container, (int) (dirOffset + 0x30));
+        long tableOffset = tracksWord & 0x3FFFFF;
+        long w2 = u32LE(container, (int) (tableOffset + 12 * track + 8));
+        return (int) (w2 & 0xFFFF);
     }
 
     private int opLength(int op) {

@@ -7,6 +7,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.duckcraftian.upf.pe.audio.PEAudio;
 import com.duckcraftian.upf.pe.gfx.PEModel;
 import org.lwjgl.sdl.SDLScancode;
 import org.tinylog.Logger;
@@ -30,12 +31,14 @@ import com.duckcraftian.upf.serialization.UPDHSerializer;
 import com.duckcraftian.upf.system.Utils;
 import com.duckcraftian.upf.utils.Input;
 
+import static com.duckcraftian.upf.pe.ParasiteEve.PEAUDIO;
 import static com.duckcraftian.upf.system.DataTypeHelper.s16LE;
 
 public class Game implements IDisposable {
 
     private PERenderer renderer;
     private List<PSXViewport> viewports;
+
 
     private PECamera camera;
     private PERipper ripper;
@@ -75,6 +78,13 @@ public class Game implements IDisposable {
                 dfs.onDispose();
                 dfs2.onDispose();
             }
+        }
+
+        PEAUDIO = new PEAudio();
+        try {
+            PEAUDIO.init(imagesFiles);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
 
         try {

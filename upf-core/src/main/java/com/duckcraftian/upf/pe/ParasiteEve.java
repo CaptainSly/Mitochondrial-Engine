@@ -1,8 +1,12 @@
 package com.duckcraftian.upf.pe;
 
+import com.duckcraftian.upf.pe.audio.PEAudio;
+
 public class ParasiteEve {
 
     public static final String NAMESPACE = "parasite";
+
+    public static PEAudio PEAUDIO;
 
     public static final String DISC_1_PROGRAM = "SLUS_006.62";
     public static final String DISC_2_PROGRAM = "SLUS_006.68";
@@ -125,6 +129,7 @@ public class ParasiteEve {
     public static final int SetEscapeFlag = 207;
     public static final int SetEntityParent = 212;
     public static final int SetEntityFlag1000000 = 220;
+    public static final int SoundCommand = 234;
     public static final int SetBackgroundDimLevel = 225;
     public static final int DispatchScriptCmd = 237;
     public static final int OpenNameEntryMenu = 239;

@@ -26,6 +26,9 @@ public class AKAOChannel {
     int attackOverride;
     int sustainRateOverride;
     int sustainModeOverride;
+    int drumTable;
+    int drumVolume;
+    boolean drumMode;
     boolean rangePending;
     boolean ended;
 
@@ -40,6 +43,9 @@ public class AKAOChannel {
         sustainRateOverride = -1;
         sustainModeOverride = -1;
 
+        drumMode = false;
+        drumTable = -1;
+        drumVolume = 0;
     }
 
 }
