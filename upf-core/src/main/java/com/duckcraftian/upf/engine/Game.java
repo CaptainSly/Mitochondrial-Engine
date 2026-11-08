@@ -10,6 +10,7 @@ import java.util.List;
 import com.duckcraftian.upf.pe.audio.PEAudio;
 import com.duckcraftian.upf.pe.gfx.PEModel;
 import org.lwjgl.sdl.SDLScancode;
+import org.lwjgl.sdl.SDL_AudioStreamCallback;
 import org.tinylog.Logger;
 
 import com.duckcraftian.upf.UPF;
@@ -44,6 +45,8 @@ public class Game implements IDisposable {
     private PERipper ripper;
 
     private Room room;
+
+    private boolean paused;
 
     public Path imagesFiles;
 
@@ -107,7 +110,7 @@ public class Game implements IDisposable {
             throw new RuntimeException(e);
         }
 
-        loadMap("m010");
+        loadMap("m003");
     }
 
     public void loadMap(String mapName) {
@@ -115,6 +118,7 @@ public class Game implements IDisposable {
             room = RoomLoader.loadRoom(imagesFiles, mapName);
             viewports = room.viewports();
             camera = new PECamera(viewports.get(0));
+            PEAUDIO.camera = camera;
 
             renderer.setCameraPosition(camera.getCamX(), camera.getCamY());
             renderer.upload(room);
@@ -139,15 +143,19 @@ public class Game implements IDisposable {
                 downPressed = true;
         }
 
+        if (Input.isKeyJustDown(SDLScancode.SDL_SCANCODE_P))
+            paused = !paused;
+
         if (Input.isKeyJustDown(SDLScancode.SDL_SCANCODE_F8))
-            ScriptVM.dumpActors();
+            ScriptVM.dumpActors(camera);
 
-        accumulator += delta;
-        while (accumulator >= TICK) {
-            accumulator -= TICK;
-            tick();
+        if (!paused) {
+            accumulator += delta;
+            while (accumulator >= TICK) {
+                accumulator -= TICK;
+                tick();
+            }
         }
-
     }
 
     public void tick() {
@@ -188,6 +196,7 @@ public class Game implements IDisposable {
         }
 
         ScriptVM.pad = pad;
+        PEAUDIO.newFrame();
         ScriptVM.runAll();
 
         boolean changed = ScriptVM.stepBackgroundAnimations(ScriptVM.viewportIndex);

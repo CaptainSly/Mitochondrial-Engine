@@ -2,6 +2,7 @@ package com.duckcraftian.upf.pe.script;
 
 import com.duckcraftian.upf.pe.disc.RoomParser;
 import com.duckcraftian.upf.pe.gfx.PEAnimation;
+import com.duckcraftian.upf.pe.gfx.PECamera;
 import com.duckcraftian.upf.pe.gfx.PEModel;
 import com.duckcraftian.upf.pe.gfx.PEText;
 import com.duckcraftian.upf.pe.rooms.Collision;
@@ -103,6 +104,7 @@ public class ScriptVM {
     private int entityMode;
     private int actionMode;
 
+    private int animPrev;
     private int animFrame;
     private int animStep = 0x10000;
     private int animStop;
@@ -225,6 +227,12 @@ public class ScriptVM {
         STARTS = RoomParser.readScriptStreams(container);
         actors.clear();
 
+        try {
+            PEAUDIO.loadRoomSfx(container);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
         Arrays.fill(SCRATCH, 0);
         Arrays.fill(NODE_FLAGS, 0);
 
@@ -312,29 +320,65 @@ public class ScriptVM {
         return actors;
     }
 
-    public static void dumpActors() {
-        Logger.debug("Actor Size: " + actors.size());
-
-        for (ScriptVM actor : actors) {
-            String line = actor.type + "/" + actor.sub + " serial " + actor.serial + " | pos: " + (actor.posX >> 16) + ", " + (actor.posY >> 16) + ", " + (actor.posZ >> 16) + " | mode: " + actor.actionMode + " frame: " + actor.getFrame();
-            PEModel model = models.get(actor.type);
-            if (model == null)
-                line = line + " no model";
-            else {
-                line = line + " cluts:";
-                for (int i : model.getPrimClut()) {
-                    line = line + " " + ((i & 0x3F) * 16) + ", " + (i >> 6);
-                }
-            }
-
-            Logger.debug(line);
-
-            if (actor == getPlayer()) {
-                Logger.debug("Aya slot min/max: " + model.getMinSlot() + " / " + model.getMaxSlot());
-            }
-
+    public int[] modelMatrix() {
+        int[] m = PSXMath.rotMatrixYXZ(0, rotY, 0);
+        for (int i = 0; i < 9; i++) {
+            m[i] = (m[i] * moveSpeed) >> 12;
         }
 
+        return m;
+    }
+
+    public static void dumpActors(PECamera camera) {
+        StringBuilder sb = new StringBuilder();
+
+        // Header
+        sb.append(
+                "-=- Actors Size: " + actors.size() + " | "
+                        + "Viewport Index: " + viewportIndex + " | "
+                        + "Camera Position: " + camera.getCamX() + ", " + camera.getCamY() + " | "
+                        + "Open Messages: " + openMessages.size() + " -=-="
+        );
+
+        // Actors
+        for (ScriptVM actor : actors) {
+            PEModel model = models.get(actor.type);
+            PEAnimation anim = actor.getAnimation();
+            int frame = actor.getFrame();
+            sb.append(
+                    "-=- Actor Type: " + actor.type + "/" + actor.sub + " #" + actor.serial + " | "
+                            + "Position: " + (actor.posX >> 16) + ", " + (actor.posY >> 16) + ", " + (actor.posZ >> 16) + " | "
+                            + "Yaw: " + actor.rotY + " (" + (actor.rotY * 360.0 / 4096) + " deg) | "
+                            + "Action Mode: " + actor.actionMode + " f " + frame + "/" + actor.animLastFrame + " step " + (actor.animStep / 65536.0) + " | "
+                            + "Entity Flags: " + Integer.toHexString(actor.entityFlags) + " | "
+                            + "Node Size: " + actor.nodes.size() + "-=-="
+            );
+
+            if (model == null || anim == null) {
+                String no = "";
+                if (model == null) no = "model";
+                else if (anim == null) no = "anim";
+                else if (model == null && anim == null) no = "model or anim";
+
+                sb.append("-=- there is no " + no + " -=-=");
+            } else {
+                int[] rot = actor.modelMatrix();
+                int[] at = {actor.posX >> 16, actor.posY >> 16, actor.posZ >> 16};
+                int[][] pose = model.pose(anim, frame, rot, at);
+                int[] root = pose[0];
+                int[] screen = camera.toScreen(root[9], root[10], root[11]);
+                sb.append(
+                        "-=- Root Offset: " + anim.channels()[0][frame] + ", " + anim.channels()[1][frame] + ", " + anim.channels()[2][frame] + " | "
+                                + "Root World: " + root[9] + ", " + root[10] + ", " + root[11] + " | "
+                                + "Screen: " + screen[0] + ", " + screen[1] + "-=-="
+                );
+            }
+
+            if (actor == getPlayer() && model != null)
+                sb.append("-=- Aya Slot: " + model.getMinSlot() + "min / " + model.getMaxSlot() + "max -=-");
+        }
+
+        Logger.debug(sb.toString());
     }
 
     public static void deliverMessages() {
@@ -774,7 +818,7 @@ public class ScriptVM {
             if (model == null || getAnimation() == null)
                 return true;
 
-            int[] rot = PSXMath.rotMatrixYXZ(0, rotY, 0);
+            int[] rot = modelMatrix();
             int[] at = {posX >> 16, posY >> 16, posZ >> 16};
             int[][] pose = model.pose(getAnimation(), getFrame(), rot, at);
 
@@ -844,6 +888,7 @@ public class ScriptVM {
             messageTimer.put(id, 0);
 
             menuChoice = -1;
+            Logger.debug("Open Message - Debug Tick: " + debugTick + " Target: " + type + "/" + sub);
             return true;
         };
 
@@ -1075,6 +1120,33 @@ public class ScriptVM {
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
+            } else if (sub == 0x12C) {
+                set(5, PEAUDIO.playSfx(CONTAINER, get(1), get(2), get(3), get(4)));
+            } else if (sub == 0x190 || sub == 0x191 || sub == 0x192 || sub == 0x193 || sub == 0x194) {
+            } else if (sub == 0x15F) {
+                set(5, PEAUDIO.playSfxAt(get(1), getPosX() >> 16, getPosY() >> 16, getPosZ() >> 16));
+            } else if (sub == 0x160) {
+                ScriptVM target = null;
+                if (get(2) == 0) target = getPlayer();
+                else {
+                    for (ScriptVM actor : getActors()) {
+                        if (actor.type == get(2) && actor.sub == get(3) && (actor.entityFlags & 0x10) == 0) {
+                            target = actor;
+                            break;
+                        }
+                    }
+                }
+                if (target != null) {
+                    set(5, PEAUDIO.playSfxAt(get(1), target.getPosX() >> 16, target.getPosY() >> 16, target.getPosZ() >> 16));
+                }
+            } else if (sub == 0x161) {
+                set(5, PEAUDIO.playSfxAt(get(1), get(2) >> 16, get(3) >> 16, get(4) >> 16));
+            } else if (sub == 0x195) {
+                PEAUDIO.setStepSlot();
+            } else if (sub == 0x196) {
+                PEAUDIO.addActorSound(type, this.sub, get(1), get(2), get(3), get(3));
+            } else if (sub == 0x197) {
+                PEAUDIO.addActorSound(type, this.sub, get(1), get(2), get(3), get(4));
             } else if (sub == 0xC9) {
                 PEAUDIO.stopMusic(get(1));
             } else if (sub == 0xCD) {
@@ -1663,6 +1735,8 @@ public class ScriptVM {
             return;
         }
 
+        Logger.debug("Tick: " + debugTick + " Type: " + type + "/" + sub + " -> mode: " + mode);
+
         actionMode = mode;
         animFrame = 0;
         entityFlags &= ~0x200;
@@ -1785,6 +1859,9 @@ public class ScriptVM {
     }
 
     public void advanceAnim() {
+        if (animStep > 0)
+            PEAUDIO.actorSounds(type == 0, type, sub, actionMode, animPrev >> 16, animFrame >> 16, getPosX() >> 16, getPosY() >> 16, getPosZ() >> 16);
+        animPrev = animFrame;
         entityFlags &= ~8;
         if (parent != null && (entityFlags & 0x200000) != 0) {
             setActionMode(parent.actionMode);

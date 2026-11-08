@@ -100,6 +100,40 @@ public class PECamera {
         held = false;
     }
 
+    public int[] soundPosition(int worldX, int worldY, int worldZ) {
+        int[] r = viewport.rotation();
+        int[] t = viewport.translation();
+        loadViewport(r, t);
+        PSX.GTE.writeData(0, (worldY << 16) | (worldX & 0xFFFF));
+        PSX.GTE.writeData(1, worldZ);
+        PSX.GTE.execute(PSX.CMD_RTPS);
+        int sx = (short) PSX.GTE.readData(14);
+        int depth = PSX.GTE.readData(19) >> 2;
+        int screenX = sx - camX + viewport.width() / 2;
+        int pan = ((screenX + 40) << 7) / 400 + 64;
+        if (pan < 0 || pan > 255) pan = 255;
+        if (depth < 0x100) depth = 0x100;
+        if (depth > 0x800) depth = 0x800;
+        int d = 0x800 - depth;
+        d = d * d / 0x700;
+        int volume = d * 0x4F / 0x700 + 0x30;
+        if (volume > 127) volume = 127;
+        return new int[]{pan, volume};
+    }
+
+    public int[] toScreen(int worldX, int worldY, int worldZ) {
+        loadViewport(viewport.rotation(), viewport.translation());
+        PSX.GTE.writeData(0, (worldY << 16) | (worldX & 0xFFFF));
+        PSX.GTE.writeData(1, worldZ);
+        PSX.GTE.execute(PSX.CMD_RTPS);
+        int sx = PSX.GTE.readData(14);
+        int sy = PSX.GTE.readData(14) >> 16;
+        return new int[] {
+                sx - camX + viewport.width() / 2,
+                sy - camY + viewport.height() / 2
+        };
+    }
+
     public boolean canFollow() {
         return !moving && !held;
     }

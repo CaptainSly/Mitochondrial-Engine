@@ -28,10 +28,15 @@ public class AKAOChannel {
     int sustainModeOverride;
     int drumTable;
     int drumVolume;
+    int tag;
+    int handle;
+    int streamVolume;
     boolean reverb;
     boolean drumMode;
     boolean rangePending;
     boolean ended;
+    boolean fm;
+    boolean pairSecond;
 
     public AKAOChannel() {
         loopPcs = new int[4];
@@ -45,6 +50,12 @@ public class AKAOChannel {
         sustainModeOverride = -1;
 
         reverb = false;
+        fm = false;
+        pairSecond = false;
+
+        tag = 0;
+        handle = 0;
+        streamVolume = 127;
 
         drumMode = false;
         drumTable = -1;

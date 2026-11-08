@@ -217,7 +217,7 @@ public class PERenderer implements IDisposable {
                 continue;
             }
 
-            int[] rot = PSXMath.rotMatrixYXZ(0, vm.getRotY(), 0);
+            int[] rot = vm.modelMatrix();
             int[] pos = {vm.getPosX() >> 16, vm.getPosY() >> 16, vm.getPosZ() >> 16};
             int[][] pose = model.pose(anim, vm.getFrame(), rot, pos);
             int[] screen = model.project(pose, viewport.rotation(), viewport.translation());

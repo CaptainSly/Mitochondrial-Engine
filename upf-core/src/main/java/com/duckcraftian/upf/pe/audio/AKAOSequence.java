@@ -35,6 +35,7 @@ public class AKAOSequence {
     int reverbMode;
     SpuReverb reverb;
     long tempo;
+    boolean nested;
     private int tempoSlideDuration;
     private int tempoDelta;
     private int accumulator;
@@ -84,6 +85,27 @@ public class AKAOSequence {
         drumHitCount = 0;
         noteOnCount = 0;
         keyOffCount = 0;
+    }
+
+    public void initNested(byte[] container) {
+        nested = true;
+        payload = container;
+        channels = new AKAOChannel[12];
+        for (int i = 0; i < channels.length; i++) {
+            channels[i] = new AKAOChannel();
+            channels[i].ended = true;
+            channels[i].voice = -1;
+        }
+
+        voices = new SpuVoice[24];
+        tempo = 0x66A80000L;
+        tempoSlideDuration = 0;
+        tempoDelta = 0;
+        accumulator = 1;
+        musicalTick = 0;
+        noteOnCount = 0;
+        keyOffCount = 0;
+        drumHitCount = 0;
     }
 
     public void tick() {
@@ -150,7 +172,11 @@ public class AKAOSequence {
     public void applyVolume(AKAOChannel ch) {
         int hi = ch.volume >> 16;
         int channel = (hi * (ch.volumeBase >> 8)) >> 7;
-        int base = (channel * bankGain) >> 7;
+        int gain = bankGain;
+
+        if (nested) gain = ch.streamVolume;
+
+        int base = (channel * gain) >> 7;
         int p = (ch.pan >> 8) & 0xFF;
         ch.volumeLeft = (base * panTable[p]) >> 15;
         ch.volumeRight = (base * panTable[p ^ 0xFF]) >> 15;
@@ -167,8 +193,11 @@ public class AKAOSequence {
         }
 
         for (int v = 0; v < 24; v++) {
-            if (voices[v] != null && voices[v].getPhase() != OFF) {
-                voices[v].render(frames, mixL, mixR);
+            if (voices[v] != null) {
+                int[] fmIn = null;
+                if (v > 0 && voices[v - 1] != null)
+                    fmIn = voices[v - 1].getOutX();
+                voices[v].render(frames, mixL, mixR, fmIn);
                 for (int i = 0; i < frames; i++) {
                     outL[i] = outL[i] + mixL[i];
                     outR[i] = outR[i] + mixR[i];
@@ -260,11 +289,15 @@ public class AKAOSequence {
             adsr2 = (adsr2 & ~0x1F) | (ch.releaseRate & 0x1F);
 
         int pitch = pitchFor(instrument.bank(), instrument.recordOffset(), note, 0) & 0x3FFF;
-        int v = freeVoice();
+        int v;
+        if (nested) v = 12 + idx;
+        else v = freeVoice();
         if (v < 0) return;
+
 
         voices[v] = new SpuVoice(instrument.pcm(), instrument.loopStart(), instrument.loops(), adsr1, adsr2, pitch);
         voices[v].setReverb(ch.reverb);
+        voices[v].setFm(ch.fm);
         ch.voice = v;
         applyVolume(ch);
         voices[v].keyOn();
@@ -284,6 +317,65 @@ public class AKAOSequence {
             if (voices[v] == null || voices[v].getPhase() == OFF) return v;
 
         return -1;
+    }
+
+    public void startStream(int slot, int pc, int pan, int volume, int tag, int handle, boolean second) {
+        AKAOChannel ch = new AKAOChannel();
+        ch.pc = pc;
+        ch.noteLength = 2;
+        ch.gateLength = 2;
+        ch.volumeBase = 0x6E00;
+        ch.volume = 0x32000000;
+        ch.pan = (pan & 0xFF) << 8;
+        ch.streamVolume = volume & 0x7F;
+        ch.tag = tag;
+        ch.handle = handle;
+        ch.instrument = 0;
+        ch.releaseRate = -1;
+        ch.voice = -1;
+        ch.pairSecond = second;
+        ch.ended = false;
+        channels[slot] = ch;
+    }
+
+    public void startSnippet(int first, int second, int pan, int volume, int tag, int handle) {
+        if (tag != 0) {
+            for (int i = 0; i < 12; i++) {
+                if (!channels[i].ended && (channels[i].tag & tag) != 0) {
+                    keyOff(channels[i]);
+                    channels[i].ended = true;
+                }
+            }
+        }
+
+        int slot = -1;
+        if (first >= 0 && second >= 0) {
+            for (int i = 10; i >= 0; i--) {
+                if (channels[i].ended && channels[i + 1].ended) {
+                    slot = i;
+                    break;
+                }
+            }
+
+            if (slot < 0) return;
+            startStream(slot, first, pan, volume, tag, handle, false);
+            startStream(slot + 1, second, pan, volume, tag, handle, true);
+        } else {
+            int pc = first;
+            if (pc < 0) pc = second;
+            if (pc < 0) return;
+            for (int i = 11; i >= 0; i--) {
+                if (channels[i].ended) {
+                    slot = i;
+                    break;
+                }
+            }
+
+            if (slot < 0) return;
+            startStream(slot, pc, pan, volume, tag, handle, false);
+        }
+
+        Logger.debug("Slot=" + slot);
     }
 
     public void command(AKAOChannel ch, int opCode) {
@@ -371,6 +463,9 @@ public class AKAOSequence {
         } else if (opCode == 0xAD) {
             ch.attackOverride = u8(payload, ch.pc);
             ch.pc = ch.pc + 1;
+        } else if (opCode == 0xB1) {
+            ch.sustainRateOverride = u8(payload, ch.pc);
+            ch.pc = ch.pc + 1;
         } else if (opCode == 0xB2) {
             ch.releaseRate = u8(payload, ch.pc);
             ch.pc++;
@@ -384,6 +479,12 @@ public class AKAOSequence {
             ch.reverb = false;
             if (ch.voice >= 0)
                 voices[ch.voice].setReverb(false);
+        } else if (opCode == 0xC6) {
+            if (nested && ch.pairSecond) ch.fm = true;
+            if (ch.voice >= 0) voices[ch.voice].setFm(ch.fm);
+        } else if (opCode == 0xC7) {
+            ch.fm = false;
+            if (ch.voice >= 0) voices[ch.voice].setFm(false);
         } else if (opCode == 0xC8) {
             ch.loopTop = (ch.loopTop + 1) & 3;
             ch.loopPcs[ch.loopTop] = ch.pc;
@@ -505,6 +606,11 @@ public class AKAOSequence {
 
     public void loadInstruments(byte[] bankBytes) {
         long first = u32LE(bankBytes, 0x18);
+        loadInstruments(bankBytes, first);
+    }
+
+    public void loadInstruments(byte[] bankBytes, long base) {
+        long first = u32LE(bankBytes, 0x18);
         long last = u32LE(bankBytes, 0x1C);
 
         if (last == 0) last = 0x100;
@@ -518,7 +624,7 @@ public class AKAOSequence {
             Boolean loops = bank.getLoops().get(k);
 
             AKAOInstrument instrument = new AKAOInstrument(bankBytes, recordOffset, pcm, loopStart, loops);
-            instruments[(int) (first + k)] = instrument;
+            instruments[(int) (base + k)] = instrument;
         }
     }
 

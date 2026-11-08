@@ -130,7 +130,6 @@ public class AudioOutput implements IDisposable {
         for (int k = 0; k < pcm.length; k++) {
             if (Math.abs(pcm[k]) > peak) peak = Math.abs(pcm[k]);
         }
-        if (produced < 40) Logger.debug("PRODUCED=" + produced + ", peak=" + peak);
 
         buff.put(pcm).flip();
         alBufferData(buffer, AL_FORMAT_STEREO16, buff, source.sampleRate());
