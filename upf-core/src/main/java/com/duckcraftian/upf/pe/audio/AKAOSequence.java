@@ -1,5 +1,6 @@
 package com.duckcraftian.upf.pe.audio;
 
+import com.duckcraftian.upf.ps1.audio.SpuReverb;
 import com.duckcraftian.upf.ps1.audio.SpuVoice;
 import com.duckcraftian.upf.system.Utils;
 import org.tinylog.Logger;
@@ -24,11 +25,15 @@ public class AKAOSequence {
     int bankGain;
     float[] mixL;
     float[] mixR;
+    float[] sendL;
+    float[] sendR;
     int noteOnCount;
     int keyOffCount;
     int bankPitch;
     int bankSlideDuration;
     int bankSlideDelta;
+    int reverbMode;
+    SpuReverb reverb;
     long tempo;
     private int tempoSlideDuration;
     private int tempoDelta;
@@ -44,10 +49,13 @@ public class AKAOSequence {
         instruments = new AKAOInstrument[256];
         mixL = new float[256];
         mixR = new float[256];
+        sendL = new float[256];
+        sendR = new float[256];
         bankGain = 127;
         bankPitch = 127 << 16;
         bankSlideDuration = 0;
         bankSlideDelta = 0;
+        reverbMode = 4;
     }
 
     public void start(int[] starts) {
@@ -154,6 +162,8 @@ public class AKAOSequence {
         for (int i = 0; i < frames; i++) {
             outL[i] = 0.0f;
             outR[i] = 0.0f;
+            sendL[i] = 0.0f;
+            sendR[i] = 0.0f;
         }
 
         for (int v = 0; v < 24; v++) {
@@ -162,6 +172,14 @@ public class AKAOSequence {
                 for (int i = 0; i < frames; i++) {
                     outL[i] = outL[i] + mixL[i];
                     outR[i] = outR[i] + mixR[i];
+                }
+
+
+                if (voices[v].hasReverb()) {
+                    for (int i = 0; i < frames; i++) {
+                        sendL[i] = sendL[i] + mixL[i];
+                        sendR[i] = sendR[i] + mixR[i];
+                    }
                 }
             }
         }
@@ -213,13 +231,12 @@ public class AKAOSequence {
             ch.sustainModeOverride = -1;
             ch.releaseRate = -1;
         }
+        ch.reverb = u8(payload, row + 5) != 0;
         ch.volume = (ch.drumVolume * rowVol) << 2;
         ch.pan = ((pan + 0x40) & 0xFF) << 8;
         keyOff(ch);
         noteOn(idx, note);
         drumHitCount = drumHitCount + 1;
-        if (drumHitCount <= 3)
-            Logger.debug("Musical Tick: " + musicalTick + ", " + idx + " " + ((row - ch.drumTable) / 6) + " " + instrument + " " + note + " " + ch.volumeLeft + " " + ch.volumeRight);
     }
 
     private boolean nextIsTie(AKAOChannel channel) {
@@ -247,13 +264,11 @@ public class AKAOSequence {
         if (v < 0) return;
 
         voices[v] = new SpuVoice(instrument.pcm(), instrument.loopStart(), instrument.loops(), adsr1, adsr2, pitch);
+        voices[v].setReverb(ch.reverb);
         ch.voice = v;
         applyVolume(ch);
         voices[v].keyOn();
         noteOnCount++;
-        if (idx == 0 || idx == 6)
-            Logger.debug("musicalTick: " + musicalTick + " idx: " + idx + " instrument: " + ch.instrument + ", note: " + note + ", pitch: " + pitch + " adsr1: " + adsr1 + ", adsr2: " + adsr2 + ", volumeLeft: " + ch.volumeLeft + ", volumeRight: " + ch.volumeRight);
-
     }
 
     public void keyOff(AKAOChannel channel) {
@@ -292,6 +307,11 @@ public class AKAOSequence {
                 tempoDelta = (int) ((target - current) / tempoSlideDuration);
                 tempo = current;
                 ch.pc = ch.pc + 3;
+            } else if (sub == 0x02) {
+                int depth = s16LE(payload, ch.pc);
+                reverb.setDepth(depth, depth);
+                Logger.debug("ch.pc: " + ch.pc + ", depth: " + depth);
+                ch.pc = ch.pc + 2;
             } else if (sub == 0x04) {
                 ch.drumTable = ch.pc + 2 + s16LE(payload, ch.pc);
                 ch.drumMode = true;
@@ -354,6 +374,16 @@ public class AKAOSequence {
         } else if (opCode == 0xB2) {
             ch.releaseRate = u8(payload, ch.pc);
             ch.pc++;
+        } else if (opCode == 0xC2) {
+            ch.reverb = true;
+            if (ch.voice >= 0)
+                voices[ch.voice].setReverb(true);
+
+            Logger.debug("REVERB: " + ch.pc);
+        } else if (opCode == 0xC3) {
+            ch.reverb = false;
+            if (ch.voice >= 0)
+                voices[ch.voice].setReverb(false);
         } else if (opCode == 0xC8) {
             ch.loopTop = (ch.loopTop + 1) & 3;
             ch.loopPcs[ch.loopTop] = ch.pc;
@@ -426,6 +456,7 @@ public class AKAOSequence {
         long bank = w2 & 0xFFFF;
 
         payload = cut(container, (int) payloadOff, (int) size);
+        reverbMode = u16LE(payload, 0x08);
 
         long mask = u32LE(payload, 0x10) & 0xFFFFFF;
         int channels = countOneBits(mask);
@@ -436,13 +467,11 @@ public class AKAOSequence {
             starts[i] = 0x22 + 2 * i + offset;
         }
 
-        Logger.debug("Size=" + size + ", payloadOffset=" + payloadOff + ", key=" + key + ", bank=" + bank + ", channels=" + channels + ", starts[0]=" + starts[0]);
         return starts;
     }
 
     public int walkChannel(int start, int stop) {
         int pc = start;
-        int count = 0;
 
         while (pc < stop) {
             int step = 0;
@@ -456,10 +485,8 @@ public class AKAOSequence {
             } else step = opLength(op);
 
             pc += step;
-            count++;
         }
 
-        Logger.debug("start=" + start + ", stop=" + stop + ", count=" + count + ", pc=" + pc);
         return pc;
     }
 

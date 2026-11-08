@@ -19,6 +19,7 @@ public class SpuVoice {
     private int level, envCounter;
     private int phase;
     private float volL, volR;
+    private boolean reverb;
 
     public SpuVoice(int[] pcm, int loopStart, boolean loops, int adsr1, int adsr2, int pitch) {
         this.pcm = pcm;
@@ -29,6 +30,8 @@ public class SpuVoice {
         this.pitch = pitch;
         volL = 1.0f;
         volR = 1.0f;
+
+        reverb = false;
     }
 
     public void keyOn() {
@@ -135,6 +138,10 @@ public class SpuVoice {
         else if (phase == RELEASE && level == 0) phase = OFF;
     }
 
+    public void setReverb(boolean reverb) {
+        this.reverb = reverb;
+    }
+
     public int[] getPcm() {
         return pcm;
     }
@@ -165,6 +172,10 @@ public class SpuVoice {
 
     public int getFrac() {
         return frac;
+    }
+
+    public boolean hasReverb() {
+        return reverb;
     }
 
     public int getLevel() {

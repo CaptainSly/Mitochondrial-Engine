@@ -1,6 +1,8 @@
 package com.duckcraftian.upf.pe.audio;
 
 import com.duckcraftian.upf.assets.AudioSource;
+import com.duckcraftian.upf.ps1.audio.SpuReverb;
+import org.tinylog.Logger;
 
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedDeque;
@@ -9,8 +11,10 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 public class AKAOAudioSource implements AudioSource {
 
     private AKAOSequence sequence;
+    private SpuReverb reverb;
     private long tickCounter;
     private float[] scratchL, scratchR;
+    private float[] wetL, wetR, silence;
 
     public Queue<Runnable> queue;
     public int currentKey;
@@ -25,12 +29,19 @@ public class AKAOAudioSource implements AudioSource {
         currentKey = -1;
         scratchL = new float[256];
         scratchR = new float[256];
+        wetL = new float[256];
+        wetR = new float[256];
+        silence = new float[256];
         queue = new ConcurrentLinkedQueue<>();
+        reverb = new SpuReverb();
     }
 
     public void play(int key, AKAOSequence seq) {
         queue.add(() -> {
             sequence = seq;
+            seq.reverb = reverb;
+            reverb.setMode(seq.reverbMode);
+            Logger.debug("Reverb Mode: " + seq.reverbMode);
             currentKey = key;
         });
     }
@@ -92,15 +103,19 @@ public class AKAOAudioSource implements AudioSource {
             if (sequence != null) {
                 sequence.tick();
                 sequence.render(due, scratchL, scratchR);
-                for (int k = 0; k < due; k++) {
-                    outL[frame + k] = scratchL[k];
-                    outR[frame + k] = scratchR[k];
-                }
+                reverb.process(due, sequence.sendL, sequence.sendR, wetL, wetR);
             } else {
                 for (int k = 0; k < due; k++) {
-                    outL[frame + k] = 0.0f;
-                    outR[frame + k] = 0.0f;
+                    scratchL[k] = 0.0f;
+                    scratchR[k] = 0.0f;
                 }
+
+                reverb.process(due, silence, silence, wetL, wetR);
+            }
+
+            for (int k = 0; k < due; k++) {
+                outL[frame + k] = scratchL[k] + wetL[k];
+                outR[frame + k] = scratchR[k] + wetR[k];
             }
 
             drain();
