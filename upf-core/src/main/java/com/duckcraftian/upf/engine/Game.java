@@ -119,7 +119,7 @@ public class Game implements IDisposable {
 
         ScriptVM.movieStarter = m -> playMovie(movieName(m), false, false);
 
-        loadMap("m431");
+        loadMap("m012");
         playMovie("FMV001", true, true);
     }
 
@@ -248,6 +248,7 @@ public class Game implements IDisposable {
             renderer.upload(RoomParser.parseBackgroundBlock(room.background(), ScriptVM.viewportIndex));
 
         ScriptVM.stepFade();
+        ScriptVM.checkAutoFadeIn();
         ScriptVM.stepMessages();
 
         List<Integer> allDialogue = new ArrayList<>();

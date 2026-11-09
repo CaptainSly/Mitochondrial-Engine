@@ -15,6 +15,7 @@ public class AKAOAudioSource implements AudioSource {
     private AKAOSequence sequence;
     private AKAOSequence sfx;
     private SpuReverb reverb;
+    private float movieGain;
     private long tickCounter;
     private float[] scratchL, scratchR;
     private float[] wetL, wetR, silence;
@@ -56,6 +57,7 @@ public class AKAOAudioSource implements AudioSource {
             moviePos = 0.0;
             movieClock = 0;
             movieActive = true;
+            movieGain = 152 / 128.0f;
         });
     }
 
@@ -65,6 +67,13 @@ public class AKAOAudioSource implements AudioSource {
             movieClock = 0;
             movieL = null;
             movieR = null;
+        });
+    }
+
+    public void stopCurrentMusic() {
+        queue.add(() -> {
+            if (sequence != null) sequence.stopAll();
+            currentKey = -1;
         });
     }
 
@@ -102,6 +111,12 @@ public class AKAOAudioSource implements AudioSource {
                 sequence.stopAll();
                 currentKey = -1;
             }
+        });
+    }
+
+    public void setMovieVolume(int value) {
+        queue.add(() -> {
+            movieGain = (value & 0xFF) / 128.0f;
         });
     }
 
@@ -188,8 +203,8 @@ public class AKAOAudioSource implements AudioSource {
                     if (movieL != null && i + 1 < movieL.length) {
                         double sL = movieL[i] + (movieL[i + 1] - movieL[i]) * frac;
                         double sR = movieR[i] + (movieR[i + 1] - movieR[i]) * frac;
-                        outL[frame + k] = (float) (outL[frame + k] + sL / 32768.0);
-                        outR[frame + k] = (float) (outR[frame + k] + sR / 32768.0);
+                        outL[frame + k] = (float) (outL[frame + k] + (sL / 32768.0) * movieGain);
+                        outR[frame + k] = (float) (outR[frame + k] + (sR / 32768.0) * movieGain);
                     }
 
                     moviePos = moviePos + MOVIE_STEP;

@@ -26,8 +26,10 @@ public class TexturedQuad implements IDisposable {
 
     public TexturedQuad(int width, int height, ByteBuffer pixels) {
         this.texture = new Texture(width, height, pixels);
+        this.texture.setSmooth();
         quad = new Mesh(RECT_POSITIONS, RECT_COLORS, RECT_UV_COORDS, RECT_INDICES);
     }
+
 
     public void update(ByteBuffer pixels) {
         texture.update(pixels);

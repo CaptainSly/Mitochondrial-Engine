@@ -40,6 +40,19 @@ The following is implemented and working:
     - Controller Button Icons (Hasn't been seen in testing yet, but is implemented in)
 - Scripting
     - A VM that runs the original room scripts: Currently 90 Op Handlers are implemented
+- Sound
+    - AKAO Music Sequencer, Room Music. Loops, temp and volume slides. 
+    - Software SPU Voices. ADPCM, ADSR envelopes, pitch, 4-point Gaussian interpolation, and pitch modulation
+    - Softrware reverb
+    - Sound Effects. Per room. Nested Effect sequencer on its own clock. Script effects. Footsteps from animation frames.
+    - Script music control. 
+    - Registered actor sounds
+    - Effect pan and volume
+- Movies
+    - Opening Movie (can be skipped)
+    - In Game Movies (Can't be skipped)
+    - Movies are drawn letterboxed with smooth scaling
+
 
 The readme_images folder contains progress images.
 

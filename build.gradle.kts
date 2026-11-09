@@ -5,7 +5,7 @@ plugins {
 allprojects {
 
     group = "com.duckcraftian.upf"
-    version = "0.1.0-Resonance"
+    version = "0.1.8-Resonance"
 
     repositories {
         mavenCentral()

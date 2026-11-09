@@ -37,9 +37,9 @@ public class ScriptVM {
     public static int movieElapsed = -1;
     public static IntConsumer movieStarter = null;
 
-    public static int fadeLevel = 0;
-    public static int fadeStart = 0;
-    public static int fadeTarget = 0;
+    public static int[] fadeLevel = new int[3];
+    public static int[] fadeStart = new int[3];
+    public static int[] fadeTarget = new int[3];
     public static int fadeFrame = 0;
     public static int fadeDuration = 0;
 
@@ -65,6 +65,8 @@ public class ScriptVM {
     public static int menuChoice = -1;
 
     public static boolean cameraFrozen = false;
+    public static boolean fadeAutoIn = true;
+    public static boolean justLoaded = true;
 
     public static int[] playerName = {0x10, 0x48, 0x30};
     public static int[] pendingScroll = null;
@@ -240,6 +242,8 @@ public class ScriptVM {
         Arrays.fill(SCRATCH, 0);
         Arrays.fill(NODE_FLAGS, 0);
 
+        justLoaded = true;
+        fadeAutoIn = true;
         current = -1;
         moveLock = 0;
         menuDimLevel = 0x60;
@@ -556,9 +560,9 @@ public class ScriptVM {
                     roomLightG = get(2);
                     roomLightB = get(3);
                     break;
-                case 2100, 2101, 2900, 3200, 2201:
+                case 2100, 2101, 2900, 3100, 3200, 2201:
                     Logger.debug("Just keep rolling rolling rolling");
-                    break; // BACK UP, BACK UP! WHATCHYA GONNA DO NOW!
+                    break/* Stuff*/; // BACK UP, BACK UP! WHATCHYA GONNA DO NOW!
                 default:
                     Logger.error("Op 237 sub-command " + sub + " unimplemented");
                     break;
@@ -587,12 +591,44 @@ public class ScriptVM {
             child.cursor = streamStart + get(0) * 2;
             child.active = 1;
             child.flags = 0;
-            nodes.add(nodes.indexOf(node) + 1, child);
+            if ((node.flags & 3) != 0)
+                nodes.addFirst(child);
+            else
+                nodes.add(nodes.indexOf(node) + 1, child);
+
             return true;
         };
 
         handlers[GetMenuChoice] = _ -> {
             set(0, menuChoice);
+            return true;
+        };
+
+        handlers[GetDistanceComponents] = _ -> {
+            ScriptVM other = getActor(get(0), get(1));
+            if (other == null) {
+                set(2, -1);
+                return true;
+            }
+
+            int dist = Math.abs(posX - other.posX) + Math.abs(posY - other.posY) + Math.abs(posZ - other.posZ);
+            set(2, dist);
+            return true;
+        };
+
+        handlers[QueryField] = _ -> {
+            int sel = get(0);
+            ScriptVM other = getActor(get(1), get(2));
+            if (other == null) {
+                set(3, -1);
+                return true;
+            }
+
+            if (sel == 0) set(3, other.actionMode);
+            else if (sel == 1) set(3, other.entityFlags);
+            else if (sel == 2) set(3, other.getFrame());
+            else if (sel == 3) set(3, other.animLastFrame);
+
             return true;
         };
 
@@ -621,6 +657,14 @@ public class ScriptVM {
             if (a == 0)
                 node.cursor = streamStart + target * 2;
 
+            return true;
+        };
+
+        handlers[ClearBit] = _ -> {
+            int current = get(0);
+            int bit = get(1);
+
+            set(0, current & ~(1 << bit));
             return true;
         };
 
@@ -808,12 +852,12 @@ public class ScriptVM {
         };
 
         handlers[FadeSceneToBlack] = _ -> {
-            startFade(255, get(0));
+            startFade(255, 255, 255, get(0));
             return true;
         };
 
         handlers[FadeSceneIn] = _ -> {
-            startFade(0, get(0));
+            startFade(0, 0, 0, get(0));
             return true;
         };
 
@@ -834,6 +878,11 @@ public class ScriptVM {
             posY = bone[10] << 16;
             posZ = bone[11] << 16;
 
+            return true;
+        };
+
+        handlers[ClearEntityFlag40] = _ -> {
+            fadeAutoIn = false;
             return true;
         };
 
@@ -925,6 +974,10 @@ public class ScriptVM {
                 set(3, target.posX);
                 set(4, target.posY);
                 set(5, target.posZ);
+            } else if (get(0) == 5) {
+                set(3, target.rotX);
+                set(4, target.rotY);
+                set(5, target.rotZ);
             }
 
             return true;
@@ -941,14 +994,7 @@ public class ScriptVM {
         };
 
         handlers[FadeSceneToColor] = _ -> {
-
-            int mode = get(4);
-            int level = get(1);
-
-            if (mode == 2) startFade(level, get(0));
-            else if (mode == 1) setFade(level);
-            else setFade(0);
-
+            startFade(get(1), get(2), get(3), get(0));
             return true;
         };
 
@@ -1101,7 +1147,7 @@ public class ScriptVM {
         handlers[136] = _ -> true;
 
         handlers[WaitForSequenceFrame] = _ -> {
-            if (movieElapsed >= get(0)) return true;
+            if (movieElapsed == get(0)) return true;
             if (movieElapsed > 0) {
                 node.active = 1;
                 node.cursor = node.cursor - 12;
@@ -1170,6 +1216,8 @@ public class ScriptVM {
                 PEAUDIO.addActorSound(type, this.sub, get(1), get(2), get(3), get(3));
             } else if (sub == 0x197) {
                 PEAUDIO.addActorSound(type, this.sub, get(1), get(2), get(3), get(4));
+            } else if (sub == 0x199) {
+                PEAUDIO.setCDVolume(get(1));
             } else if (sub == 0xC9) {
                 PEAUDIO.stopMusic(get(1));
             } else if (sub == 0xCD) {
@@ -1178,6 +1226,8 @@ public class ScriptVM {
                 PEAUDIO.slideMusicVolume(get(1), get(2) * 2, get(3));
             } else if (sub == 0xCF) {
                 PEAUDIO.slideMusicVolumeFromTo(get(1), get(2) * 2, get(3), get(4));
+            } else if (sub == 0xD9) {
+                PEAUDIO.resetMusic();
             } else {
                 Logger.error("Op 234 Sub Command 0x" + Integer.toHexString(sub) + " unimplemented");
             }
@@ -1204,6 +1254,16 @@ public class ScriptVM {
                     baseX = posX;
                     baseY = posY;
                     baseZ = posZ;
+                    break;
+                case 2:
+                    motionX = get(1);
+                    motionY = get(2);
+                    motionZ = get(3);
+                    break;
+                case 3:
+                    accelX = get(1);
+                    accelY = get(2);
+                    accelZ = get(3);
                     break;
                 case 5:
                     rotX = get(1);
@@ -1279,6 +1339,42 @@ public class ScriptVM {
         handlers[SetCurrentActionMode] = _ -> {
             setActionMode(get(0));
             entityFlags &= ~0x100;
+            return true;
+        };
+
+        handlers[ClearInputFlagBit2] = _ -> {
+            moveLock = moveLock & ~4;
+            return true;
+        };
+
+        handlers[GetEntityVec3] = _ -> {
+            int sel = get(0);
+            if (sel == 0) {
+                set(1, posX);
+                set(2, posY);
+                set(3, posZ);
+            } else if (sel == 1) {
+                set(1, baseX);
+                set(2, baseY);
+                set(3, baseZ);
+            } else if (sel == 2) {
+                set(1, motionX);
+                set(2, motionY);
+                set(3, motionZ);
+            } else if (sel == 3) {
+                set(1, accelX);
+                set(2, accelY);
+                set(3, accelZ);
+            } else if (sel == 5) {
+                set(1, rotX);
+                set(2, rotY);
+                set(3, rotZ);
+            } else if (sel == 6) {
+                set(1, deltaX);
+                set(2, deltaY);
+                set(3, deltaZ);
+            }
+
             return true;
         };
 
@@ -1498,6 +1594,13 @@ public class ScriptVM {
         boolean dirty = backgroundDirty;
         backgroundDirty = false;
         return dirty;
+    }
+
+    public static void checkAutoFadeIn() {
+        if (!justLoaded) return;
+        justLoaded = false;
+        if (fadeAutoIn && fadeTarget[0] == 255 && fadeTarget[1] == 255 && fadeTarget[2] == 255)
+            startFade(0, 0, 0, 15);
     }
 
     public static void resolveContacts() {
@@ -1800,18 +1903,31 @@ public class ScriptVM {
         return (0x1400 - units) & 0xFFF;
     }
 
-    public static void startFade(int target, int duration) {
-        fadeStart = fadeLevel;
-        fadeTarget = target;
+    public static void startFade(int r, int g, int b, int duration) {
+        fadeAutoIn = false;
+        fadeStart[0] = fadeTarget[0];
+        fadeStart[1] = fadeTarget[1];
+        fadeStart[2] = fadeTarget[2];
+        fadeTarget[0] = r;
+        fadeTarget[1] = g;
+        fadeTarget[2] = b;
         fadeDuration = duration;
         fadeFrame = 0;
     }
 
     public static void stepFade() {
-        if (fadeFrame >= fadeDuration) return;
+        if (fadeFrame >= fadeDuration) {
+            fadeLevel[0] = fadeTarget[0];
+            fadeLevel[1] = fadeTarget[1];
+            fadeLevel[2] = fadeTarget[2];
+            return;
+        }
 
         int divisor = Math.max(fadeDuration - 1, 1);
-        fadeLevel = fadeStart + (fadeTarget - fadeStart) * fadeFrame / divisor;
+        fadeLevel[0] = fadeStart[0] + (fadeTarget[0] - fadeStart[0]) * fadeFrame / divisor;
+        fadeLevel[1] = fadeStart[1] + (fadeTarget[1] - fadeStart[1]) * fadeFrame / divisor;
+        fadeLevel[2] = fadeStart[2] + (fadeTarget[2] - fadeStart[2]) * fadeFrame / divisor;
+
         fadeFrame = fadeFrame + 1;
     }
 
@@ -1871,14 +1987,6 @@ public class ScriptVM {
         motionX = (int) (((long) c * mx + (long) sn * mz) >> 12);
         motionY = 0;
         motionZ = (int) (((long) -sn * mx + (long) c * mz) >> 12);
-    }
-
-    public void setFade(int level) {
-        fadeLevel = level;
-        fadeStart = level;
-        fadeTarget = level;
-        fadeDuration = 0;
-        fadeFrame = 0;
     }
 
     public void advanceAnim() {
@@ -1996,9 +2104,10 @@ public class ScriptVM {
     }
 
     public ScriptVM getActor(int type, int sub) {
+        if (type == 0) return getPlayer();
+
         for (ScriptVM vm : actors) {
-            if (vm.getType() == type && vm.getSub() == sub)
-                return vm;
+            if (vm.getType() == type && vm.getSub() == sub && (vm.entityFlags & 0x10) == 0) return vm;
         }
 
         return null;
@@ -2028,142 +2137,6 @@ public class ScriptVM {
         return posZ;
     }
 
-    public int getRotX() {
-        return rotX;
-    }
-
-    public int getRotY() {
-        return rotY;
-    }
-
-    public int getRotZ() {
-        return rotZ;
-    }
-
-    public static int[] getGLOBALS() {
-        return GLOBALS;
-    }
-
-    public int[] getScratch() {
-        return SCRATCH;
-    }
-
-    public int[] getNodeFlags() {
-        return NODE_FLAGS;
-    }
-
-    public int[] getActorVars() {
-        return actorVars;
-    }
-
-    public byte[] getContainer() {
-        return CONTAINER;
-    }
-
-    public int getStreamStart() {
-        return streamStart;
-    }
-
-    public static Collision getCOLLISION() {
-        return COLLISION;
-    }
-
-    public static int getPad() {
-        return pad;
-    }
-
-    public static int getCameraYaw() {
-        return cameraYaw;
-    }
-
-    public static int getCameraYaw2() {
-        return cameraYaw2;
-    }
-
-    public static int getFadeLevel() {
-        return fadeLevel;
-    }
-
-    public static int getFadeStart() {
-        return fadeStart;
-    }
-
-    public static int getFadeTarget() {
-        return fadeTarget;
-    }
-
-    public static int getFadeFrame() {
-        return fadeFrame;
-    }
-
-    public static int getFadeDuration() {
-        return fadeDuration;
-    }
-
-    public static int getViewportIndex() {
-        return viewportIndex;
-    }
-
-    public static boolean isViewportChanged() {
-        return viewportChanged;
-    }
-
-    public static int getMoveLock() {
-        return moveLock;
-    }
-
-    public static int getMessageBank() {
-        return messageBank;
-    }
-
-    public static int getMenuChoice() {
-        return menuChoice;
-    }
-
-    public static boolean isCameraFrozen() {
-        return cameraFrozen;
-    }
-
-    public static int[] getPlayerName() {
-        return playerName;
-    }
-
-    public static int[] getPendingScroll() {
-        return pendingScroll;
-    }
-
-    public static Map<Integer, PEModel> getModels() {
-        return models;
-    }
-
-    public static List<Integer> getOpenMessages() {
-        return openMessages;
-    }
-
-    public static Map<Integer, List<int[]>> getMessageSections() {
-        return messageSections;
-    }
-
-    public static Map<Integer, Integer> getMessageSection() {
-        return messageSection;
-    }
-
-    public static Map<Integer, List<Integer>> getMessageDelays() {
-        return messageDelays;
-    }
-
-    public static Map<Integer, Integer> getMessageTimer() {
-        return messageTimer;
-    }
-
-    public static Map<Integer, List<int[]>> getMessageChoices() {
-        return messageChoices;
-    }
-
-    public static Map<Integer, Integer> getMessageCursor() {
-        return messageCursor;
-    }
-
     public int getShade() {
         return shade;
     }
@@ -2176,84 +2149,12 @@ public class ScriptVM {
         return lightPositiveY;
     }
 
-    public int getBaseX() {
-        return baseX;
-    }
-
-    public int getBaseY() {
-        return baseY;
-    }
-
-    public int getBaseZ() {
-        return baseZ;
-    }
-
-    public int getMotionX() {
-        return motionX;
-    }
-
-    public int getMotionY() {
-        return motionY;
-    }
-
-    public int getMotionZ() {
-        return motionZ;
-    }
-
-    public int getAccelX() {
-        return accelX;
-    }
-
-    public int getAccelY() {
-        return accelY;
-    }
-
-    public int getAccelZ() {
-        return accelZ;
-    }
-
-    public int getDeltaX() {
-        return deltaX;
-    }
-
-    public int getDeltaY() {
-        return deltaY;
-    }
-
-    public int getDeltaZ() {
-        return deltaZ;
-    }
-
     public int getShadowRadius() {
         return shadowRadius;
     }
 
-    public int getMoveFactor() {
-        return moveFactor;
-    }
-
-    public int getMoveSpeed() {
-        return moveSpeed;
-    }
-
     public int getEntityFlags() {
         return entityFlags;
-    }
-
-    public int getEntityMode() {
-        return entityMode;
-    }
-
-    public int getActionMode() {
-        return actionMode;
-    }
-
-    public int getAnimFrame() {
-        return animFrame;
-    }
-
-    public int getCylinderRadius() {
-        return cylinderRadius;
     }
 
     public int getShadowMatrixIndex() {
@@ -2264,70 +2165,6 @@ public class ScriptVM {
         return shadowIntensity;
     }
 
-    public int getAnimStep() {
-        return animStep;
-    }
-
-    public int getAnimStop() {
-        return animStop;
-    }
-
-    public int getAnimLastFrame() {
-        return animLastFrame;
-    }
-
-    public Node getNode() {
-        return node;
-    }
-
-    public int getMsgCursor() {
-        return msgCursor;
-    }
-
-    public int getContactCursor() {
-        return contactCursor;
-    }
-
-    public List<Node> getNodes() {
-        return nodes;
-    }
-
-    public Map<Integer, PEAnimation> getActions() {
-        return actions;
-    }
-
-    public static int getSceneFlags() {
-        return sceneFlags;
-    }
-
-    public static int getCurrent() {
-        return current;
-    }
-
-    public static int getPendingRoom() {
-        return pendingRoom;
-    }
-
-    public static int[][] getAnimRecords() {
-        return ANIM_RECORDS;
-    }
-
-    public static int[][] getBankAnimRecords() {
-        return BANK_ANIM_RECORDS;
-    }
-
-    public static byte[] getBankContainer() {
-        return BANK_CONTAINER;
-    }
-
-    public static byte[] getCONTAINER() {
-        return CONTAINER;
-    }
-
-    public static int[] getSTARTS() {
-        return STARTS;
-    }
-
     public static List<int[]> getQueue() {
         return queue;
     }
@@ -2336,15 +2173,4 @@ public class ScriptVM {
         return mode;
     }
 
-    public int[] getRaw() {
-        return raw;
-    }
-
-    public Handler[] getHandlers() {
-        return handlers;
-    }
-
-    public boolean[] getWarned() {
-        return WARNED;
-    }
 }

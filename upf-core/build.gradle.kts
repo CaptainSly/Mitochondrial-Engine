@@ -3,7 +3,7 @@ plugins {
 }
 
 group = "com.duckcraftian.upf"
-version = "0.1.0-Resonance"
+version = "0.1.8-Resonance"
 
 val lwjglVersion = "3.4.2"
 val jomlVersion = "1.10.9"

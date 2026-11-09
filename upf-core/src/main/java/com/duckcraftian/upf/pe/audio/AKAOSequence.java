@@ -270,13 +270,15 @@ public class AKAOSequence {
 
     private boolean nextIsTie(AKAOChannel channel) {
         int p = channel.pc;
-        while (true) {
+        while (p < payload.length) {
             int b = u8(payload, p);
             if (b < 0xA0) return b >= 0x84 && b < 0x8F;
             if (b == 0xA0) return false;
             if (b == 0xFC) p = p + 1 + extLength(u8(payload, p + 1));
             else p = p + opLength(b);
         }
+
+        return false;
     }
 
     private void noteOn(int idx, int note) {
@@ -374,8 +376,6 @@ public class AKAOSequence {
             if (slot < 0) return;
             startStream(slot, pc, pan, volume, tag, handle, false);
         }
-
-        Logger.debug("Slot=" + slot);
     }
 
     public void command(AKAOChannel ch, int opCode) {

@@ -166,7 +166,6 @@ public class PEAudio {
         int handle = 0x400 + sfxCounter;
         sfxCounter = (sfxCounter + 1) & 0x1FF;
         source.startSnippet((int) first, (int) second, pan, volume, tag & 0xFFFFFF, handle);
-        Logger.debug("Key=" + key + ", first=" + first + ", second=" + second + ", handle=" + handle);
         return handle;
     }
 
@@ -214,6 +213,10 @@ public class PEAudio {
         source.setVolume(key, value);
     }
 
+    public void resetMusic() {
+        source.stopCurrentMusic();
+    }
+
     private String bankFileName(int bank) {
         String append = "";
         if (bank <= 9)
@@ -226,4 +229,7 @@ public class PEAudio {
         return "sound/bank/" + append;
     }
 
+    public void setCDVolume(int i) {
+        source.setMovieVolume(i);
+    }
 }

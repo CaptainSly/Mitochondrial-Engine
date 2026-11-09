@@ -20,6 +20,7 @@ import com.duckcraftian.upf.ps1.gfx.PSXTriangleBatch;
 import com.duckcraftian.upf.system.Utils;
 import org.joml.Vector2f;
 import org.joml.Vector2i;
+import org.joml.Vector3f;
 import org.tinylog.Logger;
 
 import java.util.*;
@@ -46,6 +47,7 @@ public class PERenderer implements IDisposable {
     private Framebuffer psxBuffer;
     private FramebufferQuad screen;
 
+    private Vector3f fadeColor = new Vector3f();
     private int camX, camY;
 
     private boolean isDebug = false;
@@ -176,7 +178,8 @@ public class PERenderer implements IDisposable {
         glViewport(x, y, w, h);
         blitShader.begin();
         blitShader.set("screen", 0);
-        blitShader.set("fade", ScriptVM.fadeLevel / 255.0f);
+        fadeColor.set(ScriptVM.fadeLevel[0] / 255.0f, ScriptVM.fadeLevel[1] / 255.0f, ScriptVM.fadeLevel[2] / 255.0f);
+        blitShader.set("fade", fadeColor);
         screen.draw();
         blitShader.end();
     }
@@ -195,7 +198,8 @@ public class PERenderer implements IDisposable {
         blitShader.begin();
         {
             blitShader.set("screen", 0);
-            blitShader.set("fade", 0.0f);
+            fadeColor.set(0, 0, 0);
+            blitShader.set("fade", fadeColor);
             quad.draw();
         }
         blitShader.end();
