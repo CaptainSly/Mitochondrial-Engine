@@ -110,6 +110,13 @@ public class ScriptVM {
     private int entityMode;
     private int actionMode;
 
+    private int coreFlags;
+    private int slot;
+    private int combatantId;
+
+    private int[] effects;
+    private int[] effectParams;
+
     private int animPrev;
     private int animFrame;
     private int animStep = 0x10000;
@@ -160,6 +167,12 @@ public class ScriptVM {
 
     private static int[] STARTS;
 
+    // Combat
+    private static boolean[] slotUsed = new boolean[7];
+    private static int combatantCounter;
+    private static int enemyCount;
+    private static int roomFloorY;
+
     private static List<ScriptVM> actors = new ArrayList<>();
     private static List<int[]> queue = new ArrayList<>();
 
@@ -173,6 +186,8 @@ public class ScriptVM {
         vm.type = type;
         vm.serial = serialCounter;
         vm.fields = new int[256];
+        vm.effects = new int[54];
+        vm.effectParams = new int[24];
 
         serialCounter++;
 
@@ -537,6 +552,60 @@ public class ScriptVM {
 
         handlers[SetBackgroundDimLevel] = _ -> {
             menuDimLevel = get(0);
+            return true;
+        };
+
+        handlers[MakeCombatant] = _ -> {
+            int index = 0;
+            while (index < 7 && slotUsed[index]) {
+                index = index + 1;
+            }
+
+            if (index == 7) return true;
+            slotUsed[index] = true;
+            slot = index;
+            combatantCounter = (combatantCounter + 1) & 0xFF;
+            combatantId = combatantCounter;
+            for (int i = 0; i < 256; i++)
+                fields[i] = 0;
+
+            fields[110] = 10;
+            coreFlags = 0;
+            if ((entityFlags & 0x2000) == 0) {
+                setActionMode(2);
+                enemyCount = enemyCount + 1;
+            }
+
+            return true;
+        };
+
+        handlers[GetField] = _ -> {
+            int id = get(0) & 0xFF;
+            set(1, readCombatField(id));
+            return true;
+        };
+
+        handlers[SetField] = _ -> {
+            int id = get(0) & 0xFF;
+            writeCombatField(id, get(1));
+            return true;
+        };
+
+        handlers[FindByTypeId] = _ -> {
+            ScriptVM target = getActor(get(0), get(1));
+            if (target != null) {
+                int result = target.readCombatField(get(2) & 0xFF);
+                set(3, result);
+            }
+
+            return true;
+        };
+
+        handlers[SetCombatantOrActorField] = _ -> {
+            ScriptVM target = getActor(get(0), get(1));
+            if (target != null)
+                target.writeCombatField(get(2) & 0xFF, get(3));
+
             return true;
         };
 
@@ -1378,6 +1447,37 @@ public class ScriptVM {
             return true;
         };
 
+        handlers[SetAttackEffect] = _ -> {
+            int index = get(0) & 0xFF;
+            int base = index * 9;
+
+            effects[base + 0] = 0;
+            effects[base + 1] = get(1) & 0xFF;
+            effects[base + 2] = get(2) & 0xFF;
+            effects[base + 3] = get(3) & 0xFF;
+            effects[base + 6] = get(4) & 0xFFFF;
+            return true;
+        };
+
+        handlers[SetAttackEffectFull] = _ -> {
+            int index = get(0) & 0xFF;
+            int base = index * 9;
+
+            effects[base + 0] = 0;
+            effects[base + 1] = get(1) & 0xFF;
+            effects[base + 2] = get(2) & 0xFF;
+            effects[base + 3] = get(3) & 0xFF;
+            effects[base + 6] = get(4) & 0xFFFF;
+
+            for (int i = 0; i < 4; i++) {
+                effectParams[index * 4 + i] = get(5 + i) & 0xFF;
+            }
+
+            effects[base + 7] = get(9) & 0xFF;
+            effects[base + 8] = get(10) & 0xFF;
+            return true;
+        };
+
         handlers[ActorTurnToPoint] = _ -> {
             if ((node.flags & 0x20) == 0) {
                 node.target14 = get(0);
@@ -1601,6 +1701,59 @@ public class ScriptVM {
         justLoaded = false;
         if (fadeAutoIn && fadeTarget[0] == 255 && fadeTarget[1] == 255 && fadeTarget[2] == 255)
             startFade(0, 0, 0, 15);
+    }
+
+
+    public int readCombatField(int id) {
+        if (type == 0) {
+            if ((id >= 0 && id <= 4) || id == 6 || id == 7)
+                return fields[id];
+            else if (id >= 10 && id <= 14)
+                return fields[id];
+            return -1000;
+        }
+
+        switch (id) {
+            case 41:
+                int low = fields[id] & 0xFF;
+                if (low >= 128) low = low - 256;
+                return low;
+            case 61, 43:
+                return fields[id] & 0xFFFF;
+            case 44, 60:
+                if (fields[id] < 0) return 0;
+                return fields[id];
+            case 77:
+                return (coreFlags >> 13) & 3;
+            case 82:
+                return (coreFlags >> 24) & 0x3F;
+            case 48, 130:
+                return 0;
+        }
+
+        return -1000;
+    }
+
+    public void writeCombatField(int id, int value) {
+        if (type == 0) {
+            if (id == 255)
+                roomFloorY = value;
+            else
+                fields[id] = value;
+
+            return;
+        }
+
+        switch (id) {
+            case 74:
+                coreFlags = (coreFlags & ~0x10) | ((value & 1) << 4);
+                break;
+            case 81:
+                coreFlags = (coreFlags & ~0x100000) | ((value & 1) << 20);
+                break;
+            default:
+                fields[id] = value;
+        }
     }
 
     public static void resolveContacts() {

@@ -402,7 +402,6 @@ public class AKAOSequence {
             } else if (sub == 0x02) {
                 int depth = s16LE(payload, ch.pc);
                 reverb.setDepth(depth, depth);
-                Logger.debug("ch.pc: " + ch.pc + ", depth: " + depth);
                 ch.pc = ch.pc + 2;
             } else if (sub == 0x04) {
                 ch.drumTable = ch.pc + 2 + s16LE(payload, ch.pc);
@@ -474,7 +473,6 @@ public class AKAOSequence {
             if (ch.voice >= 0)
                 voices[ch.voice].setReverb(true);
 
-            Logger.debug("REVERB: " + ch.pc);
         } else if (opCode == 0xC3) {
             ch.reverb = false;
             if (ch.voice >= 0)

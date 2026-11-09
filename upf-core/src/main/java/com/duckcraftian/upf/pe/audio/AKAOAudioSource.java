@@ -2,10 +2,8 @@ package com.duckcraftian.upf.pe.audio;
 
 import com.duckcraftian.upf.assets.AudioSource;
 import com.duckcraftian.upf.ps1.audio.SpuReverb;
-import org.tinylog.Logger;
 
 import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class AKAOAudioSource implements AudioSource {
@@ -86,7 +84,6 @@ public class AKAOAudioSource implements AudioSource {
             sequence = seq;
             seq.reverb = reverb;
             reverb.setMode(seq.reverbMode);
-            Logger.debug("Reverb Mode: " + seq.reverbMode);
             currentKey = key;
         });
     }

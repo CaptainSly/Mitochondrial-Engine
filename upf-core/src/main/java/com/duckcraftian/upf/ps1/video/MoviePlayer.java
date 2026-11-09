@@ -5,6 +5,7 @@ import com.duckcraftian.upf.impl.IDisposable;
 import com.duckcraftian.upf.pe.audio.AKAOAudioSource;
 import com.duckcraftian.upf.pe.gfx.PERenderer;
 import org.lwjgl.system.MemoryUtil;
+import org.tinylog.Logger;
 
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -50,7 +51,9 @@ public class MoviePlayer implements IDisposable {
             Mdec.toRGBA(pixels, 320, 240, rgba);
             quad.update(rgba);
             shown = idx;
+            Logger.debug("FMV Show: " + idx + ", clock: " + source.movieClock());
         }
+
     }
 
     public void stop() {

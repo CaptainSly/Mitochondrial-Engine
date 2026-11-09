@@ -119,8 +119,8 @@ public class Game implements IDisposable {
 
         ScriptVM.movieStarter = m -> playMovie(movieName(m), false, false);
 
-        loadMap("m012");
-        playMovie("FMV001", true, true);
+        loadMap("m004");
+//        playMovie("FMV001", true, true);
     }
 
     public void loadMap(String mapName) {
