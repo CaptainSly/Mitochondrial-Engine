@@ -19,6 +19,7 @@ import org.tinylog.Logger;
 import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -179,24 +180,29 @@ public class PERipper {
     public void ripMovies(DiscFileSystem fs1, DiscFileSystem fs2, LinkedHashMap<String, byte[]> entries) throws IOException {
         DiscEntry pe = fs1.findFile("PE.IMG");
         String[] dirPath = {"FMV1", "FMV2", "XASTREAM"};
+        List<String> movieNames = new ArrayList<>();
         for (String dir : dirPath) {
-            DiscFileSystem fs = null;
-            if (dir.equals("FMV1"))
-                fs = fs1;
+            DiscFileSystem fs;
+            if (dir.equals("FMV1")) fs = fs1;
             else fs = fs2;
 
             DiscEntry directory = fs.findFile(dir);
             for (DiscEntry file : fs.listDir(directory.lba(), directory.size())) {
                 String name = file.name().substring(0, file.name().indexOf("."));
-                if (name.contains("PEDISC0")) continue;
-                entries.put("movies/" + name, fs.readRawFile(file));
-                Logger.debug("Added: movies/" + name + " size=" + file.size());
+                if (!name.contains("PEDISC0")) {
+                    entries.put("movies/" + name, fs.readRawFile(file));
+                    if (name.startsWith("FMV")) movieNames.add(name);
+
+                    Logger.debug("Added: movies/" + name + " size=" + file.size());
+                }
             }
 
             int[] b = readResidentBoundaries(fs1);
             byte[] blob = fs1.readSectors(pe, b[70], b[71] - b[70]);
             entries.put("movies/table", Arrays.copyOfRange(blob, 269840, 269840 + 47 * 20));
         }
+
+        entries.put("movies/names", String.join("\n", movieNames).getBytes(StandardCharsets.UTF_8));
     }
 
     public void ripImages(DiscFileSystem fs1, DiscFileSystem fs2, Path outFile) throws IOException {

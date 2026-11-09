@@ -1,5 +1,6 @@
 package com.duckcraftian.upf.ps1.video;
 
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
 
@@ -66,7 +67,7 @@ public class Mdec {
             if (n == 0xFE00) break;
             k = k + ((n >> 10) & 0x3F) + 1;
             if (k > 63) break;
-            val = (s10(n) * IQ[k] * qscale + 4) >> 3;
+            val = (s10(n) * IQ[ZAGZIG[k]] * qscale + 4) >> 3;
         }
 
         return coef;
@@ -126,6 +127,19 @@ public class Mdec {
         return pixels;
     }
 
+    public static void toRGBA(int[] pixels, int width, int height, ByteBuffer out) {
+        for (int y = 0; y < height; y++) {
+            int dstRow = height - 1 - y;
+            for (int x = 0; x < width; x++) {
+                int v = pixels[y * width + x];
+                int at = (dstRow * width + x) * 4;
+                out.put(at, (byte) ((v >> 16) & 0xFF));
+                out.put(at + 1, (byte) ((v >> 8) & 0xFF));
+                out.put(at + 2, (byte) (v & 0xFF));
+                out.put(at + 3, (byte) 0xFF);
+            }
+        }
+    }
 
     private static int s10(int value) {
         int v = value & 0x3FF;

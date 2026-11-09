@@ -11,6 +11,7 @@ import org.tinylog.Logger;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.function.IntConsumer;
 
 import static com.duckcraftian.upf.pe.ParasiteEve.*;
 import static com.duckcraftian.upf.pe.gfx.BackgroundAnimation.*;
@@ -32,6 +33,9 @@ public class ScriptVM {
 
     public static int pad;
     public static int cameraYaw, cameraYaw2;
+
+    public static int movieElapsed = -1;
+    public static IntConsumer movieStarter = null;
 
     public static int fadeLevel = 0;
     public static int fadeStart = 0;
@@ -1095,8 +1099,26 @@ public class ScriptVM {
 
 
         handlers[136] = _ -> true;
-        handlers[WaitForSequenceFrame] = _ -> true;
-        handlers[WaitWhileSequenceRunning] = _ -> true;
+
+        handlers[WaitForSequenceFrame] = _ -> {
+            if (movieElapsed >= get(0)) return true;
+            if (movieElapsed > 0) {
+                node.active = 1;
+                node.cursor = node.cursor - 12;
+                return false;
+            }
+
+            return true;
+        };
+        handlers[WaitWhileSequenceRunning] = _ -> {
+            if (movieElapsed > 0) {
+                node.active = 1;
+                node.cursor = node.cursor - 8;
+                return false;
+            }
+            return true;
+        };
+
         handlers[Noop145] = _ -> true;
 
         handlers[ScaleAnimValue] = _ -> {
@@ -1105,9 +1127,10 @@ public class ScriptVM {
         };
 
         handlers[PlayFMV] = _ -> {
-
+            movieStarter.accept(get(0));
             return true;
         };
+
 
         handlers[166] = _ -> true;
 

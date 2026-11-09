@@ -8,11 +8,10 @@ import com.duckcraftian.upf.serialization.UPDHSerializer;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-import java.math.BigInteger;
 import java.nio.file.Path;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class StrDemuxTest {
 
@@ -24,12 +23,16 @@ public class StrDemuxTest {
         assertEquals(150, frames.size());
         assertEquals(14772, frames.get(59).length);
 
+        byte[] fmv001 = UPDHSerializer.getStreamedData(imagesFiles, "movies/FMV001");
+        List<byte[]> frames01 = StrDemux.demux(fmv001);
+        assertEquals(15208, frames01.get(1369).length);
+
         BitReader bit = new BitReader();
         bit.newFrame(frames.get(59), 8);
         assertEquals(0x0020, bit.peek(16));
         assertEquals(0, bit.peek(10));
 
-        int[] out = new int[56];
+        int[] out = new int[65];
         int[] firstWords = {0x400, 0x400, 0x600, 0x600, 0x600, 0x600, 0x400, 0x400};
 
         for (int n = 0; n < 8; n++) {

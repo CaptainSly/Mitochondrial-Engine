@@ -63,14 +63,15 @@ public class BSDecoder {
         return k;
     }
 
-    public static List<int[]> decodeFrame(byte[] frame) {
+    public static List<int[]> decodeFrame(byte[] frame, int width, int height) {
         int quant = u16LE(frame, 4);
         BitReader bit = new BitReader();
         bit.newFrame(frame, 8);
         int[] out = new int[65];
         List<int[]> block = new ArrayList<>();
 
-        while (bit.peek(10) != 0x1FF) {
+        int macroBlocks = (width / 16) * (height / 16);
+        for (int m = 0; m < macroBlocks; m++) {
             for (int i = 0; i < 6; i++) {
                 int count = readBlock(bit, quant, out);
                 block.add(Arrays.copyOfRange(out, 0, count));

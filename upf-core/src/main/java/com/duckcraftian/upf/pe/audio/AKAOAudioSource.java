@@ -10,6 +10,8 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class AKAOAudioSource implements AudioSource {
 
+    public static final double MOVIE_STEP = 37800.0 / 44100.0;
+
     private AKAOSequence sequence;
     private AKAOSequence sfx;
     private SpuReverb reverb;
@@ -17,6 +19,11 @@ public class AKAOAudioSource implements AudioSource {
     private float[] scratchL, scratchR;
     private float[] wetL, wetR, silence;
     private float[] sfxL, sfxR, sendL, sendR;
+
+    private short[] movieL, movieR;
+    private double moviePos;
+    private boolean movieActive;
+    private volatile long movieClock;
 
     public Queue<Runnable> queue;
     public int currentKey;
@@ -40,6 +47,29 @@ public class AKAOAudioSource implements AudioSource {
         silence = new float[256];
         queue = new ConcurrentLinkedQueue<>();
         reverb = new SpuReverb();
+    }
+
+    public void startMovie(short[] l, short[] r) {
+        queue.add(() -> {
+            movieL = l;
+            movieR = r;
+            moviePos = 0.0;
+            movieClock = 0;
+            movieActive = true;
+        });
+    }
+
+    public void stopMovie() {
+        queue.add(() -> {
+            movieActive = false;
+            movieClock = 0;
+            movieL = null;
+            movieR = null;
+        });
+    }
+
+    public long movieClock() {
+        return movieClock;
     }
 
     public void play(int key, AKAOSequence seq) {
@@ -152,6 +182,19 @@ public class AKAOAudioSource implements AudioSource {
             for (int k = 0; k < due; k++) {
                 outL[frame + k] = scratchL[k] + wetL[k];
                 outR[frame + k] = scratchR[k] + wetR[k];
+                if (movieActive) {
+                    int i = (int) Math.floor(moviePos);
+                    double frac = moviePos - i;
+                    if (movieL != null && i + 1 < movieL.length) {
+                        double sL = movieL[i] + (movieL[i + 1] - movieL[i]) * frac;
+                        double sR = movieR[i] + (movieR[i + 1] - movieR[i]) * frac;
+                        outL[frame + k] = (float) (outL[frame + k] + sL / 32768.0);
+                        outR[frame + k] = (float) (outR[frame + k] + sR / 32768.0);
+                    }
+
+                    moviePos = moviePos + MOVIE_STEP;
+                    movieClock = movieClock + 1;
+                }
             }
 
             drain();

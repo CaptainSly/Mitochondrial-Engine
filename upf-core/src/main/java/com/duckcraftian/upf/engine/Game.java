@@ -1,25 +1,15 @@
 package com.duckcraftian.upf.engine;
 
-import java.io.IOException;
-import java.net.URISyntaxException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
-
-import com.duckcraftian.upf.pe.audio.PEAudio;
-import com.duckcraftian.upf.pe.gfx.PEModel;
-import org.lwjgl.sdl.SDLScancode;
-import org.lwjgl.sdl.SDL_AudioStreamCallback;
-import org.tinylog.Logger;
-
 import com.duckcraftian.upf.UPF;
+import com.duckcraftian.upf.engine.gfx.TexturedQuad;
 import com.duckcraftian.upf.impl.IDisposable;
 import com.duckcraftian.upf.pe.ParasiteEve;
+import com.duckcraftian.upf.pe.audio.PEAudio;
 import com.duckcraftian.upf.pe.disc.PERipper;
 import com.duckcraftian.upf.pe.disc.RoomParser;
 import com.duckcraftian.upf.pe.disc.SquareImageParser;
 import com.duckcraftian.upf.pe.gfx.PECamera;
+import com.duckcraftian.upf.pe.gfx.PEModel;
 import com.duckcraftian.upf.pe.gfx.PERenderer;
 import com.duckcraftian.upf.pe.gfx.PEText;
 import com.duckcraftian.upf.pe.rooms.PSXViewport;
@@ -28,18 +18,35 @@ import com.duckcraftian.upf.pe.rooms.RoomLoader;
 import com.duckcraftian.upf.pe.script.ScriptVM;
 import com.duckcraftian.upf.ps1.data_types.PSXImage;
 import com.duckcraftian.upf.ps1.disc.DiscFileSystem;
-import com.duckcraftian.upf.serialization.UPDHSerializer;
+import com.duckcraftian.upf.ps1.video.BSDecoder;
+import com.duckcraftian.upf.ps1.video.Mdec;
+import com.duckcraftian.upf.ps1.video.MoviePlayer;
+import com.duckcraftian.upf.ps1.video.StrDemux;
 import com.duckcraftian.upf.system.Utils;
 import com.duckcraftian.upf.utils.Input;
+import org.lwjgl.sdl.SDLScancode;
+import org.lwjgl.system.MemoryUtil;
+import org.tinylog.Logger;
+
+import java.io.IOException;
+import java.net.URISyntaxException;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
 import static com.duckcraftian.upf.pe.ParasiteEve.PEAUDIO;
+import static com.duckcraftian.upf.serialization.UPDHSerializer.getStreamedData;
 import static com.duckcraftian.upf.system.DataTypeHelper.s16LE;
 
 public class Game implements IDisposable {
 
     private PERenderer renderer;
     private List<PSXViewport> viewports;
-
+    private MoviePlayer moviePlayer;
+    private String[] movies;
 
     private PECamera camera;
     private PERipper ripper;
@@ -91,13 +98,13 @@ public class Game implements IDisposable {
         }
 
         try {
-            byte[] fontImages = UPDHSerializer.getStreamedData(imagesFiles, "text/font/images");
+            byte[] fontImages = getStreamedData(imagesFiles, "text/font/images");
             for (PSXImage image : SquareImageParser.convertBytesToImages(fontImages))
                 renderer.upload(image);
 
-            byte[] fontMetrics = UPDHSerializer.getStreamedData(imagesFiles, "text/font/metrics");
+            byte[] fontMetrics = getStreamedData(imagesFiles, "text/font/metrics");
             PEText.metrics = fontMetrics;
-            byte[] normals = UPDHSerializer.getStreamedData(imagesFiles, "render/normals");
+            byte[] normals = getStreamedData(imagesFiles, "render/normals");
 
             PEModel.normals = new int[240 * 3];
             for (int i = 0; i < 240; i++) {
@@ -110,7 +117,10 @@ public class Game implements IDisposable {
             throw new RuntimeException(e);
         }
 
-        loadMap("m003");
+        ScriptVM.movieStarter = m -> playMovie(movieName(m), false, false);
+
+        loadMap("m431");
+        playMovie("FMV001", true, true);
     }
 
     public void loadMap(String mapName) {
@@ -130,9 +140,38 @@ public class Game implements IDisposable {
 
     }
 
+    public void playMovie(String name, boolean canSkip, boolean blocking) {
+        Logger.debug("Playing Movie: " + name);
+        try {
+            moviePlayer = new MoviePlayer();
+            moviePlayer.start(getStreamedData(imagesFiles, "movies/" + name), PEAUDIO.source, canSkip);
+            moviePlayer.blocking = blocking;
+            ScriptVM.movieElapsed = moviePlayer.elapsed();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     public void update(float delta) {
 
-        if (!ScriptVM.openMessages.isEmpty()) {
+        if (moviePlayer != null) {
+            moviePlayer.step();
+            if (moviePlayer.skippable && (Input.isKeyJustDown(SDLScancode.SDL_SCANCODE_F) || Input.isKeyJustDown(SDLScancode.SDL_SCANCODE_ESCAPE))) {
+                moviePlayer.done = true;
+            }
+
+            if (moviePlayer.done) {
+                moviePlayer.stop();
+                moviePlayer = null;
+                ScriptVM.movieElapsed = -1;
+            } else {
+                ScriptVM.movieElapsed = moviePlayer.elapsed();
+            }
+
+            if (moviePlayer != null && moviePlayer.blocking) return;
+        }
+
+        if (moviePlayer == null && !ScriptVM.openMessages.isEmpty()) {
             if (Input.isKeyJustDown(SDLScancode.SDL_SCANCODE_F))
                 confirmPressed = true;
 
@@ -149,6 +188,7 @@ public class Game implements IDisposable {
         if (Input.isKeyJustDown(SDLScancode.SDL_SCANCODE_F8))
             ScriptVM.dumpActors(camera);
 
+
         if (!paused) {
             accumulator += delta;
             while (accumulator >= TICK) {
@@ -159,6 +199,7 @@ public class Game implements IDisposable {
     }
 
     public void tick() {
+
         // Player Pad Control
         int pad = 0;
         if (Input.isKeyDown(SDLScancode.SDL_SCANCODE_W))
@@ -195,6 +236,7 @@ public class Game implements IDisposable {
             downPressed = false;
         }
 
+        if (moviePlayer != null) pad = 0;
         ScriptVM.pad = pad;
         PEAUDIO.newFrame();
         ScriptVM.runAll();
@@ -255,8 +297,26 @@ public class Game implements IDisposable {
     }
 
     public void render() {
+
+        if (moviePlayer != null) {
+            moviePlayer.draw(renderer);
+            return;
+        }
+
         renderer.setCameraPosition(camera.getCamX(), camera.getCamY());
         renderer.onRender(viewports);
+    }
+
+    private String movieName(int idx) {
+        if (movies == null) {
+            try {
+                movies = new String(getStreamedData(imagesFiles, "movies/names"), StandardCharsets.UTF_8).split("\n");
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        return movies[idx];
     }
 
     public void resize(int width, int height) {
@@ -265,6 +325,9 @@ public class Game implements IDisposable {
 
     @Override
     public void onDispose() {
+        if (moviePlayer != null)
+            moviePlayer.onDispose();
+
         renderer.onDispose();
     }
 

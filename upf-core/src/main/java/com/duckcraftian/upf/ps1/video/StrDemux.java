@@ -21,7 +21,7 @@ public class StrDemux {
             int off = s * RAW_SECTOR_SIZE;
             if ((u8(all, off + 18) & 0x7E) == 0x48) {
                 int d = off + DATA_OFFSET;
-                if (u16LE(all, d) == 0x0160 && u16LE(all, d + 2) == 0x8001) {
+                if (u16LE(all, d) == 0x0160) {
                     int index = u16LE(all, d + 4);
                     int count = u16LE(all, d + 6);
                     long size = u32LE(all, d + 12);

@@ -4,6 +4,7 @@ import com.duckcraftian.upf.UPF;
 import com.duckcraftian.upf.engine.gfx.Framebuffer;
 import com.duckcraftian.upf.engine.gfx.FramebufferQuad;
 import com.duckcraftian.upf.engine.gfx.ShaderProgram;
+import com.duckcraftian.upf.engine.gfx.TexturedQuad;
 import com.duckcraftian.upf.impl.IDisposable;
 import com.duckcraftian.upf.pe.rooms.BackgroundTile;
 import com.duckcraftian.upf.pe.rooms.PSXViewport;
@@ -178,6 +179,28 @@ public class PERenderer implements IDisposable {
         blitShader.set("fade", ScriptVM.fadeLevel / 255.0f);
         screen.draw();
         blitShader.end();
+    }
+
+    public void drawMovie(TexturedQuad quad) {
+        int windowW = UPF.WINDOW.getWindowWidth();
+        int windowH = UPF.WINDOW.getWindowHeight();
+        float scale = Math.min(windowW / 320.0f, windowH / 240.0f);
+        int w = Math.round(320 * scale);
+        int h = Math.round(240 * scale);
+        int x0 = (windowW - w) / 2;
+        int y0 = (windowH - h) / 2;
+
+        glDisable(GL_DEPTH_TEST);
+        glViewport(x0, y0, w, h);
+        blitShader.begin();
+        {
+            blitShader.set("screen", 0);
+            blitShader.set("fade", 0.0f);
+            quad.draw();
+        }
+        blitShader.end();
+
+        glEnable(GL_DEPTH_TEST);
     }
 
     public void upload(List<BackgroundTile> tiles) {
