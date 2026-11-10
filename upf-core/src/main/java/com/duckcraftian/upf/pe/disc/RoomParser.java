@@ -6,9 +6,6 @@ import com.duckcraftian.upf.pe.gfx.PEModel;
 import com.duckcraftian.upf.pe.rooms.BackgroundTile;
 import com.duckcraftian.upf.pe.rooms.Collision;
 import com.duckcraftian.upf.pe.rooms.PSXViewport;
-import com.duckcraftian.upf.pe.script.ScriptVM;
-import com.duckcraftian.upf.ps1.PSX;
-import org.tinylog.Logger;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -108,6 +105,19 @@ public class RoomParser {
             start[i] = (int) (payload + u32LE(container, payload + 8 + 4 * i));
 
         return start;
+    }
+
+    public static int readKeyedOffset(byte[] container, long key) {
+        long directoryOffset = u32LE(container, 4);
+        long field = u32LE(container, (int) (directoryOffset + 0x08));
+        long count = field >> 22;
+        long tableOffset = field & 0x3FFFFF;
+        for (int i = 0; i < count; i++) {
+            long at = tableOffset + 12 * i;
+            if (u32LE(container, (int) (at + 8)) == key) return (int) (u32LE(container, (int) (at + 4)) & 0xFFFFFF);
+        }
+
+        return -1;
     }
 
     public static Collision readCollision(byte[] container) {

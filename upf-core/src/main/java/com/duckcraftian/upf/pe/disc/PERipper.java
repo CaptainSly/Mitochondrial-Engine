@@ -258,6 +258,16 @@ public class PERipper {
         byte[] fontBlob = fs1.readSectors(pe, boundaries[72], boundaries[73] - boundaries[72]);
         byte[] pack = fs1.readSectors(pe, boundaries[2], boundaries[3] - boundaries[2]);
         byte[] ui = fs1.readSectors(pe, boundaries[9], boundaries[10] - boundaries[9]);
+        byte[] scene = fs1.readSectors(pe, boundaries[39], boundaries[40] - boundaries[39]);
+        byte[] objects = fs1.readSectors(pe, boundaries[12], boundaries[13] - boundaries[12]);
+
+        entries.put("common/sceneAssets", objects);
+
+        List<PSXImage> objs = readVramUploads(ui);
+        for (PSXImage image : readVramUploads(scene))
+            objs.add(image);
+
+        entries.put("images/common/objects", convertImagesToBytes(objs));
 
         PSXImage icons = new PSXImage(272, 468, 12, 12, Arrays.copyOfRange(ui, 0xb358, 0xb358 + 288));
         PSXImage iconClut = new PSXImage(304, 478, 16, 1, Arrays.copyOfRange(ui, 0xb478, 0xb478 + 32));

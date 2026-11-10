@@ -3,7 +3,6 @@ package com.duckcraftian.upf.pe.audio;
 import com.duckcraftian.upf.ps1.audio.SpuReverb;
 import com.duckcraftian.upf.ps1.audio.SpuVoice;
 import com.duckcraftian.upf.system.Utils;
-import org.tinylog.Logger;
 
 import java.util.Arrays;
 import java.util.List;

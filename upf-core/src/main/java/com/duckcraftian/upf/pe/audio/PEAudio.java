@@ -74,7 +74,6 @@ public class PEAudio {
             if ((flags & 0x20) != 0 && (flags & 0x10) == 0 && channel < 2) {
                 byte[] bankBytes = UPDHSerializer.getStreamedData(imagesFile, bankFileName(bank));
                 newSfx.loadInstruments(bankBytes, 128 + 16 * channel);
-                Logger.debug("Bank=" + bank + ", channel=" + channel);
             }
         }
 

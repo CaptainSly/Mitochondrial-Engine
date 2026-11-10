@@ -22,7 +22,7 @@ public class ParasiteEve {
     public static final long AKAO_PAN_TABLE_RAM = 0x8009B8F8;
 
     public static final long NORMAL_TABLE_BYTES = 240 * 8;
-
+    public static final long SCENE_OBJECT_MODELKEY = 0xC4B5BA04L;
     public static final long PLAYER_TEXTURE_WORD = 0x2F200;
 
     // Sector Counts

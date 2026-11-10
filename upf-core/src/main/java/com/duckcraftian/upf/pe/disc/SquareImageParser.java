@@ -24,8 +24,7 @@ public class SquareImageParser {
             long src = u32LE(container, (int) (base + 4));
             long rect = u32LE(container, (int) (base + 8));
             long source_rect = u32LE(container, (int) (base + 12));
-            if (source_rect > 0)
-                throw new IllegalArgumentException("uwu we're not dealing with this just yet. :P");
+            long rect2 = u32LE(container, (int) (base + 16));
 
             long offset = src & 0xFFFFFF;
             int height = (int) (src >>> 24);
@@ -40,6 +39,17 @@ public class SquareImageParser {
 
             byte[] pixels = Arrays.copyOfRange(container, (int) offset, end);
             result.add(new PSXImage(x, y, width, height, pixels));
+            if (source_rect != 0) {
+                long offset2 = end;
+                long height2 = source_rect >> 24;
+                long width2 = (int) (rect2 & 0x3FF);
+                long x2 = (rect2 >> 10) & 0x7FF;
+                long y2 = rect2 >> 21;
+                long size2 = width2 * 2 * height2;
+                long endAt2 = offset2 + size2;
+                byte[] pixels2 = Arrays.copyOfRange(container, (int) offset2, (int) endAt2);
+                result.add(new PSXImage((int) x2, (int) y2, (int) width2, (int) height2, pixels2));
+            }
         }
 
         return result;

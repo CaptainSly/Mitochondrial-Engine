@@ -1,13 +1,11 @@
 package com.duckcraftian.upf.engine;
 
 import com.duckcraftian.upf.UPF;
-import com.duckcraftian.upf.engine.gfx.TexturedQuad;
 import com.duckcraftian.upf.impl.IDisposable;
 import com.duckcraftian.upf.pe.ParasiteEve;
 import com.duckcraftian.upf.pe.audio.PEAudio;
 import com.duckcraftian.upf.pe.disc.PERipper;
 import com.duckcraftian.upf.pe.disc.RoomParser;
-import com.duckcraftian.upf.pe.disc.SquareImageParser;
 import com.duckcraftian.upf.pe.gfx.PECamera;
 import com.duckcraftian.upf.pe.gfx.PEModel;
 import com.duckcraftian.upf.pe.gfx.PERenderer;
@@ -18,19 +16,14 @@ import com.duckcraftian.upf.pe.rooms.RoomLoader;
 import com.duckcraftian.upf.pe.script.ScriptVM;
 import com.duckcraftian.upf.ps1.data_types.PSXImage;
 import com.duckcraftian.upf.ps1.disc.DiscFileSystem;
-import com.duckcraftian.upf.ps1.video.BSDecoder;
-import com.duckcraftian.upf.ps1.video.Mdec;
 import com.duckcraftian.upf.ps1.video.MoviePlayer;
-import com.duckcraftian.upf.ps1.video.StrDemux;
 import com.duckcraftian.upf.system.Utils;
 import com.duckcraftian.upf.utils.Input;
 import org.lwjgl.sdl.SDLScancode;
-import org.lwjgl.system.MemoryUtil;
 import org.tinylog.Logger;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -38,6 +31,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.duckcraftian.upf.pe.ParasiteEve.PEAUDIO;
+import static com.duckcraftian.upf.pe.disc.SquareImageParser.convertBytesToImages;
 import static com.duckcraftian.upf.serialization.UPDHSerializer.getStreamedData;
 import static com.duckcraftian.upf.system.DataTypeHelper.s16LE;
 
@@ -99,7 +93,7 @@ public class Game implements IDisposable {
 
         try {
             byte[] fontImages = getStreamedData(imagesFiles, "text/font/images");
-            for (PSXImage image : SquareImageParser.convertBytesToImages(fontImages))
+            for (PSXImage image : convertBytesToImages(fontImages))
                 renderer.upload(image);
 
             byte[] fontMetrics = getStreamedData(imagesFiles, "text/font/metrics");
@@ -119,7 +113,7 @@ public class Game implements IDisposable {
 
         ScriptVM.movieStarter = m -> playMovie(movieName(m), false, false);
 
-        loadMap("m004");
+        loadMap("m012");
 //        playMovie("FMV001", true, true);
     }
 

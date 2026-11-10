@@ -21,11 +21,13 @@ import com.duckcraftian.upf.system.Utils;
 import org.joml.Vector2f;
 import org.joml.Vector2i;
 import org.joml.Vector3f;
-import org.tinylog.Logger;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
-import static com.duckcraftian.upf.ps1.PSX.*;
+import static com.duckcraftian.upf.pe.ParasiteEve.SCENE_OBJECT_MODELKEY;
+import static com.duckcraftian.upf.ps1.PSX.GTE;
 import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL13.GL_TEXTURE0;
 import static org.lwjgl.opengl.GL13.glActiveTexture;
@@ -76,7 +78,6 @@ public class PERenderer implements IDisposable {
         polygonShader.createUniform("vram");
         polygonShader.createUniform("scroll");
         polygonShader.createUniform("opacity");
-        polygonShader.createUniform("zeroTransparent");
 
         tileTexture = new PSXTexture();
         triangleBatch = new PSXTriangleBatch(8);
@@ -123,7 +124,6 @@ public class PERenderer implements IDisposable {
                 polygonShader.set("vram", 0);
                 polygonShader.set("scroll", new Vector2i(viewport.width() / 2 - camX, viewport.height() / 2 - camY));
                 polygonShader.set("opacity", 1.0f);
-                polygonShader.set("zeroTransparent", 0);
                 glActiveTexture(GL_TEXTURE0);
                 tileTexture.bind();
                 triangleBatch.draw();
@@ -136,7 +136,6 @@ public class PERenderer implements IDisposable {
                 glDepthMask(true);
                 glDisable(GL_BLEND);
 
-                polygonShader.set("zeroTransparent", 1);
                 glEnable(GL_BLEND);
                 glBlendEquation(GL_FUNC_REVERSE_SUBTRACT);
                 glBlendFunc(GL_ONE, GL_ONE);
@@ -145,7 +144,6 @@ public class PERenderer implements IDisposable {
                 glDepthMask(true);
                 glBlendEquation(GL_FUNC_ADD);
                 glDisable(GL_BLEND);
-                polygonShader.set("zeroTransparent", 0);
 
                 tileTexture.unbind();
             }
@@ -233,6 +231,8 @@ public class PERenderer implements IDisposable {
         GTE.writeControl(29, 0x155);
         GTE.writeControl(30, 0x100);
 
+        PEModel gunModel = ScriptVM.sceneObjectModels.get((int) SCENE_OBJECT_MODELKEY);
+
         for (ScriptVM vm : ScriptVM.getActors()) {
             PEModel model = models.get(vm.getType());
             if (model == null) {
@@ -253,6 +253,16 @@ public class PERenderer implements IDisposable {
 
             if (q != null) {
                 allShadow.addAll(Utils.intArrayToList(q));
+            }
+
+            if (vm.getType() == 0 && gunModel != null && (ScriptVM.moveLock & 2) == 0) {
+                int[][] gunPose = {pose[18], pose[18]};
+                int[] gunScreen = gunModel.project(gunPose, viewport.rotation(), viewport.translation());
+                int[] gunLight = gunModel.light(gunPose, vm.getShade(), vm.getLightNegativeY(), vm.getLightPositiveY(), ScriptVM.roomLightR, ScriptVM.roomLightG, ScriptVM.roomLightB);
+                PSXOrderingTable gunOT = new PSXOrderingTable(4096, gunModel.getN34() + gunModel.getN28() + gunModel.getN24() + gunModel.getN1c());
+                gunModel.sortIntoOT(gunScreen, gunOT);
+                for (int value : gunModel.buildTriangles(gunOT, gunScreen, gunLight, allSemi))
+                    all.add(value);
             }
 
             PSXOrderingTable ot = new PSXOrderingTable(4096, model.getN34() + model.getN28() + model.getN24() + model.getN1c());
@@ -353,8 +363,6 @@ public class PERenderer implements IDisposable {
             out[8 * k + 6] = maxDepth;
             out[8 * k + 7] = rgb;
         }
-
-//        Logger.debug("Shadow: type=" + vm.getType() + " r=" + r + " intensity=" + vm.getShadowIntensity());
 
         return out;
     }

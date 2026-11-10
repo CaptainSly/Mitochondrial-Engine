@@ -2,7 +2,6 @@
 
 uniform usampler2D vram;
 uniform float opacity;
-uniform int zeroTransparent;
 
 flat in ivec2 fragPageClut;
 in vec2 texelPos;
@@ -39,15 +38,8 @@ void main() {
 
     float alpha = ((paletteWord & 0x8000u) != 0u) ? opacity : 1.0;
 
-    if (paletteWord == 0u) {
-
-        if (zeroTransparent != 0) {
-            discard;
-        } else {
-            color = vec4(1.0, 0.0, 1.0, 1.0);
-            return;
-        }
-    }
+    if (paletteWord == 0u)
+        discard;
 
     float r = float(paletteWord & 31u) / 31.0;
     float g = float((paletteWord >> 5) & 31u) / 31.0;

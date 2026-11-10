@@ -74,6 +74,7 @@ public class ScriptVM {
     public static int serialCounter;
 
     public static Map<Integer, PEModel> models;
+    public static Map<Integer, PEModel> sceneObjectModels;
     public static List<Integer> openMessages = new ArrayList<>();
     public static Map<Integer, List<int[]>> messageSections = new HashMap<>();
     public static Map<Integer, Integer> messageSection = new HashMap<>();
@@ -205,8 +206,6 @@ public class ScriptVM {
 
         if (type == 0 && BANK_CONTAINER != null) {
             vm.entityMode = 21;
-
-            Logger.debug("Player hitRadius=" + vm.hitRadius);
 
             for (int[] a : BANK_ANIM_RECORDS)
                 if (a[0] == 0) vm.actions.put(a[1], RoomParser.parseAnimation(BANK_CONTAINER, a[2]));
@@ -434,8 +433,6 @@ public class ScriptVM {
         newNode.target18 = other.type;
         newNode.target1c = other.sub;
         nodes.addFirst(newNode);
-
-        Logger.debug("Contact: " + type + "/" + sub + " <- " + other.type + "/" + other.sub + " serial " + other.serial);
     }
 
     public void slide(int[] wall, int r) {
@@ -809,8 +806,6 @@ public class ScriptVM {
 
         handlers[SetEntityParent] = _ -> {
             ScriptVM target = (get(0) == 0) ? getPlayer() : getActor(get(0), get(1));
-            Logger.debug("op212: type=" + type + " sub=" + sub + " asks for type=" + get(0) + " sub=" + get(1)
-                    + " found=" + (target != null));
             if (target == null) return true;
             parent = target;
             target.entityFlags |= 0x100000;
@@ -1010,7 +1005,6 @@ public class ScriptVM {
             messageTimer.put(id, 0);
 
             menuChoice = -1;
-            Logger.debug("Open Message - Debug Tick: " + debugTick + " Target: " + type + "/" + sub);
             return true;
         };
 
@@ -2013,8 +2007,6 @@ public class ScriptVM {
             Logger.debug("No Action " + mode + " for type " + type);
             return;
         }
-
-        Logger.debug("Tick: " + debugTick + " Type: " + type + "/" + sub + " -> mode: " + mode);
 
         actionMode = mode;
         animFrame = 0;
