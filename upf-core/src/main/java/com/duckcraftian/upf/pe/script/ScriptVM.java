@@ -58,6 +58,8 @@ public class ScriptVM {
     public static int gameStateFlags = 0;
     public static int battleModeState = 0;
     public static int battleEscapeFlag = 0;
+    public static int battleStartPhase = 0;
+    public static boolean loadBattleTextures = false;
 
     public static int menuDimLevel;
 
@@ -68,10 +70,14 @@ public class ScriptVM {
     public static boolean fadeAutoIn = true;
     public static boolean justLoaded = true;
 
+    public static int wallPolygonStart, wallPolygonCount;
+    public static int floorPolygonStart, floorPolygonCount;
+
     public static int[] playerName = {0x10, 0x48, 0x30};
     public static int[] pendingScroll = null;
 
     public static int serialCounter;
+    public static int nodeSeqCounter;
 
     public static Map<Integer, PEModel> models;
     public static Map<Integer, PEModel> sceneObjectModels;
@@ -124,6 +130,8 @@ public class ScriptVM {
     private int animStop;
     private int animLastFrame;
 
+    private int boundsIndex;
+
     private int face = -1;
     private int faceMirror = -1;
     private int hitRadius;
@@ -162,9 +170,11 @@ public class ScriptVM {
 
     private static int[][] ANIM_RECORDS;
     private static int[][] BANK_ANIM_RECORDS;
+    private static int[][] ACTION_ANIM_RECORDS;
 
     private static byte[] BANK_CONTAINER;
     private static byte[] CONTAINER;
+    private static byte[] ACTION_SET;
 
     private static int[] STARTS;
 
@@ -211,6 +221,11 @@ public class ScriptVM {
                 if (a[0] == 0) vm.actions.put(a[1], RoomParser.parseAnimation(BANK_CONTAINER, a[2]));
         }
 
+        if (type == 0 && ACTION_SET != null) {
+            for (int[] action : ACTION_ANIM_RECORDS)
+                if (action[0] == 0) vm.actions.put(action[1], RoomParser.parseAnimation(ACTION_SET, action[2]));
+        }
+
         if (!vm.actions.isEmpty()) {
             int start = (type == 0) ? 21 : Collections.min(vm.actions.keySet());
             vm.setActionMode(start);
@@ -241,9 +256,10 @@ public class ScriptVM {
         return s;
     }
 
-    public static void loadRoom(byte[] container, byte[] bankContainer) {
+    public static void loadRoom(byte[] container, byte[] bankContainer, byte[] actionSet) {
         CONTAINER = container;
         BANK_CONTAINER = bankContainer;
+        ACTION_SET = actionSet;
         STARTS = RoomParser.readScriptStreams(container);
         actors.clear();
 
@@ -265,16 +281,20 @@ public class ScriptVM {
         cameraFrozen = false;
 
         serialCounter = 1;
+        nodeSeqCounter = 1;
+
         roomLightR = 0xFF;
         roomLightG = 0xFF;
         roomLightB = 0xFF;
 
         ANIM_RECORDS = RoomParser.readAnimationRecords(container);
-
         messageBank = RoomParser.readMessageBank(container);
 
         if (bankContainer != null)
             BANK_ANIM_RECORDS = RoomParser.readAnimationRecords(bankContainer);
+
+        if (actionSet != null)
+            ACTION_ANIM_RECORDS = RoomParser.readAnimationRecords(actionSet);
 
         int spawnList = RoomParser.readSpawnList(container);
         int n = u8(container, spawnList);
@@ -373,7 +393,7 @@ public class ScriptVM {
                             + "Yaw: " + actor.rotY + " (" + (actor.rotY * 360.0 / 4096) + " deg) | "
                             + "Action Mode: " + actor.actionMode + " f " + frame + "/" + actor.animLastFrame + " step " + (actor.animStep / 65536.0) + " | "
                             + "Entity Flags: " + Integer.toHexString(actor.entityFlags) + " | "
-                            + "Node Size: " + actor.nodes.size() + "-=-="
+                            + "Node Size: " + actor.nodes.size() + " -=-="
             );
 
             if (model == null || anim == null) {
@@ -392,8 +412,15 @@ public class ScriptVM {
                 sb.append(
                         "-=- Root Offset: " + anim.channels()[0][frame] + ", " + anim.channels()[1][frame] + ", " + anim.channels()[2][frame] + " | "
                                 + "Root World: " + root[9] + ", " + root[10] + ", " + root[11] + " | "
-                                + "Screen: " + screen[0] + ", " + screen[1] + "-=-="
+                                + "Screen: " + screen[0] + ", " + screen[1] + " -=-="
                 );
+            }
+
+            for (Node node : actor.nodes) {
+                int wordIndex = (node.cursor - actor.streamStart) / 4;
+                int op = (int) (u32LE(CONTAINER, node.cursor) & 0x1FFFF);
+
+                sb.append("-=- Node #" + node.seq + ", Flags: " + Integer.toHexString(node.flags) + ", Active: " + node.active + ", wordIndex: " + wordIndex + ", Op: " + op + " -=-=");
             }
 
             if (actor == getPlayer() && model != null)
@@ -403,11 +430,18 @@ public class ScriptVM {
         Logger.debug(sb.toString());
     }
 
+    public static Node createNode() {
+        Node node = new Node();
+        node.seq = nodeSeqCounter;
+        nodeSeqCounter = (nodeSeqCounter + 1) & 0xFFFF;
+        return node;
+    }
+
     public static void deliverMessages() {
         for (int[] e : queue) {
             for (ScriptVM vm : actors) {
                 if (vm.type == e[2] && vm.sub == e[1] && vm.msgCursor != 0) {
-                    Node n = new Node();
+                    Node n = createNode();
                     n.cursor = vm.msgCursor;
                     n.active = 1;
                     n.target14 = e[0];
@@ -425,7 +459,7 @@ public class ScriptVM {
         for (Node node : nodes)
             if ((node.flags & 1) != 0 && (node.flags & 0x10) == 0 && (node.trigger == other.serial)) return;
 
-        Node newNode = new Node();
+        Node newNode = createNode();
         newNode.cursor = contactCursor;
         newNode.active = 1;
         newNode.flags = 1;
@@ -541,7 +575,7 @@ public class ScriptVM {
     public void start(int streamStart) {
         this.streamStart = streamStart;
 
-        Node main = new Node();
+        Node main = createNode();
         main.cursor = streamStart;
         main.active = 1;
         nodes = new ArrayList<>();
@@ -598,6 +632,50 @@ public class ScriptVM {
             return true;
         };
 
+        handlers[InitiateBattle] = _ -> {
+            if (battleStartPhase == 0) {
+                battleStartPhase = 1;
+                node.active = 1;
+                node.cursor = node.cursor - 12;
+                return false;
+            } else if (battleStartPhase == 1) {
+                loadBattleTextures = true;
+                gameStateFlags |= 2;
+                battleModeState = 0;
+                ScriptVM player = getPlayer();
+
+                if (player.fields[10] < player.fields[4])
+                    player.fields[4] = player.fields[10];
+
+                player.fields[5] = player.fields[4];
+                player.fields[6] = 0;
+                player.fields[7] = 4;
+
+                PEAnimation anim4 = player.actions.get(4);
+                if (anim4 == null) {
+                    Logger.error("IT'S THE END OF THE WORLD! ANIM4 DOESN'T EXIST WHAT DO WE DO NOW!");
+                } else
+                    Logger.debug("Mode4 Frames=" + anim4.frameCount());
+
+                Logger.debug("Action Keys=" + player.actions.keySet().toString());
+                Logger.debug("ActionMode=" + player.actionMode);
+
+                StringBuilder sb = new StringBuilder("Player Fields\n");
+                for (int i = 0; i < 10; i++)
+                    sb.append("Field[" + i + "]=" + player.fields[i] + (i == 9 ? "" : "\n"));
+
+                Logger.debug("BattleModeState=" + battleModeState + ", GameStateFlags=" + gameStateFlags + " " + sb.toString());
+
+                battleStartPhase = 2;
+                node.active = 1;
+                node.cursor -= 12;
+                return false;
+            } else {
+                battleStartPhase = 0;
+                return true;
+            }
+        };
+
         handlers[SetCombatantOrActorField] = _ -> {
             ScriptVM target = getActor(get(0), get(1));
             if (target != null)
@@ -652,8 +730,45 @@ public class ScriptVM {
             return true;
         };
 
+        handlers[SetAnimationSpeed] = _ -> {
+            animStep = get(0);
+            return true;
+        };
+
+        handlers[SelectBoundsEntry] = _ -> {
+            boundsIndex = get(0);
+            return true;
+        };
+
+        handlers[GetAngleToPoint] = _ -> {
+            int dx = (posX - get(0)) >> 16;
+            int dz = (posZ - get(1)) >> 16;
+            int units = (int) Math.round(Math.atan2(dz, dx) * 2048 / Math.PI);
+            int angle = 0x1400 - units;
+
+            if (angle >= 0x1001) angle -= 0x1000;
+            angle -= rotY;
+
+            if (angle < 0) angle += 0x1000;
+            set(2, angle);
+            return true;
+        };
+
+        handlers[WaitForAnimationLoop] = _ -> {
+            if ((node.flags & 0x20) != 0) {
+                if ((entityFlags & 8) != 0) {
+                    node.flags &= ~0x20;
+                    return true;
+                }
+            } else node.flags |= 0x20;
+
+            node.cursor -= 8;
+            node.active = 1;
+            return false;
+        };
+
         handlers[SpawnChildNode] = _ -> {
-            Node child = new Node();
+            Node child = createNode();
             child.cursor = streamStart + get(0) * 2;
             child.active = 1;
             child.flags = 0;
@@ -830,6 +945,28 @@ public class ScriptVM {
 
         handlers[UnblockCollisionTriangle] = _ -> {
             COLLISION.triKind()[get(0)] &= 0x7F;
+            return true;
+        };
+
+        handlers[GetCurrentScriptId] = _ -> {
+            set(0, node.seq);
+            return true;
+        };
+
+        handlers[StopScriptById] = _ -> {
+            int id = get(0) & 0xFFFF;
+            if (node.seq == id) {
+                node.flags |= 0x10;
+                return false;
+            }
+
+            for (Node other : nodes) {
+                if (other.seq == id) {
+                    other.flags |= 0x10;
+                    return true;
+                }
+            }
+
             return true;
         };
 
@@ -1116,9 +1253,72 @@ public class ScriptVM {
             return true;
         };
 
+        handlers[SetWallPolygon] = _ -> {
+            wallPolygonStart = streamStart + get(0) * 2;
+            wallPolygonCount = get(1);
+            return true;
+        };
+
+        handlers[SetFloorPolygon] = _ -> {
+            floorPolygonStart = streamStart + get(0) * 2;
+            floorPolygonCount = get(1);
+            return true;
+        };
+
         handlers[SetCurrentFlag80] = _ -> {
             entityFlags |= 0x80;
             return true;
+        };
+
+        handlers[WalkStraightToPoint] = _ -> {
+            if ((node.flags & 0x20) == 0) {
+                if (posX == get(0) && posZ == get(1)) return true;
+                node.target14 = get(0);
+                node.targetZ = get(1);
+                node.turnSpeed = get(2);
+                if (rotY < 0) rotY += 0x1000;
+                node.flags |= 0x20;
+            }
+
+            int base = (type == 0) ? 0x50000 : 0x10000;
+            int speed = fixedMul(fixedMul(base, moveFactor), moveSpeed << 4);
+            int goal = angleToPoint(node.target14, node.targetZ);
+            motionX = fixedMul(-speed, rsin(goal) << 4);
+            motionZ = fixedMul(-speed, rcos(goal) << 4);
+
+            if (rotY < goal) {
+                int diff = goal - rotY;
+                if (diff < 0x801) {
+                    if (node.turnSpeed < diff) rotY += node.turnSpeed;
+                } else {
+                    if (node.turnSpeed < diff) rotY -= node.turnSpeed;
+                }
+            } else {
+                int diff = rotY - goal;
+                if (diff < 0x801) {
+                    if (node.turnSpeed < diff) rotY -= node.turnSpeed;
+                } else {
+                    if (node.turnSpeed < diff) rotY += node.turnSpeed;
+                }
+            }
+
+            rotY &= 0xFFF;
+            int remX = (node.target14 - posX) >> 16;
+            int remZ = (node.targetZ - posZ) >> 16;
+            int stepX = motionX >> 16;
+            int stepZ = motionZ >> 16;
+            if (stepX * stepX + stepZ * stepZ >= remX * remX + remZ * remZ) {
+                posX = node.target14;
+                posZ = node.targetZ;
+                motionX = 0;
+                motionZ = 0;
+                node.flags &= ~0x20;
+                return true;
+            }
+
+            node.active = 1;
+            node.cursor -= 0x14;
+            return false;
         };
 
         handlers[setCurrentFlag20] = _ -> {
@@ -1690,6 +1890,12 @@ public class ScriptVM {
         return dirty;
     }
 
+    public static boolean takeBattleTextureLoading() {
+        boolean dirty = loadBattleTextures;
+        loadBattleTextures = false;
+        return dirty;
+    }
+
     public static void checkAutoFadeIn() {
         if (!justLoaded) return;
         justLoaded = false;
@@ -1849,6 +2055,26 @@ public class ScriptVM {
         menuChoice = -1;
     }
 
+    public static void updateBattle() {
+        if ((gameStateFlags & 2) == 0) return;
+        if (battleModeState != 6) return;
+
+        ScriptVM player = getPlayer();
+        if (player == null) return;
+
+        moveLock |= 1;
+        player.motionX = 0;
+        player.motionY = 0;
+        player.motionZ = 0;
+        int idle = player.fields[7];
+        if (player.actionMode != idle) {
+            if ((player.animPrev >> 16) == player.animLastFrame) player.setActionMode(idle);
+        } else {
+
+            battleModeState = 7;
+            moveLock &= ~1;
+        }
+    }
 
     public void integrate() {
         motionX += accelX;

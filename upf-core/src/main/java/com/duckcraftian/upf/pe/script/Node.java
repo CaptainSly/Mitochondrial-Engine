@@ -4,6 +4,7 @@ public class Node {
 
     public int cursor;
     public int active;
+    public int seq;
     public int flags;
     public int target14;
     public int target18;

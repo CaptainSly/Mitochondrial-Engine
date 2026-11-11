@@ -49,7 +49,7 @@ public class Game implements IDisposable {
 
     private boolean paused;
 
-    public Path imagesFiles;
+    public Path imageFile;
 
     private boolean confirmPressed = false;
     private boolean upPressed = false;
@@ -67,14 +67,14 @@ public class Game implements IDisposable {
         viewports = new ArrayList<>();
         renderer = new PERenderer();
 
-        imagesFiles = UPF.getEngineFolder("data").resolve("pe.udh");
-        if (!Files.exists(imagesFiles)) {
+        imageFile = UPF.getEngineFolder("data").resolve("pe.udh");
+        if (!Files.exists(imageFile)) {
             DiscFileSystem dfs = null, dfs2 = null;
             try {
                 dfs = new DiscFileSystem("pe_disc_1");
                 dfs2 = new DiscFileSystem("pe_disc_2");
                 ripper = new PERipper();
-                ripper.ripImages(dfs, dfs2, imagesFiles);
+                ripper.ripImages(dfs, dfs2, imageFile);
 
             } catch (URISyntaxException | IOException e) {
                 throw new RuntimeException(e);
@@ -86,19 +86,19 @@ public class Game implements IDisposable {
 
         PEAUDIO = new PEAudio();
         try {
-            PEAUDIO.init(imagesFiles);
+            PEAUDIO.init(imageFile);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
 
         try {
-            byte[] fontImages = getStreamedData(imagesFiles, "text/font/images");
+            byte[] fontImages = getStreamedData(imageFile, "text/font/images");
             for (PSXImage image : convertBytesToImages(fontImages))
                 renderer.upload(image);
 
-            byte[] fontMetrics = getStreamedData(imagesFiles, "text/font/metrics");
+            byte[] fontMetrics = getStreamedData(imageFile, "text/font/metrics");
             PEText.metrics = fontMetrics;
-            byte[] normals = getStreamedData(imagesFiles, "render/normals");
+            byte[] normals = getStreamedData(imageFile, "render/normals");
 
             PEModel.normals = new int[240 * 3];
             for (int i = 0; i < 240; i++) {
@@ -113,13 +113,13 @@ public class Game implements IDisposable {
 
         ScriptVM.movieStarter = m -> playMovie(movieName(m), false, false);
 
-        loadMap("m012");
+        loadMap("m013");
 //        playMovie("FMV001", true, true);
     }
 
     public void loadMap(String mapName) {
         try {
-            room = RoomLoader.loadRoom(imagesFiles, mapName);
+            room = RoomLoader.loadRoom(imageFile, mapName);
             viewports = room.viewports();
             camera = new PECamera(viewports.get(0));
             PEAUDIO.camera = camera;
@@ -138,7 +138,7 @@ public class Game implements IDisposable {
         Logger.debug("Playing Movie: " + name);
         try {
             moviePlayer = new MoviePlayer();
-            moviePlayer.start(getStreamedData(imagesFiles, "movies/" + name), PEAUDIO.source, canSkip);
+            moviePlayer.start(getStreamedData(imageFile, "movies/" + name), PEAUDIO.source, canSkip);
             moviePlayer.blocking = blocking;
             ScriptVM.movieElapsed = moviePlayer.elapsed();
         } catch (IOException e) {
@@ -147,6 +147,9 @@ public class Game implements IDisposable {
     }
 
     public void update(float delta) {
+
+        if (ScriptVM.takeBattleTextureLoading())
+            loadBattleTextures();
 
         if (moviePlayer != null) {
             moviePlayer.step();
@@ -235,6 +238,8 @@ public class Game implements IDisposable {
         PEAUDIO.newFrame();
         ScriptVM.runAll();
 
+        ScriptVM.updateBattle();
+
         boolean changed = ScriptVM.stepBackgroundAnimations(ScriptVM.viewportIndex);
         boolean dirty = ScriptVM.takeBackgroundDirty();
 
@@ -302,10 +307,22 @@ public class Game implements IDisposable {
         renderer.onRender(viewports);
     }
 
+    private void loadBattleTextures() {
+        try {
+            byte[] data = getStreamedData(imageFile, "images/battle/textures");
+            List<PSXImage> images = convertBytesToImages(data);
+            images.forEach(renderer::upload);
+            Logger.debug("images size: " + images.size());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+    }
+
     private String movieName(int idx) {
         if (movies == null) {
             try {
-                movies = new String(getStreamedData(imagesFiles, "movies/names"), StandardCharsets.UTF_8).split("\n");
+                movies = new String(getStreamedData(imageFile, "movies/names"), StandardCharsets.UTF_8).split("\n");
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }

@@ -138,7 +138,11 @@ public class AudioOutput implements IDisposable {
 
     @Override
     public void onDispose() {
-        stopRequested = true;
+        try {
+            stop();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
         MemoryUtil.memFree(buff);
     }
 }

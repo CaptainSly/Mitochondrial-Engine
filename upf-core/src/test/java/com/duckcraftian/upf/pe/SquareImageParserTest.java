@@ -2,6 +2,7 @@ package com.duckcraftian.upf.pe;
 
 import com.duckcraftian.upf.pe.disc.PERipper;
 import com.duckcraftian.upf.pe.disc.SquareImageParser;
+import com.duckcraftian.upf.pe.rooms.RoomRange;
 import com.duckcraftian.upf.ps1.data_types.PSXImage;
 import com.duckcraftian.upf.ps1.disc.DiscEntry;
 import com.duckcraftian.upf.ps1.disc.DiscFileSystem;
@@ -13,7 +14,6 @@ import org.junit.jupiter.api.TestInstance;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 

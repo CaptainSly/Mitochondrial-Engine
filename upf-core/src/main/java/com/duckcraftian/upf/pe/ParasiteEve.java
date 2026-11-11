@@ -13,6 +13,8 @@ public class ParasiteEve {
 
     public static final int ROOM_COUNT = 450;
 
+    public static int STAND_IN_ACTION_SET = 1;
+
     public static final long DISC_1_PROG_TBL_RAM = 0x80093378;
     public static final long RESIDENT_TABLE_RAM = 0x800930D8;
     public static final long NORMAL_TABLE_RAM = 0x80091A58;
@@ -53,6 +55,8 @@ public class ParasiteEve {
     public static final int IsButtonDown = 17;
     public static final int SpawnChildNode = 18;
     public static final int SelectFieldSetter = 20;
+    public static final int StopScriptById = 24;
+    public static final int GetCurrentScriptId = 25;
     public static final int Random = 26;
     public static final int SetEntityMoveSpeed = 27;
     public static final int PlayFieldSFX = 28;
@@ -83,6 +87,7 @@ public class ParasiteEve {
     public static final int GetAngleToEntity = 69;
     public static final int ScrollCameraAlt = 70;
     public static final int ActorFaceActor = 75;
+    public static final int SetAnimationSpeed = 77;
     public static final int SetEntityAnimSpeed = 78;
     public static final int TestGameStateFlags = 81;
     public static final int SetGameStateFlags = 82;
@@ -133,21 +138,25 @@ public class ParasiteEve {
     public static final int ScaleAnimValue = 157;
     public static final int SetSceneFlag2000 = 170;
     public static final int ClearSceneFlag2000 = 171;
-    public static final int SetScriptPointerA = 172;
+    public static final int SetWallPolygon = 172;
     public static final int ClearInputFlagBit2 = 173;
     public static final int SetMoveLockBit2 = 174;
     public static final int SetAttackEffect = 183;
     public static final int ActorTurnToPoint = 184;
+    public static final int WaitForAnimationLoop = 195;
     public static final int SetActionAndWait = 198;
     public static final int SetNodeFlag80 = 199;
+    public static final int SelectBoundsEntry = 202;
+    public static final int GetAngleToPoint = 203;
     public static final int ActorSnapToAnimAnchor = 205;
     public static final int SetCombatantOrActorField = 206;
     public static final int SetEscapeFlag = 207;
     public static final int SetEntityParent = 212;
+    public static final int WalkStraightToPoint = 219;
     public static final int SetEntityFlag1000000 = 220;
     public static final int SoundCommand = 234;
     public static final int SetBackgroundDimLevel = 225;
-    public static final int InventorySlotPointer = 227;
+    public static final int SetFloorPolygon = 227;
     public static final int DispatchScriptCmd = 237;
     public static final int OpenNameEntryMenu = 239;
 

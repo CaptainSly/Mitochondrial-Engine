@@ -187,8 +187,11 @@ public class Engine {
     }
 
     private void dispose() {
-        if (UPF.AUDIO != null)
+        game.onDispose();
+
+        if (UPF.AUDIO != null) {
             UPF.AUDIO.onDispose();
+        }
 
         Logger.info("Disposing");
         pluginLoader.onDispose();

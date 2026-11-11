@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.duckcraftian.upf.pe.ParasiteEve.SCENE_OBJECT_MODELKEY;
+import static com.duckcraftian.upf.pe.ParasiteEve.STAND_IN_ACTION_SET;
 import static com.duckcraftian.upf.pe.disc.RoomParser.parseModel;
 import static com.duckcraftian.upf.pe.disc.RoomParser.readKeyedOffset;
 import static com.duckcraftian.upf.serialization.UPDHSerializer.getStreamedData;
@@ -55,6 +56,12 @@ public class RoomLoader {
             if (bank != 0)
                 bankContainer = getStreamedData(imagesFile, "entity/bank/" + bank + "/container");
 
+            byte[] actionSet = null;
+            if (bank != 0) {
+                int actionIndex = 22 + 8 * ((bank - 10) / 2) + STAND_IN_ACTION_SET;
+                actionSet = getStreamedData(imagesFile, "entity/actionSet/" + actionIndex);
+            }
+
             Map<Integer, PEModel> models = new HashMap<>();
             for (int[] record : modelRecords) {
                 PEModel model = RoomParser.parseModel(container, record[1]);
@@ -74,7 +81,7 @@ public class RoomLoader {
 
             ScriptVM.models = models;
             ScriptVM.sceneObjectModels = sceneModels;
-            ScriptVM.loadRoom(container, bankContainer);
+            ScriptVM.loadRoom(container, bankContainer, actionSet);
             return new Room(tiles, images, viewports, models, background);
         } catch (IOException e) {
             throw new RuntimeException(e);

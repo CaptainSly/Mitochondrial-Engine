@@ -2,7 +2,7 @@ package com.duckcraftian.upf.pe.disc;
 
 import com.duckcraftian.upf.UPF;
 import com.duckcraftian.upf.pe.ParasiteEve;
-import com.duckcraftian.upf.pe.RoomRange;
+import com.duckcraftian.upf.pe.rooms.RoomRange;
 import com.duckcraftian.upf.pe.disc.problems.EntryProblem;
 import com.duckcraftian.upf.ps1.data_types.PSXImage;
 import com.duckcraftian.upf.ps1.disc.exceptions.NotRawImageException;
@@ -255,19 +255,31 @@ public class PERipper {
             entries.put("images/entity/bank/" + bank, convertImagesToBytes(readVramUploads(tex)));
         }
 
+        for (int index = 22; index <= 38; index++) {
+            byte[] data = fs1.readSectors(pe, boundaries[index], boundaries[index + 1] - boundaries[index]);
+            entries.put("entity/actionSet/" + index, data);
+        }
+
         byte[] fontBlob = fs1.readSectors(pe, boundaries[72], boundaries[73] - boundaries[72]);
         byte[] pack = fs1.readSectors(pe, boundaries[2], boundaries[3] - boundaries[2]);
         byte[] ui = fs1.readSectors(pe, boundaries[9], boundaries[10] - boundaries[9]);
         byte[] scene = fs1.readSectors(pe, boundaries[39], boundaries[40] - boundaries[39]);
         byte[] objects = fs1.readSectors(pe, boundaries[12], boundaries[13] - boundaries[12]);
+        byte[] battleHud = fs1.readSectors(pe, boundaries[11], boundaries[12] - boundaries[11]); //r11
+        byte[] effectSprites = fs1.readSectors(pe, boundaries[5], boundaries[6] - boundaries[5]); //r05
+
+        PSXImage hudClut = new PSXImage(304, 504, 16, 8, Arrays.copyOfRange(battleHud, 20, 276));
+        PSXImage hudImage = new PSXImage(256, 480, 64, 32, Arrays.copyOfRange(battleHud, 288, 4384));
 
         entries.put("common/sceneAssets", objects);
 
         List<PSXImage> objs = readVramUploads(ui);
+        objs.addAll(List.of(hudClut, hudImage));
         for (PSXImage image : readVramUploads(scene))
             objs.add(image);
 
         entries.put("images/common/objects", convertImagesToBytes(objs));
+        entries.put("images/battle/textures", convertImagesToBytes(readVramUploads(effectSprites)));
 
         PSXImage icons = new PSXImage(272, 468, 12, 12, Arrays.copyOfRange(ui, 0xb358, 0xb358 + 288));
         PSXImage iconClut = new PSXImage(304, 478, 16, 1, Arrays.copyOfRange(ui, 0xb478, 0xb478 + 32));
