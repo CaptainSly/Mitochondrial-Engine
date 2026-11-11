@@ -101,6 +101,7 @@ public class ScriptVM {
     private int motionX, motionY, motionZ;
     private int accelX, accelY, accelZ;
     private int deltaX, deltaY, deltaZ;
+    private int gravityX, gravityY, gravityZ;
 
     private int moveFactor;
     private int moveSpeed = 0x1000;
@@ -161,6 +162,9 @@ public class ScriptVM {
     private static int sceneFlags;
     private static int current;
     private static int pendingRoom = 0;
+    private static int processSlotCounter = 0;
+
+    private static final int BATTLE_RUN_MODE = 5;
 
     private static final boolean[] WARNED = new boolean[HANDLER_COUNT];
 
@@ -374,7 +378,9 @@ public class ScriptVM {
     public static void dumpActors(PECamera camera) {
         StringBuilder sb = new StringBuilder();
 
-        // Header
+        sb.append("-=- BattleStateMode: " + battleModeState + " | " + "Battle Start Phase: " + battleStartPhase + " -=-=");
+
+        // Actor Header
         sb.append(
                 "-=- Actors Size: " + actors.size() + " | "
                         + "Viewport Index: " + viewportIndex + " | "
@@ -418,7 +424,7 @@ public class ScriptVM {
 
             for (Node node : actor.nodes) {
                 int wordIndex = (node.cursor - actor.streamStart) / 4;
-                int op = (int) (u32LE(CONTAINER, node.cursor) & 0x1FFFF);
+                int op = (int) (u32LE(CONTAINER, node.cursor) & 0x1FFF);
 
                 sb.append("-=- Node #" + node.seq + ", Flags: " + Integer.toHexString(node.flags) + ", Active: " + node.active + ", wordIndex: " + wordIndex + ", Op: " + op + " -=-=");
             }
@@ -629,6 +635,23 @@ public class ScriptVM {
                 set(3, result);
             }
 
+            return true;
+        };
+
+        handlers[StartEffectProcess] = _ -> {
+            int command = get(0);
+            if (command >= 192) {
+                set(1, -7);
+                return true;
+            }
+
+            set(1, processSlotCounter);
+            processSlotCounter = (processSlotCounter + 1) % 22;
+            return true;
+        };
+
+        handlers[SendEffectProcessCommand] = _ -> {
+            // PUSSY PUSSY PUSSY MARIJUANA!
             return true;
         };
 
@@ -1160,7 +1183,7 @@ public class ScriptVM {
             return true;
         };
 
-        handlers[GetPlayerPosition] = _ -> {
+        handlers[GetActorVector] = _ -> {
             int selector = get(1);
             ScriptVM target = (selector == 0) ? getPlayer() : getActor(selector, get(2));
             if (target == null) {
@@ -1170,14 +1193,43 @@ public class ScriptVM {
 
             set(6, 1);
 
-            if (get(0) == 0) {
-                set(3, target.posX);
-                set(4, target.posY);
-                set(5, target.posZ);
-            } else if (get(0) == 5) {
-                set(3, target.rotX);
-                set(4, target.rotY);
-                set(5, target.rotZ);
+            int mode = get(0);
+            switch (mode) {
+                case 0:
+                    set(3, target.posX);
+                    set(4, target.posY);
+                    set(5, target.posZ);
+                    break;
+                case 1:
+                    set(3, target.baseX);
+                    set(4, target.baseY);
+                    set(5, target.baseZ);
+                    break;
+                case 2:
+                    set(3, target.motionX);
+                    set(4, target.motionY);
+                    set(5, target.motionZ);
+                    break;
+                case 3:
+                    set(3, target.accelX);
+                    set(4, target.accelY);
+                    set(5, target.accelZ);
+                    break;
+                case 4:
+                    set(3, target.gravityX);
+                    set(4, target.gravityY);
+                    set(5, target.gravityZ);
+                    break;
+                case 5:
+                    set(3, target.rotX);
+                    set(4, target.rotY);
+                    set(5, target.rotZ);
+                    break;
+                case 6:
+                    set(3, target.deltaX);
+                    set(4, target.deltaY);
+                    set(5, target.deltaZ);
+                    break;
             }
 
             return true;
@@ -1518,6 +1570,11 @@ public class ScriptVM {
                     baseY = posY;
                     baseZ = posZ;
                     break;
+                case 1:
+                    baseX = get(1);
+                    baseY = get(2);
+                    baseZ = get(3);
+                    break;
                 case 2:
                     motionX = get(1);
                     motionY = get(2);
@@ -1528,13 +1585,33 @@ public class ScriptVM {
                     accelY = get(2);
                     accelZ = get(3);
                     break;
+                case 4:
+                    gravityX = get(1);
+                    gravityY = get(2);
+                    gravityZ = get(3);
+                    break;
                 case 5:
                     rotX = get(1);
                     rotY = get(2);
                     rotZ = get(3);
                     break;
+                case 6:
+                    deltaX = get(1);
+                    deltaY = get(2);
+                    deltaZ = get(3);
+                    break;
             }
 
+            return true;
+        };
+
+        handlers[EnableActorGravity] = _ -> {
+            entityFlags |= 2;
+            return true;
+        };
+
+        handlers[DisableActorGravity] = _ -> {
+            entityFlags &= ~2;
             return true;
         };
 
@@ -1612,30 +1689,42 @@ public class ScriptVM {
 
         handlers[GetEntityVec3] = _ -> {
             int sel = get(0);
-            if (sel == 0) {
-                set(1, posX);
-                set(2, posY);
-                set(3, posZ);
-            } else if (sel == 1) {
-                set(1, baseX);
-                set(2, baseY);
-                set(3, baseZ);
-            } else if (sel == 2) {
-                set(1, motionX);
-                set(2, motionY);
-                set(3, motionZ);
-            } else if (sel == 3) {
-                set(1, accelX);
-                set(2, accelY);
-                set(3, accelZ);
-            } else if (sel == 5) {
-                set(1, rotX);
-                set(2, rotY);
-                set(3, rotZ);
-            } else if (sel == 6) {
-                set(1, deltaX);
-                set(2, deltaY);
-                set(3, deltaZ);
+            switch (sel) {
+                case 0:
+                    set(1, posX);
+                    set(2, posY);
+                    set(3, posZ);
+                    break;
+                case 1:
+                    set(1, baseX);
+                    set(2, baseY);
+                    set(3, baseZ);
+                    break;
+                case 2:
+                    set(1, motionX);
+                    set(2, motionY);
+                    set(3, motionZ);
+                    break;
+                case 3:
+                    set(1, accelX);
+                    set(2, accelY);
+                    set(3, accelZ);
+                    break;
+                case 4:
+                    set(1, gravityX);
+                    set(2, gravityY);
+                    set(3, gravityZ);
+                    break;
+                case 5:
+                    set(1, rotX);
+                    set(2, rotY);
+                    set(3, rotZ);
+                    break;
+                case 6:
+                    set(1, deltaX);
+                    set(2, deltaY);
+                    set(3, deltaZ);
+                    break;
             }
 
             return true;
@@ -2077,6 +2166,13 @@ public class ScriptVM {
     }
 
     public void integrate() {
+
+        if ((entityFlags & 2) != 0) {
+            motionX += gravityX;
+            motionY += gravityY;
+            motionZ += gravityZ;
+        }
+
         motionX += accelX;
         motionY += accelY;
         motionZ += accelZ;
@@ -2246,13 +2342,16 @@ public class ScriptVM {
     }
 
     public void controller() {
+        boolean battle = (gameStateFlags & 2) != 0;
         int dir = pad & 0x78;
         boolean run = (pad & 0x01) != 0;
 
         if (entityMode != 21 && entityMode != 22 && entityMode != 23)
             return;
 
-        if (run && dir != 0)
+        if (battle && dir != 0)
+            move(0x168000, 23);
+        else if (run && dir != 0)
             move(0x168000, 23);
         else if (dir != 0)
             move(0x50000, 22);
@@ -2263,7 +2362,11 @@ public class ScriptVM {
         motionX = 0;
         motionY = 0;
         motionZ = 0;
-        setActionMode(21);
+        boolean battle = (gameStateFlags & 2) != 0;
+
+        if (battle) setActionMode(fields[7]);
+        else setActionMode(21);
+
         entityMode = 21;
     }
 
@@ -2303,8 +2406,13 @@ public class ScriptVM {
     }
 
     private void move(int base, int newMode) {
+        boolean battle = (gameStateFlags & 2) != 0;
+        int mode = newMode;
+
+        if (battle) mode = BATTLE_RUN_MODE;
+
         if (entityMode != newMode) {
-            setActionMode(newMode);
+            setActionMode(mode);
             entityMode = newMode;
         }
 

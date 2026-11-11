@@ -15,6 +15,7 @@ public class ParasiteEve {
 
     public static int STAND_IN_ACTION_SET = 1;
 
+    // Ram Locations
     public static final long DISC_1_PROG_TBL_RAM = 0x80093378;
     public static final long RESIDENT_TABLE_RAM = 0x800930D8;
     public static final long NORMAL_TABLE_RAM = 0x80091A58;
@@ -22,9 +23,9 @@ public class ParasiteEve {
     public static final long AKAO_LENGTHS_RAM = 0x8009B85C;
     public static final long AKAO_NOTE_LENGTHS_RAM = 0x8009B8DC;
     public static final long AKAO_PAN_TABLE_RAM = 0x8009B8F8;
+    public static final long SCENE_OBJECT_MODELKEY = 0xC4B5BA04L;
 
     public static final long NORMAL_TABLE_BYTES = 240 * 8;
-    public static final long SCENE_OBJECT_MODELKEY = 0xC4B5BA04L;
     public static final long PLAYER_TEXTURE_WORD = 0x2F200;
 
     // Sector Counts
@@ -38,7 +39,6 @@ public class ParasiteEve {
     public static final String ROOM_HASH = "9f90b96a6b9b4c791b0283c14b428f7fd0d4a041";
 
     // ScriptVM OpCodes
-
     public static final int JumpToEntityOffset = 0;
     public static final int EntityMarkDead = 1;
     public static final int SetCurrentNodeActive = 2;
@@ -55,6 +55,8 @@ public class ParasiteEve {
     public static final int IsButtonDown = 17;
     public static final int SpawnChildNode = 18;
     public static final int SelectFieldSetter = 20;
+    public static final int YieldWhileMoving = 22;
+    public static final int ComputeVelocityToTarget = 23;
     public static final int StopScriptById = 24;
     public static final int GetCurrentScriptId = 25;
     public static final int Random = 26;
@@ -99,11 +101,11 @@ public class ParasiteEve {
     public static final int FreezeCamera = 91;
     public static final int UnfreezeCamera = 92;
     public static final int SetEntityMoveFactor = 93;
-    public static final int GetPlayerPosition = 94;
+    public static final int GetActorVector = 94;
     public static final int RunEntityCommand = 100;
     public static final int ClearMotionVectors = 101;
-    public static final int SetEntityEffect = 106;
-    public static final int DriverCmd = 107;
+    public static final int StartEffectProcess = 106;
+    public static final int SendEffectProcessCommand = 107;
     public static final int MakeCombatant = 111;
     public static final int SetAttackEffectFull = 112;
     public static final int SetBackgroundLayerPosition = 113;
@@ -154,6 +156,8 @@ public class ParasiteEve {
     public static final int SetEntityParent = 212;
     public static final int WalkStraightToPoint = 219;
     public static final int SetEntityFlag1000000 = 220;
+    public static final int EnableActorGravity = 223;
+    public static final int DisableActorGravity = 224;
     public static final int SoundCommand = 234;
     public static final int SetBackgroundDimLevel = 225;
     public static final int SetFloorPolygon = 227;
