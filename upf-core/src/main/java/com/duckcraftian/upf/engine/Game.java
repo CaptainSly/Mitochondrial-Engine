@@ -2,6 +2,7 @@ package com.duckcraftian.upf.engine;
 
 import com.duckcraftian.upf.UPF;
 import com.duckcraftian.upf.impl.IDisposable;
+import com.duckcraftian.upf.pe.AyaStats;
 import com.duckcraftian.upf.pe.ParasiteEve;
 import com.duckcraftian.upf.pe.audio.PEAudio;
 import com.duckcraftian.upf.pe.disc.PERipper;
@@ -30,6 +31,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.duckcraftian.upf.pe.ParasiteEve.AYA_STATS;
 import static com.duckcraftian.upf.pe.ParasiteEve.PEAUDIO;
 import static com.duckcraftian.upf.pe.disc.SquareImageParser.convertBytesToImages;
 import static com.duckcraftian.upf.serialization.UPDHSerializer.getStreamedData;
@@ -85,6 +87,7 @@ public class Game implements IDisposable {
         }
 
         PEAUDIO = new PEAudio();
+        AYA_STATS = new AyaStats();
         try {
             PEAUDIO.init(imageFile);
         } catch (IOException e) {
@@ -97,8 +100,11 @@ public class Game implements IDisposable {
                 renderer.upload(image);
 
             byte[] fontMetrics = getStreamedData(imageFile, "text/font/metrics");
-            PEText.metrics = fontMetrics;
             byte[] normals = getStreamedData(imageFile, "render/normals");
+            byte[] levelStats = getStreamedData(imageFile, "battle/levelStats");
+
+            PEText.metrics = fontMetrics;
+            AYA_STATS.levelStats = levelStats;
 
             PEModel.normals = new int[240 * 3];
             for (int i = 0; i < 240; i++) {
@@ -312,7 +318,6 @@ public class Game implements IDisposable {
             byte[] data = getStreamedData(imageFile, "images/battle/textures");
             List<PSXImage> images = convertBytesToImages(data);
             images.forEach(renderer::upload);
-            Logger.debug("images size: " + images.size());
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

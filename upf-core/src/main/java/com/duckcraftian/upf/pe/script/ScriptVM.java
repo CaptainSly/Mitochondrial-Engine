@@ -1,5 +1,6 @@
 package com.duckcraftian.upf.pe.script;
 
+import com.duckcraftian.upf.pe.AyaStats;
 import com.duckcraftian.upf.pe.disc.RoomParser;
 import com.duckcraftian.upf.pe.gfx.PEAnimation;
 import com.duckcraftian.upf.pe.gfx.PECamera;
@@ -666,6 +667,8 @@ public class ScriptVM {
                 gameStateFlags |= 2;
                 battleModeState = 0;
                 ScriptVM player = getPlayer();
+                AYA_STATS.recalc();
+                AYA_STATS.battleStartReset();
 
                 if (player.fields[10] < player.fields[4])
                     player.fields[4] = player.fields[10];
@@ -2147,6 +2150,8 @@ public class ScriptVM {
     public static void updateBattle() {
         if ((gameStateFlags & 2) == 0) return;
         if (battleModeState != 6) return;
+
+        AYA_STATS.tickATB();
 
         ScriptVM player = getPlayer();
         if (player == null) return;

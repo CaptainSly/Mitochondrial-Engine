@@ -86,7 +86,7 @@ public class AudioOutput implements IDisposable {
         }
         alSourcePlay(alSource);
 
-        Logger.debug(alGetError() + ", " + alGetSourcei(alSource, AL_BUFFERS_QUEUED) + ", " + alGetSourcei(alSource, AL_SOURCE_STATE));
+        Logger.debug("AL ERROR: " + alGetError() + ", AL BUFFERS QUEUED: " + alGetSourcei(alSource, AL_BUFFERS_QUEUED) + ", AL SOURCE STATE: " + alGetSourcei(alSource, AL_SOURCE_STATE));
 
         while (produced < maxBuffers && !stopRequested) {
             int processed = alGetSourcei(alSource, AL_BUFFERS_PROCESSED);

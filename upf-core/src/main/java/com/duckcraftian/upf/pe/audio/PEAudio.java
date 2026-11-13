@@ -18,7 +18,7 @@ public class PEAudio {
 
     public Path imagesFile;
     public byte[] lengths, noteLengths, panTable;
-    public byte[] bank0;
+    public byte[] bank0, lfo;
 
     public int[][] soundEvents;
     public byte[] roomContainer;
@@ -36,6 +36,7 @@ public class PEAudio {
         noteLengths = UPDHSerializer.getStreamedData(imagesFile, "sound/akao/noteLengths");
         panTable = UPDHSerializer.getStreamedData(imagesFile, "sound/akao/panTable");
         bank0 = UPDHSerializer.getStreamedData(imagesFile, "sound/bank/s000");
+        lfo = UPDHSerializer.getStreamedData(imagesFile, "sound/akao/lfo");
 
         source = new AKAOAudioSource();
         UPF.AUDIO = new AudioOutput(source);
@@ -54,7 +55,7 @@ public class PEAudio {
             soundEvents[e][3] = STEP_FRAME[e];
         }
 
-        AKAOSequence newSfx = new AKAOSequence(lengths, noteLengths, panTable);
+        AKAOSequence newSfx = new AKAOSequence(lengths, noteLengths, panTable, lfo);
         newSfx.initNested(container);
         newSfx.loadInstruments(bank0);
 
@@ -74,6 +75,10 @@ public class PEAudio {
             if ((flags & 0x20) != 0 && (flags & 0x10) == 0 && channel < 2) {
                 byte[] bankBytes = UPDHSerializer.getStreamedData(imagesFile, bankFileName(bank));
                 newSfx.loadInstruments(bankBytes, 128 + 16 * channel);
+            } else if ((flags & 0x20) == 0 && (flags & 0x10) == 0) {
+
+                byte[] bankBytes = UPDHSerializer.getStreamedData(imagesFile, bankFileName(bank));
+                newSfx.loadInstruments(bankBytes);
             }
         }
 
@@ -188,7 +193,7 @@ public class PEAudio {
 
         bankName = bankName + append;
         byte[] bankBytes = UPDHSerializer.getStreamedData(imagesFile, bankName);
-        AKAOSequence seq = new AKAOSequence(lengths, noteLengths, panTable);
+        AKAOSequence seq = new AKAOSequence(lengths, noteLengths, panTable, lfo);
         seq.loadInstruments(bank0);
         seq.loadInstruments(bankBytes);
         int[] starts = seq.channelStarts(container, track);

@@ -31,6 +31,19 @@ public class AKAOChannel {
     int tag;
     int handle;
     int streamVolume;
+    int basePeriod;
+    int noteUsed;
+    int detune;
+    int slideAcc;
+    int slideStep;
+    int slideSteps;
+    int slideDuration;
+    int slideDelta;
+    int lfoDelay, lfoDuration, lfoSelector;
+    int lfoCounter, lfoPhase, lfoPosition;
+    int lfoTarget, lfoValue, lfoDepth, lfoPos;
+    int lfoSlideSteps, lfoSlideDelta;
+    boolean lfoOn;
     boolean reverb;
     boolean drumMode;
     boolean rangePending;
@@ -49,9 +62,14 @@ public class AKAOChannel {
         sustainRateOverride = -1;
         sustainModeOverride = -1;
 
+        detune = 0;
+
         reverb = false;
         fm = false;
         pairSecond = false;
+
+        lfoSlideSteps = 0;
+        lfoSlideDelta = 0;
 
         tag = 0;
         handle = 0;

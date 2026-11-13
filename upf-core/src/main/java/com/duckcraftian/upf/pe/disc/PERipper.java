@@ -2,15 +2,15 @@ package com.duckcraftian.upf.pe.disc;
 
 import com.duckcraftian.upf.UPF;
 import com.duckcraftian.upf.pe.ParasiteEve;
-import com.duckcraftian.upf.pe.rooms.RoomRange;
 import com.duckcraftian.upf.pe.disc.problems.EntryProblem;
-import com.duckcraftian.upf.ps1.data_types.PSXImage;
-import com.duckcraftian.upf.ps1.disc.exceptions.NotRawImageException;
-import com.duckcraftian.upf.pe.exceptions.SetupFailure;
 import com.duckcraftian.upf.pe.disc.problems.SetupProblem;
+import com.duckcraftian.upf.pe.exceptions.SetupFailure;
+import com.duckcraftian.upf.pe.rooms.RoomRange;
+import com.duckcraftian.upf.ps1.data_types.PSXImage;
 import com.duckcraftian.upf.ps1.disc.DiscEntry;
 import com.duckcraftian.upf.ps1.disc.DiscFileSystem;
 import com.duckcraftian.upf.ps1.disc.RawDiscEntry;
+import com.duckcraftian.upf.ps1.disc.exceptions.NotRawImageException;
 import com.duckcraftian.upf.serialization.UPDHSerializer;
 import com.duckcraftian.upf.system.FileUtils;
 import com.duckcraftian.upf.utils.ProgressListener;
@@ -268,6 +268,9 @@ public class PERipper {
         byte[] battleHud = fs1.readSectors(pe, boundaries[11], boundaries[12] - boundaries[11]); //r11
         byte[] effectSprites = fs1.readSectors(pe, boundaries[5], boundaries[6] - boundaries[5]); //r05
 
+        byte[] levelStats = Arrays.copyOfRange(pack, 0x63C0, 0x6D08);
+        entries.put("battle/levelStats", levelStats);
+
         PSXImage hudClut = new PSXImage(304, 504, 16, 8, Arrays.copyOfRange(battleHud, 20, 276));
         PSXImage hudImage = new PSXImage(256, 480, 64, 32, Arrays.copyOfRange(battleHud, 288, 4384));
 
@@ -318,6 +321,10 @@ public class PERipper {
 
         int akaoPanTableAt = (int) (AKAO_PAN_TABLE_RAM - loadAddress) + 0x800;
         entries.put("sound/akao/panTable", Arrays.copyOfRange(exe, akaoPanTableAt, akaoPanTableAt + 512));
+
+        int akaoLFOAt = (int) (AKAO_LFO_RAM - loadAddress) + 0x800;
+        entries.put("sound/akao/lfo", Arrays.copyOfRange(exe, akaoLFOAt, (int) (akaoLFOAt + AKAO_LFO_BYTES)));
+        Logger.debug("LFO Size: " + entries.get("sound/akao/lfo").length);
 
         int soundDirAt = (int) (SOUND_DIR_RAM - loadAddress) + 0x800;
         long baseLBA = u32LE(exe, soundDirAt);

@@ -202,6 +202,10 @@ public class SpuVoice {
         else if (phase == RELEASE && level == 0) phase = OFF;
     }
 
+    public void setPitch(int pitch) {
+        this.pitch = pitch;
+    }
+
     public void setReverb(boolean reverb) {
         this.reverb = reverb;
     }

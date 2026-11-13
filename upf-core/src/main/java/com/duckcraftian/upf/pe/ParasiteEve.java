@@ -7,6 +7,7 @@ public class ParasiteEve {
     public static final String NAMESPACE = "parasite";
 
     public static PEAudio PEAUDIO;
+    public static AyaStats AYA_STATS;
 
     public static final String DISC_1_PROGRAM = "SLUS_006.62";
     public static final String DISC_2_PROGRAM = "SLUS_006.68";
@@ -16,16 +17,20 @@ public class ParasiteEve {
     public static int STAND_IN_ACTION_SET = 1;
 
     // Ram Locations
-    public static final long DISC_1_PROG_TBL_RAM = 0x80093378;
-    public static final long RESIDENT_TABLE_RAM = 0x800930D8;
-    public static final long NORMAL_TABLE_RAM = 0x80091A58;
-    public static final long SOUND_DIR_RAM = 0x8009317C;
-    public static final long AKAO_LENGTHS_RAM = 0x8009B85C;
-    public static final long AKAO_NOTE_LENGTHS_RAM = 0x8009B8DC;
-    public static final long AKAO_PAN_TABLE_RAM = 0x8009B8F8;
+    public static final long DISC_1_PROG_TBL_RAM = 0x80093378L;
+    public static final long RESIDENT_TABLE_RAM = 0x800930D8L;
+    public static final long NORMAL_TABLE_RAM = 0x80091A58L;
+    public static final long SOUND_DIR_RAM = 0x8009317CL;
+
+    public static final long AKAO_LENGTHS_RAM = 0x8009B85CL;
+    public static final long AKAO_NOTE_LENGTHS_RAM = 0x8009B8DCL;
+    public static final long AKAO_PAN_TABLE_RAM = 0x8009B8F8L;
+    public static final long AKAO_LFO_RAM = 0x8009BAF8L;
+
     public static final long SCENE_OBJECT_MODELKEY = 0xC4B5BA04L;
 
     public static final long NORMAL_TABLE_BYTES = 240 * 8;
+    public static final long AKAO_LFO_BYTES = 1480;
     public static final long PLAYER_TEXTURE_WORD = 0x2F200;
 
     // Sector Counts

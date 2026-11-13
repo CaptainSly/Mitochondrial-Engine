@@ -3,10 +3,12 @@ package com.duckcraftian.upf.pe.audio;
 import com.duckcraftian.upf.ps1.audio.SpuReverb;
 import com.duckcraftian.upf.ps1.audio.SpuVoice;
 import com.duckcraftian.upf.system.Utils;
+import org.tinylog.Logger;
 
 import java.util.Arrays;
 import java.util.List;
 
+import static com.duckcraftian.upf.pe.ParasiteEve.AKAO_LFO_RAM;
 import static com.duckcraftian.upf.pe.audio.InstrumentTranslation.adsrWords;
 import static com.duckcraftian.upf.pe.audio.InstrumentTranslation.pitchFor;
 import static com.duckcraftian.upf.ps1.audio.SpuVoice.OFF;
@@ -20,7 +22,7 @@ public class AKAOSequence {
     AKAOChannel[] channels;
     AKAOInstrument[] instruments;
     SpuVoice[] voices;
-    int[] panTable;
+    int[] panTable, lfoWaves, lfoStart;
     int bankGain;
     float[] mixL;
     float[] mixR;
@@ -41,12 +43,16 @@ public class AKAOSequence {
     int drumHitCount;
     int musicalTick;
 
-    public AKAOSequence(byte[] lengths, byte[] noteLengths, byte[] panTable) {
+    public AKAOSequence(byte[] lengths, byte[] noteLengths, byte[] panTable, byte[] lfo) {
         this.lengths = lengths;
         loadPanTable(panTable);
         loadNoteLengths(noteLengths);
 
+        lfoWaves = new int[708];
+        lfoStart = new int[16];
         instruments = new AKAOInstrument[256];
+        loadLFO(lfo);
+
         mixL = new float[256];
         mixR = new float[256];
         sendL = new float[256];
@@ -138,7 +144,53 @@ public class AKAOSequence {
             ch.expressionDuration--;
         }
 
+        if (ch.slideSteps != 0) {
+            ch.slideAcc += ch.slideStep;
+            ch.slideSteps -= 1;
+            applyPitch(ch);
+        }
+
+        if (ch.lfoCounter != 0) ch.lfoCounter -= 1;
+        if (ch.lfoSlideSteps != 0) {
+            ch.lfoSlideSteps = ch.lfoSlideSteps - 1;
+            ch.lfoTarget = (ch.lfoTarget + ch.lfoSlideDelta) & 0xFFFF;
+            ch.lfoDepth = lfoDepthFor(ch, ch.basePeriod);
+            if (ch.lfoPhase != 1) {
+                int pos = ch.lfoPos;
+                if (lfoWaves[pos] == 0 && lfoWaves[pos + 1] == 0) pos = pos + lfoWaves[pos + 2];
+                int value = (ch.lfoDepth * lfoWaves[pos]) >> 16;
+                if (value != ch.lfoValue) {
+                    ch.lfoValue = value;
+                    if (value >= 0) ch.lfoValue = value << 1;
+                    applyPitch(ch);
+                }
+            }
+        }
+        if (ch.lfoOn && ch.lfoCounter == 0) {
+            ch.lfoPhase -= 1;
+            if (ch.lfoPhase == 0) {
+                ch.lfoPhase = ch.lfoDuration;
+                int pos = ch.lfoPos;
+                if (lfoWaves[pos] == 0 && lfoWaves[pos + 1] == 0) pos += lfoWaves[pos + 2];
+                int sample = lfoWaves[pos];
+                ch.lfoPos = pos + 1;
+                int value = (ch.lfoDepth * sample) >> 16;
+                if (value != ch.lfoValue) {
+                    ch.lfoValue = value;
+                    if (value >= 0) ch.lfoValue = value << 1;
+                    applyPitch(ch);
+                }
+            }
+        }
+
+
         applyVolume(ch);
+    }
+
+    public void applyPitch(AKAOChannel ch) {
+        if (ch.voice < 0) return;
+        int finalPitch = (ch.basePeriod + ch.lfoValue + (ch.slideAcc >> 16)) & 0x3FFF;
+        voices[ch.voice].setPitch(finalPitch);
     }
 
     public void setBankGain(int value) {
@@ -242,8 +294,25 @@ public class AKAOSequence {
                 channel.currentNote = note;
                 noteOn(idx, note + channel.transpose);
             }
+            startSlide(idx);
+        } else if (op < 0x8F) {
+            startSlide(idx);
         } else if (op >= 0x8F)
             keyOff(channel);
+    }
+
+    public void startSlide(int idx) {
+        AKAOChannel ch = channels[idx];
+        if (ch.slideDelta == 0) return;
+        if (ch.voice < 0) return;
+
+        AKAOInstrument instrument = instruments[ch.instrument];
+        ch.noteUsed += ch.slideDelta;
+        int target = pitchFor(instrument.bank(), instrument.recordOffset(), ch.noteUsed, ch.detune);
+        int diff = (target << 16) - ((ch.basePeriod << 16) + ch.slideAcc);
+
+        ch.slideStep = diff / ch.slideDuration;
+        ch.slideSteps = ch.slideDuration;
     }
 
     public void drumHit(int idx, int row) {
@@ -289,17 +358,30 @@ public class AKAOSequence {
         if (ch.releaseRate >= 0)
             adsr2 = (adsr2 & ~0x1F) | (ch.releaseRate & 0x1F);
 
-        int pitch = pitchFor(instrument.bank(), instrument.recordOffset(), note, 0) & 0x3FFF;
+        int period = pitchFor(instrument.bank(), instrument.recordOffset(), note, ch.detune);
+        int pitch = period & 0x3FFF;
         int v;
         if (nested) v = 12 + idx;
         else v = freeVoice();
         if (v < 0) return;
 
-
         voices[v] = new SpuVoice(instrument.pcm(), instrument.loopStart(), instrument.loops(), adsr1, adsr2, pitch);
         voices[v].setReverb(ch.reverb);
         voices[v].setFm(ch.fm);
         ch.voice = v;
+        ch.basePeriod = period;
+        ch.noteUsed = note;
+        ch.slideAcc = 0;
+        ch.slideSteps = 0;
+
+        if (ch.lfoOn) {
+            ch.lfoDepth = lfoDepthFor(ch, period);
+            ch.lfoPos = lfoStart[ch.lfoSelector];
+            ch.lfoCounter = ch.lfoDelay;
+            ch.lfoPhase = 1;
+        }
+        ch.lfoValue = 0;
+
         applyVolume(ch);
         voices[v].keyOn();
         noteOnCount++;
@@ -433,6 +515,12 @@ public class AKAOSequence {
         } else if (opCode == 0xA3) {
             ch.volumeBase = u8(payload, ch.pc) << 8;
             ch.pc = ch.pc + 1;
+        } else if (opCode == 0xA4) {
+            int d = u8(payload, ch.pc);
+            if (d == 0) d = 256;
+            ch.slideDuration = d;
+            ch.slideDelta = s8(payload, ch.pc + 1);
+            ch.pc += 2;
         } else if (opCode == 0xA5) {
             ch.octave = u8(payload, ch.pc);
             ch.pc = ch.pc + 1;
@@ -467,6 +555,28 @@ public class AKAOSequence {
         } else if (opCode == 0xB2) {
             ch.releaseRate = u8(payload, ch.pc);
             ch.pc++;
+        } else if (opCode == 0xB4) {
+            ch.lfoOn = true;
+            if (nested) {
+                int target = u8(payload, ch.pc);
+                ch.lfoDelay = 0;
+                if (target != 0) ch.lfoTarget = target << 8;
+                ch.pc += 1;
+            } else {
+                ch.lfoDelay = u8(payload, ch.pc);
+                ch.pc += 1;
+            }
+
+            int duration = u8(payload, ch.pc);
+            if (duration == 0) duration = 256;
+
+            ch.lfoDuration = duration;
+            ch.lfoSelector = u8(payload, ch.pc + 1);
+            ch.pc += 2;
+            ch.lfoDepth = lfoDepthFor(ch, ch.basePeriod);
+            ch.lfoPos = lfoStart[ch.lfoSelector];
+            ch.lfoCounter = ch.lfoDelay;
+            ch.lfoPhase = 1;
         } else if (opCode == 0xC2) {
             ch.reverb = true;
             if (ch.voice >= 0)
@@ -493,9 +603,29 @@ public class AKAOSequence {
             ch.loopCounts[ch.loopTop] = ch.loopCounts[ch.loopTop] + 1;
             if (ch.loopCounts[ch.loopTop] != n) ch.pc = ch.loopPcs[ch.loopTop];
             else ch.loopTop = (ch.loopTop - 1) & 3;
-        } else
+        } else if (opCode == 0xD8) {
+            ch.detune = s8(payload, ch.pc);
+            ch.pc = ch.pc + 1;
+        } else if (opCode == 0xDD) {
+            int duration = u8(payload, ch.pc);
+            if (duration == 0) duration = 256;
+            int t = u8(payload, ch.pc + 1);
+            ch.lfoSlideSteps = duration;
+            ch.lfoSlideDelta = ((t << 8) - ch.lfoTarget) / duration;
+            ch.pc = ch.pc + 2;
+        } else {
+            Logger.error("Unimplemented AKAO Command: 0x" + Integer.toHexString(opCode).toUpperCase());
             ch.pc = ch.pc + opLength(opCode) - 1;
+        }
 
+    }
+
+    public int lfoDepthFor(AKAOChannel ch, int period) {
+        int depth = (ch.lfoTarget & 0x7F00) >> 8;
+        if ((ch.lfoTarget & 0x8000) == 0) {
+            int scaled = ((period << 4) - period) >> 8;
+            return (depth * scaled) >> 7;
+        } else return (depth * period) >> 7;
     }
 
     public void selectByRange(AKAOChannel ch, int note) {
@@ -586,6 +716,18 @@ public class AKAOSequence {
         }
 
         return pc;
+    }
+
+    public void loadLFO(byte[] lfo) {
+        lfoWaves = new int[708];
+        for (int i = 0; i < lfoWaves.length; i++)
+            lfoWaves[i] = s16LE(lfo, 2 * i);
+
+        lfoStart = new int[16];
+        for (int i = 0; i < lfoStart.length; i++) {
+            long pointer = u32LE(lfo, 1416 + 4 * i);
+            lfoStart[i] = (int) ((pointer - AKAO_LFO_RAM) / 2);
+        }
     }
 
     public void loadNoteLengths(byte[] raw) {
