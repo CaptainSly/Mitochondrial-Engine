@@ -28,6 +28,8 @@ public class AyaStats {
     }
 
     public static void battleStartReset() {
+        atbTicks = 0;
+
         if (atbAcc <= 0) atbAcc = 0x10000;
         else if (atbAcc >= maxAtk) {
             atbAcc = maxAtk;

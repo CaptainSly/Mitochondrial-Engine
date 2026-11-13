@@ -90,11 +90,12 @@ class AKAOBankTest {
         byte[] lengths = UPDHSerializer.getStreamedData(imagesFiles, "sound/akao/lengths");
         byte[] noteLengths = UPDHSerializer.getStreamedData(imagesFiles, "sound/akao/noteLengths");
         byte[] panTable = UPDHSerializer.getStreamedData(imagesFiles, "sound/akao/panTable");
+        byte[] lfo = UPDHSerializer.getStreamedData(imagesFiles, "sound/akao/lfo");
 
         byte[] bank0 = UPDHSerializer.getStreamedData(imagesFiles, "sound/bank/s000");
         byte[] bank25 = UPDHSerializer.getStreamedData(imagesFiles, "sound/bank/s025");
 
-        AKAOSequence seq = new AKAOSequence(lengths, noteLengths, panTable);
+        AKAOSequence seq = new AKAOSequence(lengths, noteLengths, panTable, lfo);
         seq.loadInstruments(bank0);
         seq.loadInstruments(bank25);
 
@@ -165,11 +166,12 @@ class AKAOBankTest {
         byte[] lengths = UPDHSerializer.getStreamedData(imagesFiles, "sound/akao/lengths");
         byte[] noteLengths = UPDHSerializer.getStreamedData(imagesFiles, "sound/akao/noteLengths");
         byte[] panTable = UPDHSerializer.getStreamedData(imagesFiles, "sound/akao/panTable");
+        byte[] lfo = UPDHSerializer.getStreamedData(imagesFiles, "sound/akao/lfo");
 
         byte[] bank0 = UPDHSerializer.getStreamedData(imagesFiles, "sound/bank/s000");
         byte[] bank25 = UPDHSerializer.getStreamedData(imagesFiles, "sound/bank/s025");
 
-        AKAOSequence seq = new AKAOSequence(lengths, noteLengths, panTable);
+        AKAOSequence seq = new AKAOSequence(lengths, noteLengths, panTable, lfo);
         seq.loadInstruments(bank0);
         seq.loadInstruments(bank25);
 
@@ -192,11 +194,12 @@ class AKAOBankTest {
         byte[] lengths = UPDHSerializer.getStreamedData(imagesFiles, "sound/akao/lengths");
         byte[] noteLengths = UPDHSerializer.getStreamedData(imagesFiles, "sound/akao/noteLengths");
         byte[] panTable = UPDHSerializer.getStreamedData(imagesFiles, "sound/akao/panTable");
+        byte[] lfo = UPDHSerializer.getStreamedData(imagesFiles, "sound/akao/lfo");
 
         byte[] bank0 = UPDHSerializer.getStreamedData(imagesFiles, "sound/bank/s000");
         byte[] bank25 = UPDHSerializer.getStreamedData(imagesFiles, "sound/bank/s025");
 
-        AKAOSequence seq = new AKAOSequence(lengths, noteLengths, panTable);
+        AKAOSequence seq = new AKAOSequence(lengths, noteLengths, panTable, lfo);
         seq.loadInstruments(bank0);
         seq.loadInstruments(bank25);
 
@@ -224,11 +227,12 @@ class AKAOBankTest {
         byte[] lengths = UPDHSerializer.getStreamedData(imagesFiles, "sound/akao/lengths");
         byte[] noteLengths = UPDHSerializer.getStreamedData(imagesFiles, "sound/akao/noteLengths");
         byte[] panTable = UPDHSerializer.getStreamedData(imagesFiles, "sound/akao/panTable");
+        byte[] lfo = UPDHSerializer.getStreamedData(imagesFiles, "sound/akao/lfo");
 
         byte[] bank0 = UPDHSerializer.getStreamedData(imagesFiles, "sound/bank/s000");
         byte[] bank23 = UPDHSerializer.getStreamedData(imagesFiles, "sound/bank/s023");
 
-        AKAOSequence seq = new AKAOSequence(lengths, noteLengths, panTable);
+        AKAOSequence seq = new AKAOSequence(lengths, noteLengths, panTable, lfo);
         seq.loadInstruments(bank0);
         seq.loadInstruments(bank23);
 

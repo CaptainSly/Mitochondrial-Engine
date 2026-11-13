@@ -1,6 +1,7 @@
 package com.duckcraftian.upf.pe.script;
 
 import com.duckcraftian.upf.pe.AyaStats;
+import com.duckcraftian.upf.pe.ParasiteEve;
 import com.duckcraftian.upf.pe.disc.RoomParser;
 import com.duckcraftian.upf.pe.gfx.PEAnimation;
 import com.duckcraftian.upf.pe.gfx.PECamera;
@@ -2149,9 +2150,9 @@ public class ScriptVM {
 
     public static void updateBattle() {
         if ((gameStateFlags & 2) == 0) return;
-        if (battleModeState != 6) return;
+        if (battleModeState == 0) ParasiteEve.AYA_STATS.tickATB();
 
-        AYA_STATS.tickATB();
+        if (battleModeState != 6) return;
 
         ScriptVM player = getPlayer();
         if (player == null) return;

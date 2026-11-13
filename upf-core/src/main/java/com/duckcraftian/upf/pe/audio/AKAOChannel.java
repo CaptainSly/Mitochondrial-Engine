@@ -40,9 +40,12 @@ public class AKAOChannel {
     int slideDuration;
     int slideDelta;
     int lfoDelay, lfoDuration, lfoSelector;
-    int lfoCounter, lfoPhase, lfoPosition;
+    int lfoCounter, lfoPhase;
     int lfoTarget, lfoValue, lfoDepth, lfoPos;
     int lfoSlideSteps, lfoSlideDelta;
+    int vlfoTarget, vlfoDelay, vlfoDuration, vlfoSelector;
+    int vlfoCounter, vlfoPhase, vlfoPos, vlfoValue;
+    boolean vlfoOn;
     boolean lfoOn;
     boolean reverb;
     boolean drumMode;

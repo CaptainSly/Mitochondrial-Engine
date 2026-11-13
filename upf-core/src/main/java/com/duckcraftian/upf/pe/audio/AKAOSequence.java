@@ -184,6 +184,23 @@ public class AKAOSequence {
         }
 
 
+        if (ch.vlfoCounter != 0) ch.vlfoCounter -= 1;
+        if (ch.vlfoOn && ch.vlfoCounter == 0) {
+            ch.vlfoPhase -= 1;
+            if (ch.vlfoPhase == 0) {
+                ch.vlfoPhase = ch.vlfoDuration;
+                int pos = ch.vlfoPos;
+                if (lfoWaves[pos] == 0 && lfoWaves[pos + 1] == 0) pos = pos + lfoWaves[pos + 2];
+                int product = channelVolume(ch) * (ch.vlfoTarget >> 8);
+                int sample = lfoWaves[pos];
+                ch.vlfoPos = pos + 1;
+                int value = (product << 9) >> 16;
+                value = (value * sample) >> 15;
+                if (value != ch.vlfoValue)
+                    ch.vlfoValue = value;
+            }
+        }
+
         applyVolume(ch);
     }
 
@@ -222,15 +239,14 @@ public class AKAOSequence {
 
     public void applyVolume(AKAOChannel ch) {
         int hi = ch.volume >> 16;
-        int channel = (hi * (ch.volumeBase >> 8)) >> 7;
+        int channel = channelVolume(ch) + ch.vlfoValue;
         int gain = bankGain;
 
         if (nested) gain = ch.streamVolume;
-
         int base = (channel * gain) >> 7;
         int p = (ch.pan >> 8) & 0xFF;
-        ch.volumeLeft = (base * panTable[p]) >> 15;
-        ch.volumeRight = (base * panTable[p ^ 0xFF]) >> 15;
+        ch.volumeLeft = wrapLower15((base * panTable[p]) >> 15);
+        ch.volumeRight = wrapLower15((base * panTable[p ^ 0xFF]) >> 15);
         if (ch.voice >= 0)
             voices[ch.voice].setVolume(ch.volumeLeft / 16384.0f, ch.volumeRight / 16384.0f);
     }
@@ -380,7 +396,15 @@ public class AKAOSequence {
             ch.lfoCounter = ch.lfoDelay;
             ch.lfoPhase = 1;
         }
+
+        if (ch.vlfoOn) {
+            ch.vlfoPos = lfoStart[ch.vlfoSelector];
+            ch.vlfoCounter = ch.vlfoDelay;
+            ch.vlfoPhase = 1;
+        }
+
         ch.lfoValue = 0;
+        ch.vlfoValue = 0;
 
         applyVolume(ch);
         voices[v].keyOn();
@@ -577,6 +601,30 @@ public class AKAOSequence {
             ch.lfoPos = lfoStart[ch.lfoSelector];
             ch.lfoCounter = ch.lfoDelay;
             ch.lfoPhase = 1;
+        } else if (opCode == 0xB8) {
+            ch.vlfoOn = true;
+            if (nested) {
+                int target = u8(payload, ch.pc);
+                ch.vlfoDelay = 0;
+                if (target != 0) ch.vlfoTarget = target << 8;
+                ch.pc = ch.pc + 1;
+            } else {
+                ch.vlfoDelay = u8(payload, ch.pc);
+                ch.pc = ch.pc + 1;
+            }
+
+            int duration = u8(payload, ch.pc);
+            if (duration == 0) duration = 256;
+
+            ch.vlfoDuration = duration;
+            ch.vlfoSelector = u8(payload, ch.pc + 1);
+            ch.pc = ch.pc + 2;
+            ch.vlfoPos = lfoStart[ch.vlfoSelector];
+            ch.vlfoCounter = ch.vlfoDelay;
+            ch.vlfoPhase = 1;
+        } else if (opCode == 0xB9) {
+            ch.vlfoTarget = u8(payload, ch.pc) << 8;
+            ch.pc = ch.pc + 1;
         } else if (opCode == 0xC2) {
             ch.reverb = true;
             if (ch.voice >= 0)
@@ -618,6 +666,15 @@ public class AKAOSequence {
             ch.pc = ch.pc + opLength(opCode) - 1;
         }
 
+    }
+
+    public int channelVolume(AKAOChannel ch) {
+        int hi = ch.volume >> 16;
+        return (hi * (ch.volumeBase >> 8)) >> 7;
+    }
+
+    public int wrapLower15(int value) {
+        return (value << 17) >> 17;
     }
 
     public int lfoDepthFor(AKAOChannel ch, int period) {
