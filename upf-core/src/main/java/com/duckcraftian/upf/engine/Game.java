@@ -15,6 +15,7 @@ import com.duckcraftian.upf.pe.rooms.PSXViewport;
 import com.duckcraftian.upf.pe.rooms.Room;
 import com.duckcraftian.upf.pe.rooms.RoomLoader;
 import com.duckcraftian.upf.pe.script.ScriptVM;
+import com.duckcraftian.upf.ps1.PSX;
 import com.duckcraftian.upf.ps1.data_types.PSXImage;
 import com.duckcraftian.upf.ps1.disc.DiscFileSystem;
 import com.duckcraftian.upf.ps1.video.MoviePlayer;
@@ -29,6 +30,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import static com.duckcraftian.upf.pe.ParasiteEve.AYA_STATS;
@@ -94,6 +96,17 @@ public class Game implements IDisposable {
             throw new RuntimeException(e);
         }
 
+        int[] random = new int[5];
+
+        PSX.srand(1);
+        for (int i = 0; i < random.length; i++) random[i] = PSX.rand();
+        Arrays.stream(random).forEach(i -> Logger.debug("Golden Number: " + i));
+
+        PSX.srand(0);
+        for (int i = 0; i < random.length; i++) random[i] = PSX.rand();
+        Arrays.stream(random).forEach(i -> Logger.debug("Golden Number: " + i));
+
+
         try {
             byte[] fontImages = getStreamedData(imageFile, "text/font/images");
             for (PSXImage image : convertBytesToImages(fontImages))
@@ -102,9 +115,15 @@ public class Game implements IDisposable {
             byte[] fontMetrics = getStreamedData(imageFile, "text/font/metrics");
             byte[] normals = getStreamedData(imageFile, "render/normals");
             byte[] levelStats = getStreamedData(imageFile, "battle/levelStats");
+            byte[] dataPack = getStreamedData(imageFile, "common/dataPack");
+            byte[] weaponEffectCodes = getStreamedData(imageFile, "battle/weaponEffectCodes");
+            byte[] actionAnimRows = getStreamedData(imageFile, "battle/actionAnimRows");
 
             PEText.metrics = fontMetrics;
             AYA_STATS.levelStats = levelStats;
+            AYA_STATS.dataPack = dataPack;
+            AYA_STATS.weaponEffectCodes = weaponEffectCodes;
+            AYA_STATS.actionAnimRows = actionAnimRows;
 
             PEModel.normals = new int[240 * 3];
             for (int i = 0; i < 240; i++) {
@@ -116,11 +135,9 @@ public class Game implements IDisposable {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-
         ScriptVM.movieStarter = m -> playMovie(movieName(m), false, false);
 
         loadMap("m004");
-//        playMovie("FMV001", true, true);
     }
 
     public void loadMap(String mapName) {
@@ -221,7 +238,7 @@ public class Game implements IDisposable {
             pad |= 0x01;
 
         if (Input.isKeyDown(SDLScancode.SDL_SCANCODE_F))
-            pad |= (0x100 | 0x20000000);
+            pad |= (0x100 | 0x200 | 0x20000000);
 
 
         if (confirmPressed) {

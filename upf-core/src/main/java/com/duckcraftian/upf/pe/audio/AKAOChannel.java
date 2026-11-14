@@ -45,6 +45,7 @@ public class AKAOChannel {
     int lfoSlideSteps, lfoSlideDelta;
     int vlfoTarget, vlfoDelay, vlfoDuration, vlfoSelector;
     int vlfoCounter, vlfoPhase, vlfoPos, vlfoValue;
+    int panSlideSteps, panSlideDelta;
     boolean vlfoOn;
     boolean lfoOn;
     boolean reverb;
@@ -73,6 +74,9 @@ public class AKAOChannel {
 
         lfoSlideSteps = 0;
         lfoSlideDelta = 0;
+
+        panSlideSteps = 0;
+        panSlideDelta = 0;
 
         tag = 0;
         handle = 0;

@@ -1,13 +1,12 @@
 package com.duckcraftian.upf.pe.script;
 
-import com.duckcraftian.upf.pe.AyaStats;
-import com.duckcraftian.upf.pe.ParasiteEve;
 import com.duckcraftian.upf.pe.disc.RoomParser;
 import com.duckcraftian.upf.pe.gfx.PEAnimation;
 import com.duckcraftian.upf.pe.gfx.PECamera;
 import com.duckcraftian.upf.pe.gfx.PEModel;
 import com.duckcraftian.upf.pe.gfx.PEText;
 import com.duckcraftian.upf.pe.rooms.Collision;
+import com.duckcraftian.upf.ps1.PSX;
 import com.duckcraftian.upf.ps1.PSXMath;
 import org.tinylog.Logger;
 
@@ -140,6 +139,8 @@ public class ScriptVM {
     private int hitRadius;
     private boolean hasBody;
 
+    private boolean hasCombatant;
+
     private int streamStart;
 
     private Node node;
@@ -160,6 +161,11 @@ public class ScriptVM {
 
     private int[] actorVars = new int[ACTOR_COUNT];
     private Handler[] handlers = new Handler[HANDLER_COUNT];
+
+    private static final ScriptVM[] queueActors = new ScriptVM[45];
+    private static final int[] queueCommand = new int[45];
+    private static final int[] queueGeneration = new int[45];
+    private static int queueCount, turnSlot, actionsLeft, targetIndex;
 
     private static int sceneFlags;
     private static int current;
@@ -186,13 +192,28 @@ public class ScriptVM {
 
     // Combat
     private static boolean[] slotUsed = new boolean[7];
+    private static ScriptVM[] targetActor = new ScriptVM[7];
+    private static int[] targetDist = new int[7];
+    private static int[] targetAngle = new int[7];
+    private static int targetCount;
     private static int combatantCounter;
     private static int enemyCount;
     private static int roomFloorY;
+    private static int queueCursor;
+    private static int holdLead, holdFrames, holdReaim, holdEnd;
+    private static int hitTimer, evasionStatus, evasionReaction;
+    private static boolean actionCommitted;
+    private static boolean shotFired;
+    private static final int[] AIM_MODES = {6, 8, 10};
+    private static final int[] FOLLOW_MODES = {7, 9, 11};
+    private static final int[] HIT_COUNT_PERCENT = {0, 100, 60, 41, 0, 25, 0, 18, 0, 0, 13};
+    private static final int IDLE_MODE = 4;
 
-    private static List<ScriptVM> actors = new ArrayList<>();
+
+    private static boolean readySeeded = false;
+
     private static List<int[]> queue = new ArrayList<>();
-
+    private static List<ScriptVM> actors = new ArrayList<>();
     public static int debugTick = 0;
 
     // TODO REMOVE THIS ONCE RNJESUS COMES TO TAKE HIS THRONE!
@@ -292,6 +313,8 @@ public class ScriptVM {
         roomLightR = 0xFF;
         roomLightG = 0xFF;
         roomLightB = 0xFF;
+
+        gameStateFlags &= ~0x400000;
 
         ANIM_RECORDS = RoomParser.readAnimationRecords(container);
         messageBank = RoomParser.readMessageBank(container);
@@ -602,6 +625,7 @@ public class ScriptVM {
 
             if (index == 7) return true;
             slotUsed[index] = true;
+            hasCombatant = true;
             slot = index;
             combatantCounter = (combatantCounter + 1) & 0xFF;
             combatantId = combatantCounter;
@@ -679,17 +703,13 @@ public class ScriptVM {
                 player.fields[7] = 4;
 
                 PEAnimation anim4 = player.actions.get(4);
-                if (anim4 == null) {
-                    Logger.error("IT'S THE END OF THE WORLD! ANIM4 DOESN'T EXIST WHAT DO WE DO NOW!");
-                } else
-                    Logger.debug("Mode4 Frames=" + anim4.frameCount());
 
                 Logger.debug("Action Keys=" + player.actions.keySet().toString());
                 Logger.debug("ActionMode=" + player.actionMode);
 
-                StringBuilder sb = new StringBuilder("Player Fields\n");
+                StringBuilder sb = new StringBuilder("Player Fields: { ");
                 for (int i = 0; i < 10; i++)
-                    sb.append("Field[" + i + "]=" + player.fields[i] + (i == 9 ? "" : "\n"));
+                    sb.append("Field[" + i + "]=" + player.fields[i] + (i == 9 ? " }" : ", "));
 
                 Logger.debug("BattleModeState=" + battleModeState + ", GameStateFlags=" + gameStateFlags + " " + sb.toString());
 
@@ -731,8 +751,12 @@ public class ScriptVM {
                     roomLightG = get(2);
                     roomLightB = get(3);
                     break;
-                case 2100, 2101, 2900, 3100, 3200, 2201:
-                    Logger.debug("Just keep rolling rolling rolling");
+                case 2900:
+                    gameStateFlags |= 0x400000;
+                    break;
+                case 2100, 2101, 3100, 3200, 2201:
+                    Logger.info("Just keep rolling rolling rolling");
+                    Logger.error("Unimplemented Dispatch Script Op Code: " + sub);
                     break/* Stuff*/; // BACK UP, BACK UP! WHATCHYA GONNA DO NOW!
                 default:
                     Logger.error("Op 237 sub-command " + sub + " unimplemented");
@@ -1935,6 +1959,59 @@ public class ScriptVM {
 
     }
 
+    public static int buildTargetList() {
+        targetCount = 0;
+        ScriptVM player = getPlayer();
+        for (ScriptVM actor : getActors()) {
+            if (actor != player && actor.hasCombatant) {
+                int flags = actor.entityFlags;
+                if ((flags & 0x2040) != 0x40 && (flags & 0x4000) == 0 && actor.readCombatField(44) > 0) {
+                    // Stand ins - To be replaced
+                    int x = (actor.posX >> 16) - (player.posX >> 16);
+                    int z = (actor.posZ >> 16) - (player.posZ >> 16);
+                    targetActor[targetCount] = actor;
+                    targetDist[targetCount] = (int) Math.sqrt(x * x + z * z);
+                    targetAngle[targetCount] = (int) Math.round(Math.atan2(x, z) * 2048 / Math.PI);
+                    targetCount += 1;
+
+                }
+            }
+        }
+
+        if (targetCount >= 2) sortTargets(0, targetCount - 1);
+        return targetCount;
+    }
+
+    public static void sortTargets(int first, int last) {
+        if (first < last) {
+            swapTargets(first, (first + last) / 2);
+            int pivot = first;
+            for (int scan = first; scan <= last; scan++) {
+                if (targetDist[scan] < targetDist[first]) {
+                    pivot = pivot + 1;
+                    swapTargets(pivot, scan);
+                }
+            }
+            swapTargets(first, pivot);
+            sortTargets(first, pivot - 1);
+            sortTargets(pivot + 1, last);
+        }
+    }
+
+    public static void swapTargets(int i, int j) {
+        ScriptVM temp = targetActor[i];
+        targetActor[i] = targetActor[j];
+        targetActor[j] = temp;
+
+        int tempDist = targetDist[i];
+        targetDist[i] = targetDist[j];
+        targetDist[j] = tempDist;
+
+        int tempAngle = targetAngle[i];
+        targetAngle[i] = targetAngle[j];
+        targetAngle[j] = tempAngle;
+    }
+
     public void updateBodySphere() {
         PEModel model = models.get(type);
         PEAnimation anim = getAnimation();
@@ -2150,7 +2227,28 @@ public class ScriptVM {
 
     public static void updateBattle() {
         if ((gameStateFlags & 2) == 0) return;
-        if (battleModeState == 0) ParasiteEve.AYA_STATS.tickATB();
+        if (battleModeState == 0) {
+            AYA_STATS.tickATB();
+
+            if (AYA_STATS.atbAcc >= AYA_STATS.maxAtk && !readySeeded) {
+                PSX.srand(debugTick);
+                readySeeded = true;
+            }
+
+            if (AYA_STATS.atbAcc >= AYA_STATS.maxAtk && (padTrigger & 0x200) != 0 && enemyCount != 0) {
+                beginTurn();
+                battleModeState = 1;
+            }
+        } else if (battleModeState == 1) battleModeState = stepTurn();
+
+
+        if (battleModeState == 0) {
+            stepQueue();
+            if (shotFired) resolveHitOnTimer();
+            for (ScriptVM actor : getActors())
+                if (actor != getPlayer() && actor.hasCombatant && (actor.coreFlags & 0x6000) == 0x2000)
+                    stepEnemyMovement(actor);
+        }
 
         if (battleModeState != 6) return;
 
@@ -2165,10 +2263,331 @@ public class ScriptVM {
         if (player.actionMode != idle) {
             if ((player.animPrev >> 16) == player.animLastFrame) player.setActionMode(idle);
         } else {
-
             battleModeState = 7;
             moveLock &= ~1;
         }
+
+    }
+
+    private static void resolveHitOnTimer() {
+        hitTimer += 1;
+        if ((hitTimer & 0xFF) != AYA_STATS.hitTrigger) return;
+        if (AYA_STATS.actionId == 8 || AYA_STATS.actionId == 6 || (AYA_STATS.actionTurnWord & 0xC0) == 0x80)
+            Logger.error("Steal/Chained/Sweep Hit/ Not ported Yet");
+        else {
+            ScriptVM target = queueActors[queueCursor];
+            if (target != null) {
+                checkEvasion(target);
+                applyEvasionOutcome(target);
+            }
+        }
+
+        shotFired = false;
+        hitTimer = 0;
+    }
+
+    private static void checkEvasion(ScriptVM target) {
+        evasionReaction = 0;
+        if ((target.entityFlags & 0x4000) != 0) return;
+
+        evasionStatus = 0;
+        int distance = distToPlayer(target) * 1000 / AYA_STATS.actionRange;
+        int roll = (PSX.rand() & 0x7FFF) % 100;
+        if (distance >= 1801) return;
+        if (distance >= 1501) {
+            if (roll < 25) {
+                evasionStatus = 1;
+                evasionReaction = 1;
+            }
+            return;
+        }
+
+        if (distance >= 1201) {
+            if (roll < 50) {
+                evasionStatus = 1;
+                evasionReaction = 1;
+            }
+
+            return;
+        }
+
+        if (distance >= 1001) {
+            if (roll < 80) {
+                evasionStatus = 1;
+                evasionReaction = 1;
+            }
+
+            return;
+        }
+
+        int threshold = ((AYA_STATS.actionTurnWord >> 17) & 1) * 20;
+        if (distance >= 801) threshold += 5;
+        else if (distance >= 501) threshold += 20;
+        else threshold += 50;
+        if (roll < threshold) evasionReaction = 3;
+        else evasionReaction = 2;
+
+        evasionStatus = 1;
+    }
+
+    private static void applyEvasionOutcome(ScriptVM target) {
+        if (evasionStatus == 1) {
+            int flags = target.coreFlags;
+            flags = (flags & ~0x6000) | (1 << 13);
+            flags = (flags & ~0xC0000) | ((AYA_STATS.actionAttackWord >> 20) << 18);
+            flags = (flags & ~0x38000) | (evasionReaction << 15);
+            target.coreFlags = flags;
+        } else {
+            Logger.debug("IF YOU CAN DODGE A WRENCH YOU CAN DODGE A BALL!");
+            Logger.debug("Miss");
+        }
+    }
+
+    private static void stepEnemyMovement(ScriptVM enemy) {
+        int actions = AYA_STATS.actionTurnWord & 15;
+        int strength = AYA_STATS.offense / 5;
+        int attackPower = ((strength + AYA_STATS.actionPowerBonus) * HIT_COUNT_PERCENT[actions]) / 100;
+        int damage = attackPower - enemy.readCombatField(61) / actions;
+        int reaction = enemy.coreFlags & 0x38000;
+
+        if (damage > 0) {
+            if (reaction == 0x8000) damage = damage * 3 / 10;
+            else if (reaction == 0x18000) damage = damage * 3 / 2;
+            else if (reaction == 0x20000) damage = damage / 10;
+            if (((enemy.coreFlags >> 18) & 3) == 3 || (AYA_STATS.actionTurnWord & 0x1F00) != 0) {
+                Logger.error("Element/Status Hit Branches aren't ported yet");
+            }
+        }
+
+        if (damage <= 0) {
+            damage = 1;
+            if ((enemy.coreFlags & 0x38000) == 0x18000) damage = 2;
+        }
+
+        int before = enemy.fields[44];
+        enemy.fields[44] = enemy.fields[44] - damage;
+        enemy.coreFlags = (enemy.coreFlags & ~0x6000) | 0x4000;
+        Logger.debug("HIT | Reaction: " + (reaction >> 15) + ", Attack Power: " + attackPower + ", Damage: " + damage + ", HP Before: " + before + ", HP After: " + enemy.readCombatField(44));
+    }
+
+    private static void stepQueue() {
+        if (queueCursor >= queueCount) {
+            queueCursor = 0;
+            queueCount = 0;
+            return;
+        }
+
+        ScriptVM player = getPlayer();
+        player.motionX = 0;
+        player.motionY = 0;
+        player.motionZ = 0;
+        if (player.actionMode >= 4) if (queueCommand[queueCursor] < 3) updatePlayerTurn();
+    }
+
+    private static void updatePlayerTurn() {
+        ScriptVM player = getPlayer();
+        ScriptVM target = queueActors[queueCursor];
+
+        if (player.actionMode == 12) {
+            Logger.error("Action Mode 12: Out of Ammo, not ported yet");
+            return;
+        }
+
+        if (actionCommitted && target.hasCombatant && target.readCombatField(44) > 0) {
+            int category = aimCategory(target);
+
+            player.setActionMode(AIM_MODES[category]);
+            actionCommitted = false;
+            Logger.debug("AIM | Category: " + category + ", Player Mode: " + player.actionMode + ", Target Mode: " + target.actionMode + ", Facing: " + facingAngle(player, target));
+        }
+
+        player.rotY = facingAngle(player, target);
+
+        if (stepCharacterAction() != 1) return;
+        ScriptVM nextActor = queueActors[queueCursor + 1];
+        if (target != nextActor || target.readCombatField(44) <= 0) holdFrames += holdEnd;
+        queueCursor = queueCursor + 1;
+        if (queueCursor == queueCount) {
+            Logger.debug("Shots done | Ammo: " + (AYA_STATS.actionAttackWord & 0x3FF) + ", Attack Word: " + AYA_STATS.actionAttackWord);
+            Logger.debug("Target Stats | HP: " + target.readCombatField(44) + ", Defense: " + target.readCombatField(61));
+        }
+    }
+
+    public static void beginTurn() {
+        buildTargetList();
+        targetIndex = 0;
+        queueCount = 0;
+        queueCursor = 0;
+        for (int i = 0; i < 45; i++) {
+            queueActors[i] = null;
+            queueCommand[i] = 0;
+            queueGeneration[i] = 0;
+        }
+
+        turnSlot = (AYA_STATS.actionTurnWord >> 4) & 3;
+        actionsLeft = AYA_STATS.actionTurnWord & 15;
+        holdLead = AYA_STATS.animMode[0];
+        holdFrames = AYA_STATS.animMode[1];
+        holdReaim = AYA_STATS.animMode[2];
+        holdEnd = AYA_STATS.animMode[3];
+        shotFired = false;
+        Logger.debug("Target Count: " + targetCount + ", Turn Slot: " + turnSlot + ", Actions Left: " + actionsLeft);
+    }
+
+    private static int aimCategory(ScriptVM target) {
+        ScriptVM player = getPlayer();
+        int dx = (target.posX >> 16) - (player.posX >> 16);
+        int dz = (target.posZ >> 16) - (player.posZ >> 16);
+        int dist = (int) Math.sqrt(dx * dx + dz * dz);
+        int diff = (target.posY >> 16) - (player.posY >> 16);
+        int angle = (int) Math.round(Math.atan2(diff, dist) * 2048 / Math.PI);
+        int category = 2;
+
+        if (angle < -0xAB) category = 0;
+        else if (angle < 0xE4) category = 1;
+
+        return category;
+    }
+
+    private static void finalizeAttackResult() {
+        int word = AYA_STATS.actionAttackWord;
+        if (AYA_STATS.actionId == 8) {
+            Logger.error("ActionId 8 Shot not ported yet");
+            return;
+        }
+
+        if ((word & 0x3FF) != 0) {
+            shotFired = true;
+            AYA_STATS.actionAttackWord = (word & ~0x3FF) | (((word & 0x3FF) - 1) & 0x3FF);
+            Logger.info("I'M ALL SHOT UP!");
+            Logger.debug("Fire | Mode: " + getPlayer().actionMode + ", Ammo Before: " + (word & 0x3FF) + ", Ammo After: " + (AYA_STATS.actionAttackWord & 0x3FF));
+            return;
+        }
+
+        shotFired = false;
+    }
+
+    private static int stepCharacterAction() {
+        ScriptVM player = getPlayer();
+        ScriptVM target = queueActors[queueCursor];
+        int mode = player.actionMode;
+
+        switch (mode) {
+            case 6, 8, 10:
+                if ((player.animFrame >> 16) != player.animLastFrame) return 0;
+                if (holdLead != 0) {
+                    holdLead -= 1;
+                    player.entityFlags |= 0x100;
+                    return 0;
+                }
+
+                if (holdFrames != 0) {
+                    holdFrames -= 1;
+                    player.entityFlags |= 0x100;
+                    return 0;
+                }
+
+                hitTimer = 0;
+                holdFrames = AYA_STATS.animMode[1];
+                player.setActionMode(FOLLOW_MODES[aimCategory(target)]);
+                player.entityFlags &= ~0x100;
+                actionsLeft = AYA_STATS.actionTurnWord & 15;
+                finalizeAttackResult();
+                return 0;
+            case 7, 9, 11:
+                if ((player.animPrev >> 16) != player.animLastFrame) return 0;
+                if ((AYA_STATS.actionTurnWord & 0xC0) == 0xC0 || queueCommand[queueCursor] == 0x189) {
+                    Logger.error("All-Target/Special Shot not ported yet");
+                    return 0;
+                }
+                int nextIndex = queueCursor + 1;
+                actionsLeft = 0;
+                if (queueCommand[nextIndex] >= 3 || nextIndex == queueCount) {
+                    player.setActionMode(IDLE_MODE);
+                    actionCommitted = true;
+                    holdLead = AYA_STATS.animMode[0];
+                    return 1;
+                }
+
+                ScriptVM nextTarget = queueActors[nextIndex];
+                if (!nextTarget.hasCombatant || nextTarget.readCombatField(44) <= 0) {
+                    player.setActionMode(IDLE_MODE);
+                    queueCursor = queueCursor + 1;
+                    actionCommitted = true;
+                    return 1;
+                }
+
+                if ((AYA_STATS.actionAttackWord & 0x3FF) != 0) {
+                    player.setActionMode(AIM_MODES[aimCategory(target)]);
+                    player.animFrame = player.animLastFrame << 16;
+                    player.entityFlags |= 0x100;
+                    holdFrames += holdReaim;
+                    actionsLeft = AYA_STATS.actionTurnWord & 15;
+                    Logger.debug("RE-AIM | Hold Frames: " + holdFrames);
+                    return 1;
+                }
+
+                Logger.error("No-Ammo Path not Ported");
+                player.setActionMode(IDLE_MODE);
+                return 1;
+        }
+
+        return 0;
+    }
+
+    private static int distToPlayer(ScriptVM target) {
+        ScriptVM player = getPlayer();
+        int dx = (target.posX >> 16) - (player.posX >> 16);
+        int dz = (target.posZ >> 16) - (player.posZ >> 16);
+        return (int) Math.sqrt(dx * dx + dz * dz);
+    }
+
+    public static int stepTurn() {
+        if (turnSlot == 0) {
+            finishTurn();
+            return 0;
+        }
+
+        if ((padTrigger & 0x200) != 0 && targetCount != 0) {
+            fillQueue();
+            if (actionsLeft == 0) {
+                turnSlot = turnSlot - 1;
+                actionsLeft = AYA_STATS.actionTurnWord & 15;
+            }
+        }
+
+        return 1;
+    }
+
+    private static void fillQueue() {
+        int mode = AYA_STATS.actionTurnWord & 0xC0;
+        if (mode == 0xC0) {
+            for (int i = 0; i < targetCount; i++) {
+                queueActors[queueCount] = targetActor[i];
+                queueCommand[queueCount] = 2;
+                queueGeneration[queueCount] = turnSlot;
+                queueCount = queueCount + 1;
+            }
+
+            actionsLeft = 0;
+        } else if (mode == 0x40) {
+            Logger.error("Random Target Mode (Turn Word 0x40) Not Ported Yet. Needs Bios RAND");
+            actionsLeft = 0;
+        } else {
+            queueActors[queueCount] = targetActor[targetIndex];
+            queueCommand[queueCount] = 1;
+            queueGeneration[queueCount] = turnSlot;
+            queueCount = queueCount + 1;
+            actionsLeft = actionsLeft - 1;
+        }
+    }
+
+    private static void finishTurn() {
+        Logger.error("Battle Dispatch Entity Effect not ported yet");
+        AYA_STATS.atbAcc = 0;
+        actionCommitted = true;
+        readySeeded = false;
+        Logger.debug("Battle | Turn Slot: " + turnSlot + ", Actions Left: " + actionsLeft + ", QueueCount: " + queueCount);
     }
 
     public void integrate() {
@@ -2553,7 +2972,7 @@ public class ScriptVM {
         }
     }
 
-    public int facingAngle(ScriptVM from, ScriptVM to) {
+    public static int facingAngle(ScriptVM from, ScriptVM to) {
         int dx = ((from.posX - to.posX) >> 16);
         int dz = ((from.posZ - to.posZ) >> 16);
         int units = (int) Math.round(Math.atan2(dz, dx) * 2048 / Math.PI);

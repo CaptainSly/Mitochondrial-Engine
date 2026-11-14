@@ -144,6 +144,11 @@ public class AKAOSequence {
             ch.expressionDuration--;
         }
 
+        if (ch.panSlideSteps != 0) {
+            ch.pan = (ch.pan + ch.panSlideDelta) & 0xFFFF;
+            ch.panSlideSteps = ch.panSlideSteps - 1;
+        }
+
         if (ch.slideSteps != 0) {
             ch.slideAcc += ch.slideStep;
             ch.slideSteps -= 1;
@@ -569,7 +574,18 @@ public class AKAOSequence {
             ch.pc = ch.pc + 2;
         } else if (opCode == 0xAA) {
             ch.pan = ((u8(payload, ch.pc) + 0x40) & 0xFF) << 8;
+            ch.panSlideSteps = 0;
             ch.pc = ch.pc + 1;
+        } else if (opCode == 0xAB) {
+            int duration = u8(payload, ch.pc);
+            if (duration == 0) duration = 256;
+            int target = u8(payload, ch.pc + 1);
+            int base = ch.pan & 0xFF00;
+            int goal = ((target + 0x40) & 0xFF) << 8;
+            ch.panSlideDelta = (goal - base) / duration;
+            ch.panSlideSteps = duration;
+            ch.pan = base;
+            ch.pc = ch.pc + 2;
         } else if (opCode == 0xAD) {
             ch.attackOverride = u8(payload, ch.pc);
             ch.pc = ch.pc + 1;
@@ -661,8 +677,11 @@ public class AKAOSequence {
             ch.lfoSlideSteps = duration;
             ch.lfoSlideDelta = ((t << 8) - ch.lfoTarget) / duration;
             ch.pc = ch.pc + 2;
+        } else if (opCode == 0xD9) {
+            ch.detune += s8(payload, ch.pc);
+            ch.pc += 1;
         } else {
-            Logger.error("Unimplemented AKAO Command: 0x" + Integer.toHexString(opCode).toUpperCase());
+            Logger.error("Unimplemented AKAO Command: 0x" + Integer.toHexString(opCode).toUpperCase() + " - Pointer Cursor: " + ch.pc + ", Channel Index: " + getIndex(ch));
             ch.pc = ch.pc + opLength(opCode) - 1;
         }
 
@@ -829,6 +848,13 @@ public class AKAOSequence {
             channels[i].ended = true;
             keyOff(channels[i]);
         }
+    }
+
+    private int getIndex(AKAOChannel ch) {
+        for (int i = 0; i < channels.length; i++)
+            if (channels[i] == ch) return i;
+
+        return -1;
     }
 
     public static int findTrack(byte[] container, int key) {

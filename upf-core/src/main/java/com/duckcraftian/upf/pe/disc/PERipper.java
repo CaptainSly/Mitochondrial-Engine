@@ -162,8 +162,7 @@ public class PERipper {
 
         List<RoomRange> ranges = new ArrayList<>();
 
-        long tableRam = ParasiteEve.DISC_1_PROG_TBL_RAM;
-        long tableFile = (tableRam - loadAddress) + 0x800;
+        long tableFile = (DISC_1_PROG_TBL_RAM - loadAddress) + 0x800;
         for (int i = 0; i < ParasiteEve.ROOM_COUNT; i++) {
             long start = u32LE(slussyBacca, (int) (tableFile + i * 8));
             long packed = u32LE(slussyBacca, (int) (tableFile + i * 8 + 4));
@@ -260,13 +259,16 @@ public class PERipper {
             entries.put("entity/actionSet/" + index, data);
         }
 
-        byte[] fontBlob = fs1.readSectors(pe, boundaries[72], boundaries[73] - boundaries[72]);
         byte[] pack = fs1.readSectors(pe, boundaries[2], boundaries[3] - boundaries[2]);
+        entries.put("common/dataPack", pack);
+        Logger.debug("PACK SIZE: " + entries.get("common/dataPack").length);
+
         byte[] ui = fs1.readSectors(pe, boundaries[9], boundaries[10] - boundaries[9]);
         byte[] scene = fs1.readSectors(pe, boundaries[39], boundaries[40] - boundaries[39]);
         byte[] objects = fs1.readSectors(pe, boundaries[12], boundaries[13] - boundaries[12]);
         byte[] battleHud = fs1.readSectors(pe, boundaries[11], boundaries[12] - boundaries[11]); //r11
         byte[] effectSprites = fs1.readSectors(pe, boundaries[5], boundaries[6] - boundaries[5]); //r05
+        byte[] fontBlob = fs1.readSectors(pe, boundaries[72], boundaries[73] - boundaries[72]);
 
         byte[] levelStats = Arrays.copyOfRange(pack, 0x63C0, 0x6D08);
         entries.put("battle/levelStats", levelStats);
@@ -278,8 +280,7 @@ public class PERipper {
 
         List<PSXImage> objs = readVramUploads(ui);
         objs.addAll(List.of(hudClut, hudImage));
-        for (PSXImage image : readVramUploads(scene))
-            objs.add(image);
+        objs.addAll(readVramUploads(scene));
 
         entries.put("images/common/objects", convertImagesToBytes(objs));
         entries.put("images/battle/textures", convertImagesToBytes(readVramUploads(effectSprites)));
@@ -326,6 +327,18 @@ public class PERipper {
         entries.put("sound/akao/lfo", Arrays.copyOfRange(exe, akaoLFOAt, (int) (akaoLFOAt + AKAO_LFO_BYTES)));
         Logger.debug("LFO Size: " + entries.get("sound/akao/lfo").length);
 
+        int weaponAt = (int) ((WEAPON_EFFECT_CODES_RAM - loadAddress) + 0x800);
+        entries.put("battle/weaponEffectCodes", Arrays.copyOfRange(exe, weaponAt, weaponAt + 6));
+        Logger.debug("Weapon Effect Codes Size: " + entries.get("battle/weaponEffectCodes").length);
+
+        int animRowsAt = (int) ((BATTLE_ACTION_ANIM_ROWS_RAM - loadAddress) + 0x800);
+        entries.put("battle/actionAnimRows", Arrays.copyOfRange(exe, animRowsAt, animRowsAt + 45));
+        Logger.debug("Weapon Action Anim Rows Size: " + entries.get("battle/actionAnimRows").length);
+
+        int offenseScaleAt = (int) ((BATTLE_ACTION_OFFENSE_SCALE_RAM - loadAddress) + 0x800);
+        entries.put("battle/actionOffenseScale", Arrays.copyOfRange(exe, offenseScaleAt, offenseScaleAt + 9));
+        Logger.debug("Weapon Action Offense Scale Size: " + entries.get("battle/actionOffenseScale").length);
+
         int soundDirAt = (int) (SOUND_DIR_RAM - loadAddress) + 0x800;
         long baseLBA = u32LE(exe, soundDirAt);
 
@@ -360,7 +373,7 @@ public class PERipper {
         List<Integer> list = new ArrayList<>();
         while (true) {
             int v = u16LE(exe, (int) at);
-            if (!list.isEmpty() && v < list.get(list.size() - 1)) break;
+            if (!list.isEmpty() && v < list.getLast()) break;
             list.add(v);
             at = at + 2;
         }

@@ -22,6 +22,10 @@ public class ParasiteEve {
     public static final long NORMAL_TABLE_RAM = 0x80091A58L;
     public static final long SOUND_DIR_RAM = 0x8009317CL;
 
+    public static final long WEAPON_EFFECT_CODES_RAM = 0x800923D0L;
+    public static final long BATTLE_ACTION_ANIM_ROWS_RAM = 0x800106A4L;
+    public static final long BATTLE_ACTION_OFFENSE_SCALE_RAM = 0x800106D4L;
+
     public static final long AKAO_LENGTHS_RAM = 0x8009B85CL;
     public static final long AKAO_NOTE_LENGTHS_RAM = 0x8009B8DCL;
     public static final long AKAO_PAN_TABLE_RAM = 0x8009B8F8L;

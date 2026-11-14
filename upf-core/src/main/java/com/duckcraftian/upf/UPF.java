@@ -20,7 +20,7 @@ public class UPF {
     public static final String WINDOW_TITLE = "Mitochondrial Engine";
     public static final String MAJOR = "0";
     public static final String MINOR = "1";
-    public static final String BUGFIX = "8";
+    public static final String BUGFIX = "9";
     public static final String CODENAME = "Resonance";
 
     // ------------ COLORS -------------

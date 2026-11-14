@@ -114,7 +114,7 @@ public class PERenderer implements IDisposable {
                 tileShader.set("scroll", new Vector2i(160 - camX, 112 - camY));
                 glActiveTexture(GL_TEXTURE0);
                 tileTexture.bind();
-                tileBatch.draw();
+                tileBatch.draw(); // ALL THESE SQUARES MAKE A CIRCLE
                 tileTexture.unbind();
             }
             tileShader.end();

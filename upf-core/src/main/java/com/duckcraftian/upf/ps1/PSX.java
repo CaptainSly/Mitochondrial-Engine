@@ -4,6 +4,17 @@ import com.duckcraftian.upf.ps1.gfx.GTE;
 
 public class PSX {
 
+    private static int randSeed;
+
+    public static void srand(int seed) {
+        randSeed = seed;
+    }
+
+    public static int rand() {
+        randSeed = randSeed * 0x41C64E6D + 0x3039;
+        return (randSeed >> 16) & 0x7FFF;
+    }
+
     // Opcodes
     public static final int OP_RTPS = 0x01;
     public static final int OP_NCLIP = 0x06;

@@ -45,5 +45,15 @@ dependencies {
 tasks.test {
     useJUnitPlatform()
     workingDir = rootProject.projectDir
-    maxHeapSize = "2g"      // the Indiana tests hold several copies of the ETF's bands (about 220 MB each)
+    maxHeapSize = "2g"
+}
+
+tasks.register<JavaExec>("runWithArgs") {
+    classpath = sourceSets["main"].runtimeClasspath
+    workingDir = rootProject.projectDir
+    mainClass.set("com.duckcraftian.upf.engine.system.Engine")
+    jvmArgs(
+        "--enable-native-access=ALL-UNNAMED",
+        "--sun-misc-unsafe-memory-access=allow"
+    )
 }
