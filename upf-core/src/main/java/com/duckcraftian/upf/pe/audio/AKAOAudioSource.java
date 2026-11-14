@@ -48,6 +48,12 @@ public class AKAOAudioSource implements AudioSource {
         reverb = new SpuReverb();
     }
 
+    public void stopStreams(int id, int mask) {
+        queue.add(() -> {
+            if (sfx != null) sfx.stopStreams(id, mask);
+        });
+    }
+
     public void startMovie(short[] l, short[] r) {
         queue.add(() -> {
             movieL = l;

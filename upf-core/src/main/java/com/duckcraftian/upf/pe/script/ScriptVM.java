@@ -167,6 +167,8 @@ public class ScriptVM {
     private static final int[] queueGeneration = new int[45];
     private static int queueCount, turnSlot, actionsLeft, targetIndex;
 
+    private static boolean turnLocked = false;
+
     private static int sceneFlags;
     private static int current;
     private static int pendingRoom = 0;
@@ -1571,6 +1573,8 @@ public class ScriptVM {
                 PEAUDIO.slideMusicVolumeFromTo(get(1), get(2) * 2, get(3), get(4));
             } else if (sub == 0xD9) {
                 PEAUDIO.resetMusic();
+            } else if (sub == 0x12D) {
+                PEAUDIO.stopSfx(get(1), get(2));
             } else {
                 Logger.error("Op 234 Sub Command 0x" + Integer.toHexString(sub) + " unimplemented");
             }
@@ -1949,6 +1953,17 @@ public class ScriptVM {
             return true;
         };
 
+        handlers[SetAnimationHoldFlag] = _ -> {
+            entityFlags |= 0x100;
+            return true;
+        };
+
+        handlers[ClearAnimationHoldFlag] = _ -> {
+            entityFlags &= ~0x100;
+            return true;
+        };
+
+
         handlers[WaitAnimFrameMatch] = _ -> {
             node.active = 1;
             if ((animFrame >> 16) != animStop)
@@ -1957,7 +1972,45 @@ public class ScriptVM {
             return false;
         };
 
+        handlers[SetEntityActionAndWait] = _ -> {
+
+            if ((node.flags & 0x20) == 0) {
+                node.flags |= 0x20;
+                setActionMode(get(0) & 0xFFFF);
+                entityFlags &= ~0x100;
+            } else {
+                if (actionMode == 0) {
+                    node.flags &= ~0x20;
+                    return true;
+                }
+
+                boolean finished;
+                if (animStep >= 0)
+                    finished = Integer.compareUnsigned(animFrame, animPrev) < 0;
+                else finished = Integer.compareUnsigned(animPrev, animFrame) < 0;
+
+                if (finished) {
+                    node.flags &= ~0x20;
+                    return true;
+                }
+            }
+
+            node.active = 1;
+            node.cursor = node.cursor - 12;
+            return false;
+        };
+
+        handlers[StopActorEffects] = _ -> {
+            ScriptVM target;
+            if (get(0) == 0) target = getPlayer();
+            else target = getActor(get(0), get(1));
+            Logger.error("StopActorEffects process manager not implemented. Nothing to stop");
+
+            return true;
+        };
+
     }
+
 
     public static int buildTargetList() {
         targetCount = 0;
@@ -2252,6 +2305,9 @@ public class ScriptVM {
 
         if (battleModeState != 6) return;
 
+        queueCursor = 0;
+        queueCount = 0;
+
         ScriptVM player = getPlayer();
         if (player == null) return;
 
@@ -2265,6 +2321,7 @@ public class ScriptVM {
         } else {
             battleModeState = 7;
             moveLock &= ~1;
+            PEAUDIO.stopSfx(0, 0xFF);
         }
 
     }
@@ -2374,6 +2431,12 @@ public class ScriptVM {
         if (queueCursor >= queueCount) {
             queueCursor = 0;
             queueCount = 0;
+
+            if (turnLocked) {
+                turnLocked = false;
+                moveLock &= ~1;
+            }
+
             return;
         }
 
@@ -2431,7 +2494,10 @@ public class ScriptVM {
         holdReaim = AYA_STATS.animMode[2];
         holdEnd = AYA_STATS.animMode[3];
         shotFired = false;
+        moveLock |= 1;
+        turnLocked = true;
         Logger.debug("Target Count: " + targetCount + ", Turn Slot: " + turnSlot + ", Actions Left: " + actionsLeft);
+        PEAUDIO.stopSfx(0, 0xFF);
     }
 
     private static int aimCategory(ScriptVM target) {
@@ -2757,6 +2823,7 @@ public class ScriptVM {
 
         actionMode = mode;
         animFrame = 0;
+        animPrev = 0;
         entityFlags &= ~0x200;
         animLastFrame = anim.frameCount() - 1;
         if ((entityFlags & 0x100000) != 0) {

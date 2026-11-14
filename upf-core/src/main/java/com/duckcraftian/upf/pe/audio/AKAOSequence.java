@@ -871,6 +871,30 @@ public class AKAOSequence {
         return -1;
     }
 
+    public void stopStreams(int id, int mask) {
+        if ((id & 0xFFFF) == 0xFFFF) return;
+        int stopped = 0;
+        for (int i = 0; i < 12; i++) {
+            AKAOChannel ch = channels[i];
+            if (!ch.ended) {
+                boolean hit;
+                if ((mask & 0x0FFFFFFF) != 0)
+                    hit = (ch.tag & mask) != 0;
+                else if (mask == 0) hit = ( ch.handle == (id & 0xFFFF));
+                else {
+                    Logger.error("stopStreams: voice index/longest-running mode not ported");
+                    return;
+                }
+
+                if (hit) {
+                    keyOff(ch);
+                    ch.ended = true;
+                    stopped = stopped + 1;
+                }
+            }
+        }
+    }
+
     public static int trackBank(byte[] container, int track) {
         long dirOffset = u32LE(container, 4);
         long tracksWord = u32LE(container, (int) (dirOffset + 0x30));

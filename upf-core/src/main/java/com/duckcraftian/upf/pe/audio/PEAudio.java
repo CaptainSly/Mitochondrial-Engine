@@ -104,6 +104,10 @@ public class PEAudio {
         source.setSfx(newSfx);
     }
 
+    public void stopSfx(int id, int mask) {
+        source.stopStreams(id, mask);
+    }
+
     public void addActorSound(int type, int sub, int anim, int frame, int id0, int id1) {
         if (dynCount >= 16) return;
         int[] ev = soundEvents[4 + dynCount];

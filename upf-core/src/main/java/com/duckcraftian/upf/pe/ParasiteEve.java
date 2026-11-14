@@ -100,6 +100,8 @@ public class ParasiteEve {
     public static final int ActorFaceActor = 75;
     public static final int SetAnimationSpeed = 77;
     public static final int SetEntityAnimSpeed = 78;
+    public static final int SetAnimationHoldFlag = 79;
+    public static final int ClearAnimationHoldFlag = 80;
     public static final int TestGameStateFlags = 81;
     public static final int SetGameStateFlags = 82;
     public static final int ClearGameStateFlags = 83;
@@ -143,6 +145,7 @@ public class ParasiteEve {
     public static final int Noop145 = 145;
     public static final int GetBattleModeState = 148;
     public static final int ClearBattleModeState = 149;
+    public static final int StopActorEffects = 152;
     public static final int PlayBackgroundAnimFromTo = 154;
     public static final int DrawActorLit = 155;
     public static final int WaitForFade = 156;
@@ -155,7 +158,7 @@ public class ParasiteEve {
     public static final int SetAttackEffect = 183;
     public static final int ActorTurnToPoint = 184;
     public static final int WaitForAnimationLoop = 195;
-    public static final int SetActionAndWait = 198;
+    public static final int SetEntityActionAndWait = 198;
     public static final int SetNodeFlag80 = 199;
     public static final int SelectBoundsEntry = 202;
     public static final int GetAngleToPoint = 203;
