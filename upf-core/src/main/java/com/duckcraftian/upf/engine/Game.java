@@ -7,10 +7,7 @@ import com.duckcraftian.upf.pe.ParasiteEve;
 import com.duckcraftian.upf.pe.audio.PEAudio;
 import com.duckcraftian.upf.pe.disc.PERipper;
 import com.duckcraftian.upf.pe.disc.RoomParser;
-import com.duckcraftian.upf.pe.gfx.PECamera;
-import com.duckcraftian.upf.pe.gfx.PEModel;
-import com.duckcraftian.upf.pe.gfx.PERenderer;
-import com.duckcraftian.upf.pe.gfx.PEText;
+import com.duckcraftian.upf.pe.gfx.*;
 import com.duckcraftian.upf.pe.rooms.PSXViewport;
 import com.duckcraftian.upf.pe.rooms.Room;
 import com.duckcraftian.upf.pe.rooms.RoomLoader;
@@ -38,6 +35,7 @@ import static com.duckcraftian.upf.pe.ParasiteEve.PEAUDIO;
 import static com.duckcraftian.upf.pe.disc.SquareImageParser.convertBytesToImages;
 import static com.duckcraftian.upf.serialization.UPDHSerializer.getStreamedData;
 import static com.duckcraftian.upf.system.DataTypeHelper.s16LE;
+import static com.duckcraftian.upf.system.DataTypeHelper.u16LE;
 
 public class Game implements IDisposable {
 
@@ -108,6 +106,11 @@ public class Game implements IDisposable {
             byte[] weaponEffectCodes = getStreamedData(imageFile, "battle/weaponEffectCodes");
             byte[] actionAnimRows = getStreamedData(imageFile, "battle/actionAnimRows");
             byte[] actionOffenseScale = getStreamedData(imageFile, "battle/actionOffenseScale");
+
+            byte[] windowBounds = getStreamedData(imageFile, "ui/windowModeBounds");
+            for (int i = 0; i < 8; i++) {
+                PEHud.windowBounds[i] = u16LE(windowBounds, i * 2);
+            }
 
             PEText.metrics = fontMetrics;
             AYA_STATS.levelStats = levelStats;
@@ -253,6 +256,11 @@ public class Game implements IDisposable {
         ScriptVM.runAll();
 
         ScriptVM.updateBattle();
+        PEHud.opaque.clear();
+        PEHud.semi.clear();
+
+        if ((ScriptVM.gameStateFlags & 2) != 0 && (ScriptVM.battleEscapeFlag != 0)) PEHud.buildPlayerPanel();
+        renderer.uploadHud(Utils.intListToArray(PEHud.opaque), Utils.intListToArray(PEHud.semi));
 
         boolean changed = ScriptVM.stepBackgroundAnimations(ScriptVM.viewportIndex);
         boolean dirty = ScriptVM.takeBackgroundDirty();

@@ -1,5 +1,6 @@
 package com.duckcraftian.upf.pe;
 
+import com.duckcraftian.upf.pe.gfx.PEHud;
 import com.duckcraftian.upf.pe.script.ScriptVM;
 import com.duckcraftian.upf.ps1.PSX;
 import org.tinylog.Logger;
@@ -97,7 +98,9 @@ public class AyaStats {
         atbTicks = 0;
         peReadyFlash = 0;
         atbPerTick = (atbRechargeRate * u8(actionOffenseScale, actionId)) / 10;
+        ScriptVM.battleFrame = 0;
         ScriptVM.battleEscapeFlag = 0;
+        PEHud.resetGaugeColors();
 
         if (peAcc <= 0) peAcc = 0x10000;
         else if (peAcc >= maxAtk) {

@@ -21,6 +21,7 @@ import com.duckcraftian.upf.system.Utils;
 import org.joml.Vector2f;
 import org.joml.Vector2i;
 import org.joml.Vector3f;
+import org.tinylog.Logger;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -246,8 +247,10 @@ public class PERenderer implements IDisposable {
     }
 
     public void upload(Room room) {
-        for (PSXImage image : room.images())
+        for (PSXImage image : room.images()) {
+            Logger.debug("VRAM Upload | X: " + image.x() + ", Y: " + image.y() + ", W: " + image.width() + ", H: " + image.height() + ", Pixels length: " + image.pixels().length);
             upload(image);
+        }
 
         upload(room.tiles());
         upload(room.models(), room.viewports().get(0));

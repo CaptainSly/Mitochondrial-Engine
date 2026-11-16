@@ -283,7 +283,7 @@ public class PERipper {
         entries.put("common/sceneAssets", objects);
 
         List<PSXImage> objs = readVramUploads(ui);
-        objs.addAll(List.of(hudClut, hudImage));
+        objs.addAll(List.of(hudImage, hudClut));
         objs.addAll(readVramUploads(scene));
 
         List<PSXImage> more = readKeyedImageChain(ui, 0xABADC06CL);

@@ -1,10 +1,7 @@
 package com.duckcraftian.upf.pe.script;
 
 import com.duckcraftian.upf.pe.disc.RoomParser;
-import com.duckcraftian.upf.pe.gfx.PEAnimation;
-import com.duckcraftian.upf.pe.gfx.PECamera;
-import com.duckcraftian.upf.pe.gfx.PEModel;
-import com.duckcraftian.upf.pe.gfx.PEText;
+import com.duckcraftian.upf.pe.gfx.*;
 import com.duckcraftian.upf.pe.rooms.Collision;
 import com.duckcraftian.upf.ps1.PSX;
 import com.duckcraftian.upf.ps1.PSXMath;
@@ -67,6 +64,8 @@ public class ScriptVM {
 
     public static int messageBank;
     public static int menuChoice = -1;
+
+    public static int battleFrame = 0;
 
     public static boolean cameraFrozen = false;
     public static boolean fadeAutoIn = true;
@@ -702,9 +701,7 @@ public class ScriptVM {
                 player.fields[5] = AYA_STATS.curHp;
                 player.fields[7] = 4;
 
-                PEAnimation anim4 = player.actions.get(4);
-
-                Logger.debug("Action Keys=" + player.actions.keySet().toString());
+                Logger.debug("Action Keys=" + player.actions.keySet());
                 Logger.debug("ActionMode=" + player.actionMode);
 
                 StringBuilder sb = new StringBuilder("Player Fields: { ");
@@ -712,6 +709,8 @@ public class ScriptVM {
                     sb.append("Field[" + i + "]=" + player.fields[i] + (i == 9 ? " }" : ", "));
 
                 Logger.debug("BattleModeState=" + battleModeState + ", GameStateFlags=" + gameStateFlags + " " + sb.toString());
+
+                PEHud.setWindowMode(get(0) & 0xFF);
 
                 battleStartPhase = 2;
                 node.active = 1;
@@ -721,12 +720,16 @@ public class ScriptVM {
                 battleStartPhase = 0;
                 return true;
             }
+
         };
 
         handlers[SetCombatantOrActorField] = _ -> {
             ScriptVM target = getActor(get(0), get(1));
             if (target != null)
                 target.writeCombatField(get(2) & 0xFF, get(3));
+
+            if (get(2) == 6)
+                Logger.debug("get(2) = 6: " + get(3));
 
             return true;
         };
@@ -882,16 +885,6 @@ public class ScriptVM {
             return true;
         };
 
-        handlers[JumpIfZero] = _ -> {
-            int a = get(0);
-            int target = get(1);
-
-            if (a == 0)
-                node.cursor = streamStart + target * 2;
-
-            return true;
-        };
-
         handlers[ClearBit] = _ -> {
             int current = get(0);
             int bit = get(1);
@@ -936,20 +929,6 @@ public class ScriptVM {
 
         handlers[ClearGameStateFlags] = _ -> {
             gameStateFlags &= ~get(0);
-            return true;
-        };
-
-        handlers[SetField] = _ -> {
-            int id = get(0) & 0xFF;
-            int value = get(1);
-
-            fields[id] = value;
-            return true;
-        };
-
-        handlers[GetField] = _ -> {
-            int id = get(0) & 0xFF;
-            set(1, fields[id]);
             return true;
         };
 
@@ -1517,6 +1496,7 @@ public class ScriptVM {
             int old = menuUnlockMask;
             menuUnlockMask = get(0) & 0x1FF;
             if (menuUnlockMask == 0) menuUnlockMask = 0x1FF;
+            Logger.debug("Unlock | peAcc: " + AYA_STATS.peAcc + ", maxAtk: " + AYA_STATS.maxAtk + ", peTicks: " + AYA_STATS.peTicks + ", atbTicks: " + AYA_STATS.atbTicks + ", debugTick: " + debugTick);
             Logger.debug("Menu Unlock Mask | Old: " + old + ", New: " + menuUnlockMask);
             return true;
         };
@@ -1682,30 +1662,6 @@ public class ScriptVM {
             };
 
             set(1, result);
-            return true;
-        };
-
-
-        handlers[FindByTypeId] = _ -> {
-            int wantType = get(0);
-            int wantSub = get(1);
-            int id = get(2) & 0xFF;
-
-            ScriptVM found = null;
-            for (ScriptVM actor : actors)
-                if (wantType == 0) {
-                    if (actor.type == 0) {
-                        found = actor;
-                        break;
-                    }
-                } else if (actor.type == wantType && actor.sub == wantSub && (actor.entityFlags & 0x10) == 0) {
-                    found = actor;
-                    break;
-                }
-
-            if (found != null)
-                set(3, found.fields[id]);
-
             return true;
         };
 
@@ -2329,6 +2285,8 @@ public class ScriptVM {
                     readySeeded = true;
                 }
 
+                if ((AYA_STATS.stateFlags & 0x2000) == 0 && enemyCount != 0) PEHud.setATBFlash(debugTick & 3);
+
                 if ((AYA_STATS.stateFlags & 0x2000) == 0 && enemyCount != 0 && (padTrigger & 0x200) != 0) {
                     beginTurn();
                     battleModeState = 1;
@@ -2346,6 +2304,9 @@ public class ScriptVM {
             for (ScriptVM actor : getActors())
                 if (actor != getPlayer() && actor.hasCombatant && (actor.coreFlags & 0x6000) == 0x2000)
                     stepEnemyMovement(actor);
+
+            PEHud.updateGaugeColors();
+            battleFrame += 1;
         }
 
         if (battleModeState != 6) return;
@@ -2696,6 +2657,7 @@ public class ScriptVM {
     private static void finishTurn() {
         Logger.error("Battle Dispatch Entity Effect not ported yet");
         AYA_STATS.atbGauge = 0;
+        PEHud.resetGaugeColors();
         actionCommitted = true;
         readySeeded = false;
         Logger.debug("Battle | Turn Slot: " + turnSlot + ", Actions Left: " + actionsLeft + ", QueueCount: " + queueCount);
