@@ -45,6 +45,8 @@ public class PERenderer implements IDisposable {
     private PSXTriangleBatch triangleBatch;
     private PSXTriangleBatch shadowBatch;
     private PSXTriangleBatch textBatch;
+    private PSXTriangleBatch hudBatch;
+    private PSXTriangleBatch hudSemiBatch;
 
     private Framebuffer psxBuffer;
     private FramebufferQuad screen;
@@ -84,6 +86,8 @@ public class PERenderer implements IDisposable {
         semiBatch = new PSXTriangleBatch(8);
         shadowBatch = new PSXTriangleBatch(8);
         textBatch = new PSXTriangleBatch(7);
+        hudBatch = new PSXTriangleBatch(8);
+        hudSemiBatch = new PSXTriangleBatch(8);
         psxBuffer = new Framebuffer(320, 224, GL_NEAREST, GL_NEAREST, GL_RGBA8, true);
         screen = new FramebufferQuad(psxBuffer);
     }
@@ -146,6 +150,26 @@ public class PERenderer implements IDisposable {
                 glDisable(GL_BLEND);
 
                 tileTexture.unbind();
+            }
+            polygonShader.end();
+
+            polygonShader.begin();
+            {
+                polygonShader.set("vram", 0);
+                polygonShader.set("scroll", new Vector2i(0, 0));
+                glActiveTexture(GL_TEXTURE0);
+                tileTexture.bind();
+                polygonShader.set("opacity", 1.0f);
+                hudBatch.draw();
+                polygonShader.set("opacity", 0.5f);
+                glEnable(GL_BLEND);
+                glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+                glDepthMask(false);
+                hudSemiBatch.draw();
+                glDepthMask(true);
+                glDisable(GL_BLEND);
+                tileTexture.unbind();
+
             }
             polygonShader.end();
 
@@ -214,6 +238,11 @@ public class PERenderer implements IDisposable {
 
     public void uploadText(int[] verts) {
         textBatch.upload(verts);
+    }
+
+    public void uploadHud(int[] opaque, int[] semi) {
+        hudBatch.upload(opaque);
+        hudSemiBatch.upload(semi);
     }
 
     public void upload(Room room) {
@@ -385,6 +414,8 @@ public class PERenderer implements IDisposable {
 
         tileTexture.onDispose();
 
+        hudBatch.onDispose();
+        hudSemiBatch.onDispose();
         triangleBatch.onDispose();
         semiBatch.onDispose();
         shadowBatch.onDispose();

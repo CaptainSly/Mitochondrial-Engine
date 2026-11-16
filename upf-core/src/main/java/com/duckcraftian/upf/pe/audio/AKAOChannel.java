@@ -28,6 +28,7 @@ public class AKAOChannel {
     int sustainModeOverride;
     int drumTable;
     int drumVolume;
+    int legato;
     int tag;
     int handle;
     int streamVolume;
@@ -49,6 +50,8 @@ public class AKAOChannel {
     boolean vlfoOn;
     boolean lfoOn;
     boolean reverb;
+    boolean sustain;
+    boolean keyOffPending;
     boolean drumMode;
     boolean rangePending;
     boolean ended;
@@ -71,6 +74,9 @@ public class AKAOChannel {
         reverb = false;
         fm = false;
         pairSecond = false;
+
+        sustain = false;
+        keyOffPending = false;
 
         lfoSlideSteps = 0;
         lfoSlideDelta = 0;

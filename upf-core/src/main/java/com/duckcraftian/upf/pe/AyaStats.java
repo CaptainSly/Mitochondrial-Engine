@@ -9,12 +9,16 @@ import static com.duckcraftian.upf.system.DataTypeHelper.*;
 public class AyaStats {
 
     public static int maxHp, curHp, offense, defense, maxAtk;
-    public static int atbRate, atbStep, atbAcc, atbGauge, atbTicks;
+    public static int peRate, peStep, peAcc, peReadyFlash, peTicks;
+    public static int atbGauge, atbTicks, atbRechargeRate, atbPerTick;
+
+    public static int stateFlags, level;
+
     public static int actionPowerBonus, actionRange, actionId, actionAttackWord, actionTurnWord;
     public static int hitTrigger;
 
     public static int[] animMode = new int[4];
-    public static byte[] levelStats, dataPack, weaponEffectCodes, actionAnimRows;
+    public static byte[] levelStats, dataPack, weaponEffectCodes, actionAnimRows, actionOffenseScale;
 
     public static final int ITEM_TABLE_OFFSET = 0x35E0;
     public static final int ITEM_RECORD_SIZE = 0x20;
@@ -23,7 +27,6 @@ public class AyaStats {
     public static final int STARTING_WEAPON_ID = 0x44;
 
     public static void recalc() {
-        int level = 0;
         int row = level * 24;
         maxHp = u16LE(levelStats, row + 0);
 
@@ -32,9 +35,10 @@ public class AyaStats {
 
         offense = u16LE(levelStats, row + 2);
         defense = u16LE(levelStats, row + 4);
+        atbRechargeRate = u8(levelStats, row + 6);
         maxAtk = (int) u32LE(levelStats, row + 8);
-        atbRate = (int) u32LE(levelStats, row + 12);
-        atbStep = (int) u32LE(levelStats, row + 16);
+        peRate = (int) u32LE(levelStats, row + 12);
+        peStep = (int) u32LE(levelStats, row + 16);
     }
 
     public static void buildWeaponAction() {
@@ -88,38 +92,56 @@ public class AyaStats {
     public static void battleStartReset() {
         PSX.srand(ScriptVM.debugTick);
         buildWeaponAction();
+        peTicks = 0;
+        atbGauge = 0;
         atbTicks = 0;
+        peReadyFlash = 0;
+        atbPerTick = (atbRechargeRate * u8(actionOffenseScale, actionId)) / 10;
+        ScriptVM.battleEscapeFlag = 0;
 
-        if (atbAcc <= 0) atbAcc = 0x10000;
-        else if (atbAcc >= maxAtk) {
-            atbAcc = maxAtk;
-            atbGauge = 0xF0;
+        if (peAcc <= 0) peAcc = 0x10000;
+        else if (peAcc >= maxAtk) {
+            peAcc = maxAtk;
+            peReadyFlash = 0xF0;
         }
 
-        Logger.debug("Aya Stats | HP: " + curHp + "/" + maxHp + ", Offense: " + offense + ", Defense: " + defense + ", Max Attack: " + maxAtk + ", ATB Rate: " + atbRate + ", ATB Step: " + atbStep + ", ATB ACC: " + atbAcc + ", ATB Gauge: " + atbGauge);
+        Logger.debug("Aya Stats | HP: " + curHp + "/" + maxHp + ", Offense: " + offense + ", Defense: " + defense + ", Max Attack: " + maxAtk + ", ATB Rate: " + peRate + ", ATB Step: " + peStep + ", ATB ACC: " + peAcc + ", ATB Gauge: " + peReadyFlash);
         Logger.debug("Action Stats | Power Bonus: " + actionPowerBonus + ", Range: " + actionRange + ", Id: " + actionId + ", Attack Word: " + actionAttackWord + ", Turn Word: " + actionTurnWord);
     }
 
     public static void tickATB() {
         if ((ScriptVM.gameStateFlags & 0x100) == 0) {
-            if (atbAcc < maxAtk) {
-                atbRate -= 3;
-                if (atbRate <= 0) atbRate = 1;
-                atbStep = atbStep - maxAtk / (atbRate * 100);
-                if (atbStep < 0x1999) atbStep = 0x1999;
-                atbAcc += atbStep;
-                atbTicks += 1;
+            atbGauge += atbPerTick;
+            int group = stateFlags & 0xC0;
+            if (group == 0x40 || group == 0x80) atbGauge -= (atbPerTick * 2) / 5;
+            else if ((stateFlags & 0x100) != 0) atbGauge += (atbPerTick & 0xFFFF) >> 1;
 
-                if (atbAcc >= maxAtk) {
-                    atbGauge = 0xF0;
-                    Logger.debug("ATB Ticks: " + atbTicks + ", ATB Rate: " + atbRate + ", ATB Step: " + atbStep + ", ATB ACC: " + atbAcc);
+            atbGauge &= 0xFFFF;
+            atbTicks += 1;
+        }
+    }
+
+    public static void tickPE() {
+        if ((ScriptVM.gameStateFlags & 0x100) == 0) {
+            if (peAcc < maxAtk && (stateFlags & 0x2600) == 0) {
+                peRate -= 3;
+                if (peRate <= 0) peRate = 1;
+                peStep = peStep - maxAtk / (peRate * 100);
+                if (peStep < 0x1999) peStep = 0x1999;
+                peAcc += peStep;
+                peTicks += 1;
+
+                if (peAcc >= maxAtk) {
+                    peReadyFlash = 0xF0;
+                    ParasiteEve.PEAUDIO.playCommonSfx(0x455, 0, 0x80, 0x7F);
+                    Logger.debug("PE Ticks: " + peTicks + ", PE Rate: " + peRate + ", PE Step: " + peStep + ", ATB ACC: " + peAcc);
                 }
             }
 
-            if (atbGauge > 0) atbGauge -= 1;
+            if (peReadyFlash > 0) peReadyFlash -= 1;
         }
 
-        if (atbAcc < 0) atbAcc = 0;
+        if (peAcc < 0) peAcc = 0;
     }
 
 }

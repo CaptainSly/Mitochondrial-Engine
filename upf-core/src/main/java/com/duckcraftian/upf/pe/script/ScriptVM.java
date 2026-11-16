@@ -59,6 +59,7 @@ public class ScriptVM {
     public static int gameStateFlags = 0;
     public static int battleModeState = 0;
     public static int battleEscapeFlag = 0;
+    public static int menuUnlockMask = 61;
     public static int battleStartPhase = 0;
     public static boolean loadBattleTextures = false;
 
@@ -697,11 +698,8 @@ public class ScriptVM {
                 AYA_STATS.recalc();
                 AYA_STATS.battleStartReset();
 
-                if (player.fields[10] < player.fields[4])
-                    player.fields[4] = player.fields[10];
-
-                player.fields[5] = player.fields[4];
-                player.fields[6] = 0;
+                player.fields[1] = AYA_STATS.level + 1;
+                player.fields[5] = AYA_STATS.curHp;
                 player.fields[7] = 4;
 
                 PEAnimation anim4 = player.actions.get(4);
@@ -1489,8 +1487,6 @@ public class ScriptVM {
         };
 
 
-        handlers[136] = _ -> true;
-
         handlers[WaitForSequenceFrame] = _ -> {
             if (movieElapsed == get(0)) return true;
             if (movieElapsed > 0) {
@@ -1517,13 +1513,18 @@ public class ScriptVM {
             return true;
         };
 
+        handlers[SetMenuUnlockMask] = _ -> {
+            int old = menuUnlockMask;
+            menuUnlockMask = get(0) & 0x1FF;
+            if (menuUnlockMask == 0) menuUnlockMask = 0x1FF;
+            Logger.debug("Menu Unlock Mask | Old: " + old + ", New: " + menuUnlockMask);
+            return true;
+        };
+
         handlers[PlayFMV] = _ -> {
             movieStarter.accept(get(0));
             return true;
         };
-
-
-        handlers[166] = _ -> true;
 
         handlers[SoundCommand] = _ -> {
             int sub = get(0);
@@ -2129,11 +2130,34 @@ public class ScriptVM {
 
     public int readCombatField(int id) {
         if (type == 0) {
-            if ((id >= 0 && id <= 4) || id == 6 || id == 7)
-                return fields[id];
-            else if (id >= 10 && id <= 14)
-                return fields[id];
-            return -1000;
+            switch (id) {
+                case 0, 1, 2, 7:
+                    return fields[id];
+                case 3:
+                    return AYA_STATS.peAcc;
+                case 4:
+                    return AYA_STATS.curHp;
+                case 6:
+                    return (AYA_STATS.atbGauge & 0xFFFF);
+                case 10:
+                    return AYA_STATS.maxHp;
+                case 11:
+                    return AYA_STATS.offense;
+                case 12:
+                    return AYA_STATS.defense;
+                case 13:
+                    return AYA_STATS.maxAtk;
+                case 14:
+                    return AYA_STATS.atbRechargeRate;
+                case 20:
+                    return (AYA_STATS.stateFlags >> 9) & 1;
+                case 21:
+                    return (AYA_STATS.stateFlags >> 6) & 3;
+                case 22:
+                    return (AYA_STATS.stateFlags >> 29) & 1;
+                default:
+                    return -1000;
+            }
         }
 
         switch (id) {
@@ -2161,6 +2185,20 @@ public class ScriptVM {
         if (type == 0) {
             if (id == 255)
                 roomFloorY = value;
+            else if (id == 3)
+                AYA_STATS.peAcc = value;
+            else if (id == 4)
+                AYA_STATS.curHp = value;
+            else if (id == 6)
+                AYA_STATS.atbGauge = (value & 0xFFFF);
+            else if (id == 10)
+                AYA_STATS.maxHp = value;
+            else if (id == 11)
+                AYA_STATS.offense = (value & 0xFFFF);
+            else if (id == 12)
+                AYA_STATS.defense = (value & 0xFFFF);
+            else if (id == 14)
+                AYA_STATS.atbRechargeRate = (value & 0xFFFF);
             else
                 fields[id] = value;
 
@@ -2281,16 +2319,20 @@ public class ScriptVM {
     public static void updateBattle() {
         if ((gameStateFlags & 2) == 0) return;
         if (battleModeState == 0) {
-            AYA_STATS.tickATB();
+            if (battleEscapeFlag != 0 && AYA_STATS.atbGauge >= 9000) {
+                AYA_STATS.atbGauge = 9000;
+                if (!readySeeded) {
+                    PSX.srand(debugTick);
+                    int handle = PEAUDIO.playCommonSfx(0x454, 0, 0x80, 0x7F);
+                    Logger.debug("ATB Ready Sound Handle: " + handle);
+                    Logger.debug("ATB Ready | Ticks: " + AYA_STATS.atbTicks + ", Recharge Rate: " + AYA_STATS.atbRechargeRate);
+                    readySeeded = true;
+                }
 
-            if (AYA_STATS.atbAcc >= AYA_STATS.maxAtk && !readySeeded) {
-                PSX.srand(debugTick);
-                readySeeded = true;
-            }
-
-            if (AYA_STATS.atbAcc >= AYA_STATS.maxAtk && (padTrigger & 0x200) != 0 && enemyCount != 0) {
-                beginTurn();
-                battleModeState = 1;
+                if ((AYA_STATS.stateFlags & 0x2000) == 0 && enemyCount != 0 && (padTrigger & 0x200) != 0) {
+                    beginTurn();
+                    battleModeState = 1;
+                }
             }
         } else if (battleModeState == 1) battleModeState = stepTurn();
 
@@ -2298,6 +2340,9 @@ public class ScriptVM {
         if (battleModeState == 0) {
             stepQueue();
             if (shotFired) resolveHitOnTimer();
+            AYA_STATS.tickATB();
+            AYA_STATS.tickPE();
+
             for (ScriptVM actor : getActors())
                 if (actor != getPlayer() && actor.hasCombatant && (actor.coreFlags & 0x6000) == 0x2000)
                     stepEnemyMovement(actor);
@@ -2650,7 +2695,7 @@ public class ScriptVM {
 
     private static void finishTurn() {
         Logger.error("Battle Dispatch Entity Effect not ported yet");
-        AYA_STATS.atbAcc = 0;
+        AYA_STATS.atbGauge = 0;
         actionCommitted = true;
         readySeeded = false;
         Logger.debug("Battle | Turn Slot: " + turnSlot + ", Actions Left: " + actionsLeft + ", QueueCount: " + queueCount);

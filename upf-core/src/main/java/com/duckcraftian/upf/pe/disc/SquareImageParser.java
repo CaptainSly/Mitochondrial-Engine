@@ -1,6 +1,7 @@
 package com.duckcraftian.upf.pe.disc;
 
 import com.duckcraftian.upf.ps1.data_types.PSXImage;
+import org.tinylog.Logger;
 
 import java.io.*;
 import java.util.ArrayList;
@@ -69,6 +70,39 @@ public class SquareImageParser {
 
         byte[] pixels = Arrays.copyOfRange(blob, (block + 12), block + 12 + w * 2 * h);
         return new PSXImage(x, y, w, h, pixels);
+    }
+
+    public static List<PSXImage> readKeyedImageChain(byte[] container, long key) {
+        long dirOffset = u32LE(container, 4);
+        long keysWord = u32LE(container, (int) (dirOffset + 0x08));
+        long count = keysWord >> 22;
+        long tableOff = keysWord & 0x3FFFFF;
+        List<PSXImage> result = new ArrayList<>();
+
+        for (int i = 0; i < count; i++) {
+            long recBase = tableOff + 12 * i;
+            long recKey = u32LE(container, (int) (recBase + 8));
+            if (recKey == key) {
+                long at = u32LE(container, (int) (recBase + 4)) & 0xFFFFFF;
+                long length = u32LE(container, (int) at);
+                while (length != 0) {
+                    int x = u16LE(container, (int) (at + 4));
+                    int y = u16LE(container, (int) (at + 6));
+                    int w = u16LE(container, (int) (at + 8));
+                    int h = u16LE(container, (int) (at + 10));
+                    byte[] pixels = Arrays.copyOfRange(container, (int) (at + 12), (int) (at + 12 + w * 2 * h));
+                    Logger.debug("Image X: " + x + ", Y: " + y + ", W: " + w + ", H: " + h);
+                    result.add(new PSXImage(x, y, w, h, pixels));
+
+                    at = at + length;
+                    length = u32LE(container, (int) at);
+                }
+
+            }
+
+        }
+
+        return result;
     }
 
     public static byte[] convertImagesToBytes(List<PSXImage> images) throws IOException {

@@ -263,12 +263,16 @@ public class PERipper {
         entries.put("common/dataPack", pack);
         Logger.debug("PACK SIZE: " + entries.get("common/dataPack").length);
 
-        byte[] ui = fs1.readSectors(pe, boundaries[9], boundaries[10] - boundaries[9]);
-        byte[] scene = fs1.readSectors(pe, boundaries[39], boundaries[40] - boundaries[39]);
-        byte[] objects = fs1.readSectors(pe, boundaries[12], boundaries[13] - boundaries[12]);
-        byte[] battleHud = fs1.readSectors(pe, boundaries[11], boundaries[12] - boundaries[11]); //r11
         byte[] effectSprites = fs1.readSectors(pe, boundaries[5], boundaries[6] - boundaries[5]); //r05
+        byte[] commonSounds = fs1.readSectors(pe, boundaries[7], boundaries[8] - boundaries[7]);
+        byte[] ui = fs1.readSectors(pe, boundaries[9], boundaries[10] - boundaries[9]);
+        byte[] battleHud = fs1.readSectors(pe, boundaries[11], boundaries[12] - boundaries[11]); //r11
+        byte[] objects = fs1.readSectors(pe, boundaries[12], boundaries[13] - boundaries[12]);
+        byte[] scene = fs1.readSectors(pe, boundaries[39], boundaries[40] - boundaries[39]);
         byte[] fontBlob = fs1.readSectors(pe, boundaries[72], boundaries[73] - boundaries[72]);
+
+        entries.put("sound/common", commonSounds);
+        Logger.debug("Common Sounds Size: " + commonSounds.length);
 
         byte[] levelStats = Arrays.copyOfRange(pack, 0x63C0, 0x6D08);
         entries.put("battle/levelStats", levelStats);
@@ -281,6 +285,10 @@ public class PERipper {
         List<PSXImage> objs = readVramUploads(ui);
         objs.addAll(List.of(hudClut, hudImage));
         objs.addAll(readVramUploads(scene));
+
+        List<PSXImage> more = readKeyedImageChain(ui, 0xABADC06CL);
+        Logger.debug("MORE SIZE: " + more.size());
+        objs.addAll(more);
 
         entries.put("images/common/objects", convertImagesToBytes(objs));
         entries.put("images/battle/textures", convertImagesToBytes(readVramUploads(effectSprites)));
@@ -313,7 +321,6 @@ public class PERipper {
         entries.put("render/normals", Arrays.copyOfRange(exe, at, ((int) (at + NORMAL_TABLE_BYTES))));
 
         // BITCH DON'T TELL ME WHAT TO DO!
-
         int akaoDirAt = (int) (AKAO_LENGTHS_RAM - loadAddress) + 0x800;
         entries.put("sound/akao/lengths", Arrays.copyOfRange(exe, akaoDirAt, akaoDirAt + 128));
 
@@ -327,6 +334,7 @@ public class PERipper {
         entries.put("sound/akao/lfo", Arrays.copyOfRange(exe, akaoLFOAt, (int) (akaoLFOAt + AKAO_LFO_BYTES)));
         Logger.debug("LFO Size: " + entries.get("sound/akao/lfo").length);
 
+
         int weaponAt = (int) ((WEAPON_EFFECT_CODES_RAM - loadAddress) + 0x800);
         entries.put("battle/weaponEffectCodes", Arrays.copyOfRange(exe, weaponAt, weaponAt + 6));
         Logger.debug("Weapon Effect Codes Size: " + entries.get("battle/weaponEffectCodes").length);
@@ -338,6 +346,10 @@ public class PERipper {
         int offenseScaleAt = (int) ((BATTLE_ACTION_OFFENSE_SCALE_RAM - loadAddress) + 0x800);
         entries.put("battle/actionOffenseScale", Arrays.copyOfRange(exe, offenseScaleAt, offenseScaleAt + 9));
         Logger.debug("Weapon Action Offense Scale Size: " + entries.get("battle/actionOffenseScale").length);
+
+        int windowsBoundsAt = (int) ((WINDOW_MODE_BOUNDS_RAM - loadAddress) + 0x800);
+        entries.put("ui/windowModeBounds", Arrays.copyOfRange(exe, windowsBoundsAt, windowsBoundsAt + 16));
+        Logger.debug("Window Mode Bounds Size: " + entries.get("ui/windowModeBounds").length);
 
         int soundDirAt = (int) (SOUND_DIR_RAM - loadAddress) + 0x800;
         long baseLBA = u32LE(exe, soundDirAt);

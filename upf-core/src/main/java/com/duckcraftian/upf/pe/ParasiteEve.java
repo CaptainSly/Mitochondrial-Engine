@@ -26,6 +26,8 @@ public class ParasiteEve {
     public static final long BATTLE_ACTION_ANIM_ROWS_RAM = 0x800106A4L;
     public static final long BATTLE_ACTION_OFFENSE_SCALE_RAM = 0x800106D4L;
 
+    public static final long WINDOW_MODE_BOUNDS_RAM = 0x80010E38L;
+
     public static final long AKAO_LENGTHS_RAM = 0x8009B85CL;
     public static final long AKAO_NOTE_LENGTHS_RAM = 0x8009B8DCL;
     public static final long AKAO_PAN_TABLE_RAM = 0x8009B8F8L;
@@ -150,6 +152,7 @@ public class ParasiteEve {
     public static final int DrawActorLit = 155;
     public static final int WaitForFade = 156;
     public static final int ScaleAnimValue = 157;
+    public static final int SetMenuUnlockMask = 166;
     public static final int SetSceneFlag2000 = 170;
     public static final int ClearSceneFlag2000 = 171;
     public static final int SetWallPolygon = 172;

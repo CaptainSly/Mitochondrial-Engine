@@ -96,17 +96,6 @@ public class Game implements IDisposable {
             throw new RuntimeException(e);
         }
 
-        int[] random = new int[5];
-
-        PSX.srand(1);
-        for (int i = 0; i < random.length; i++) random[i] = PSX.rand();
-        Arrays.stream(random).forEach(i -> Logger.debug("Golden Number: " + i));
-
-        PSX.srand(0);
-        for (int i = 0; i < random.length; i++) random[i] = PSX.rand();
-        Arrays.stream(random).forEach(i -> Logger.debug("Golden Number: " + i));
-
-
         try {
             byte[] fontImages = getStreamedData(imageFile, "text/font/images");
             for (PSXImage image : convertBytesToImages(fontImages))
@@ -118,12 +107,14 @@ public class Game implements IDisposable {
             byte[] dataPack = getStreamedData(imageFile, "common/dataPack");
             byte[] weaponEffectCodes = getStreamedData(imageFile, "battle/weaponEffectCodes");
             byte[] actionAnimRows = getStreamedData(imageFile, "battle/actionAnimRows");
+            byte[] actionOffenseScale = getStreamedData(imageFile, "battle/actionOffenseScale");
 
             PEText.metrics = fontMetrics;
             AYA_STATS.levelStats = levelStats;
             AYA_STATS.dataPack = dataPack;
             AYA_STATS.weaponEffectCodes = weaponEffectCodes;
             AYA_STATS.actionAnimRows = actionAnimRows;
+            AYA_STATS.actionOffenseScale = actionOffenseScale;
 
             PEModel.normals = new int[240 * 3];
             for (int i = 0; i < 240; i++) {

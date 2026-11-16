@@ -4,6 +4,7 @@ The Mitochondrial Engine is a Native Java PC Port of [Parasite Eve](https://en.w
 
 It's written on top of the [UPF](/upf_readme.md), or Untitled Porting Framework. The framework is in active development alongside ME. The [Parasite Eve Decomp](https://github.com/khasinski/parasite-eve-decomp) was used to create the port, by translating the C code to Java. 
 
+The code has quite a few different easter eggs thrown through out it, in the form of references to a lot of different media and stuff I enjoy. Some gets logged, some are just comments. Consider it a little treat of my devolvement into madness while writing the code
 
 # Current Status
 

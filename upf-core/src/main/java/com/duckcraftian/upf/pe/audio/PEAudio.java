@@ -8,6 +8,7 @@ import org.tinylog.Logger;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Arrays;
 
 import static com.duckcraftian.upf.system.DataTypeHelper.*;
 
@@ -22,8 +23,9 @@ public class PEAudio {
 
     public int[][] soundEvents;
     public byte[] roomContainer;
+    public byte[] common;
 
-    public int dynCount, stepSlot;
+    public int dynCount, stepSlot, commonBase;
     public PECamera camera;
 
     public AKAOAudioSource source;
@@ -37,6 +39,7 @@ public class PEAudio {
         panTable = UPDHSerializer.getStreamedData(imagesFile, "sound/akao/panTable");
         bank0 = UPDHSerializer.getStreamedData(imagesFile, "sound/bank/s000");
         lfo = UPDHSerializer.getStreamedData(imagesFile, "sound/akao/lfo");
+        common = UPDHSerializer.getStreamedData(imagesFile, "sound/common");
 
         source = new AKAOAudioSource();
         UPF.AUDIO = new AudioOutput(source);
@@ -47,7 +50,13 @@ public class PEAudio {
 
     public void loadRoomSfx(byte[] container) throws IOException {
         roomContainer = container;
+        byte[] combined = new byte[container.length + common.length];
+        System.arraycopy(container, 0, combined, 0, container.length);
+        System.arraycopy(common, 0, combined, container.length, common.length);
+        commonBase = container.length;
+
         soundEvents = new int[20][6];
+
         dynCount = 0;
 
         for (int e = 0; e < 4; e++) {
@@ -56,7 +65,7 @@ public class PEAudio {
         }
 
         AKAOSequence newSfx = new AKAOSequence(lengths, noteLengths, panTable, lfo);
-        newSfx.initNested(container);
+        newSfx.initNested(combined);
         newSfx.loadInstruments(bank0);
 
         long dirOffset = u32LE(container, 4);
@@ -150,6 +159,14 @@ public class PEAudio {
     }
 
     public int playSfx(byte[] container, int key, int tag, int pan, int volume) {
+        return playSfxFrom(container, 0, key, tag, pan, volume);
+    }
+
+    public int playCommonSfx(int key, int tag, int pan, int volume) {
+        return playSfxFrom(common, commonBase, key, tag, pan, volume);
+    }
+
+    public int playSfxFrom(byte[] container, int base, int key, int tag, int pan, int volume) {
         long dirOffset = u32LE(container, 4);
         long word = u32LE(container, (int) (dirOffset + 0x2C));
         long count = word >> 22;
@@ -168,8 +185,8 @@ public class PEAudio {
         long second = -1;
         int o0 = u16LE(container, (int) (snippet + 4));
         int o1 = u16LE(container, (int) (snippet + 6));
-        if (o0 != 0xFFFF) first = snippet + 8 + o0;
-        if (o1 != 0xFFFF) second = snippet + 8 + o1;
+        if (o0 != 0xFFFF) first = base + snippet + 8 + o0;
+        if (o1 != 0xFFFF) second = base + snippet + 8 + o1;
 
         int handle = 0x400 + sfxCounter;
         sfxCounter = (sfxCounter + 1) & 0x1FF;

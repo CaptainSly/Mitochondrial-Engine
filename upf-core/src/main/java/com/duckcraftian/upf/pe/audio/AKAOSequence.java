@@ -291,10 +291,16 @@ public class AKAOSequence {
         AKAOChannel channel = channels[idx];
         int op = u8(payload, channel.pc);
         channel.pc++;
+
         while (op >= 0xA0 && op != 0xA0) {
-            command(channel, op);
-            op = u8(payload, channel.pc);
-            channel.pc++;
+            if (op == 0xCA && channel.keyOffPending) {
+                keyOff(channel);
+                op = 0xA0;
+            } else {
+                command(channel, op);
+                op = u8(payload, channel.pc);
+                channel.pc += 1;
+            }
         }
 
         if (op == 0xA0) {
@@ -302,33 +308,53 @@ public class AKAOSequence {
             return;
         }
 
-        if (channel.noteLength == 0) channel.noteLength = noteLengths[op % 11];
-        channel.events++;
-        channel.gateLength = channel.noteLength - 2;
-        if (nextIsTie(channel)) channel.gateLength = channel.noteLength;
+        int nextOp = peekNextNote(channel);
+        boolean legatoOn = (channel.legato & 5) != 0;
+
+        if (channel.noteLength != 0) {
+            channel.gateLength = channel.noteLength;
+            if (nextOp >= 0x8F || (nextOp < 0x84 && !legatoOn)) channel.gateLength -= 2;
+        } else {
+            channel.noteLength = noteLengths[op % 11];
+            channel.gateLength = channel.noteLength;
+            if ((nextOp < 0x84 || nextOp >= 0x8F) && !legatoOn) channel.gateLength -= 2;
+        }
+
+
+        channel.events += 1;
+
+        if (op >= 0x8F) {
+            keyOff(channel);
+            channel.legato &= ~2;
+            return;
+        }
+
         if (op < 0x84) {
-            if (channel.drumMode)
-                drumHit(idx, channel.drumTable + 6 * (op / 11));
+            if (channel.drumMode) drumHit(idx, channel.drumTable + 6 * (op / 11));
             else {
                 int note = op / 11 + channel.octave * 12;
                 if (channel.rangePending) selectByRange(channel, note);
                 channel.currentNote = note;
-                noteOn(idx, note + channel.transpose);
+                if ((channel.legato & 2) != 0) legatoNote(idx, note + channel.transpose);
+                else noteOn(idx, note + channel.transpose);
             }
             startSlide(idx);
-        } else if (op < 0x8F) {
+        } else {
             startSlide(idx);
-        } else if (op >= 0x8F)
-            keyOff(channel);
+        }
+
+        channel.legato = (channel.legato & ~2) | ((channel.legato & 1) << 1);
     }
 
     public void startSlide(int idx) {
         AKAOChannel ch = channels[idx];
         if (ch.slideDelta == 0) return;
-        if (ch.voice < 0) return;
+        int delta = ch.slideDelta;
+        ch.slideDelta = 0;
 
+        if (ch.voice < 0) return;
         AKAOInstrument instrument = instruments[ch.instrument];
-        ch.noteUsed += ch.slideDelta;
+        ch.noteUsed += delta;
         int target = pitchFor(instrument.bank(), instrument.recordOffset(), ch.noteUsed, ch.detune);
         int diff = (target << 16) - ((ch.basePeriod << 16) + ch.slideAcc);
 
@@ -357,17 +383,34 @@ public class AKAOSequence {
         drumHitCount = drumHitCount + 1;
     }
 
-    private boolean nextIsTie(AKAOChannel channel) {
-        int p = channel.pc;
-        while (p < payload.length) {
-            int b = u8(payload, p);
-            if (b < 0xA0) return b >= 0x84 && b < 0x8F;
-            if (b == 0xA0) return false;
-            if (b == 0xFC) p = p + 1 + extLength(u8(payload, p + 1));
-            else p = p + opLength(b);
+    private void restartLFOs(AKAOChannel ch, int period) {
+        if (ch.lfoOn) {
+            ch.lfoDepth = lfoDepthFor(ch, period);
+            ch.lfoPos = lfoStart[ch.lfoSelector];
+            ch.lfoCounter = ch.lfoDelay;
+            ch.lfoPhase = 1;
         }
 
-        return false;
+        if (ch.vlfoOn) {
+            ch.vlfoPos = lfoStart[ch.vlfoSelector];
+            ch.vlfoCounter = ch.vlfoDelay;
+            ch.vlfoPhase = 1;
+        }
+
+        ch.lfoValue = 0;
+        ch.vlfoValue = 0;
+    }
+
+    private void legatoNote(int idx, int note) {
+        AKAOChannel ch = channels[idx];
+        AKAOInstrument instrument = instruments[ch.instrument];
+        int period = pitchFor(instrument.bank(), instrument.recordOffset(), note, ch.detune);
+        ch.basePeriod = period;
+        ch.noteUsed = note;
+        ch.slideAcc = 0;
+        restartLFOs(ch, period);
+        applyVolume(ch);
+        applyPitch(ch);
     }
 
     private void noteOn(int idx, int note) {
@@ -395,21 +438,7 @@ public class AKAOSequence {
         ch.slideAcc = 0;
         ch.slideSteps = 0;
 
-        if (ch.lfoOn) {
-            ch.lfoDepth = lfoDepthFor(ch, period);
-            ch.lfoPos = lfoStart[ch.lfoSelector];
-            ch.lfoCounter = ch.lfoDelay;
-            ch.lfoPhase = 1;
-        }
-
-        if (ch.vlfoOn) {
-            ch.vlfoPos = lfoStart[ch.vlfoSelector];
-            ch.vlfoCounter = ch.vlfoDelay;
-            ch.vlfoPhase = 1;
-        }
-
-        ch.lfoValue = 0;
-        ch.vlfoValue = 0;
+        restartLFOs(ch, period);
 
         applyVolume(ch);
         voices[v].keyOn();
@@ -667,6 +696,13 @@ public class AKAOSequence {
             ch.loopCounts[ch.loopTop] = ch.loopCounts[ch.loopTop] + 1;
             if (ch.loopCounts[ch.loopTop] != n) ch.pc = ch.loopPcs[ch.loopTop];
             else ch.loopTop = (ch.loopTop - 1) & 3;
+        } else if (opCode == 0xCA) {
+            ch.loopCounts[ch.loopTop] += 1;
+            ch.pc = ch.loopPcs[ch.loopTop];
+        } else if (opCode == 0xCC) {
+            ch.legato = 1;
+        } else if (opCode == 0xCD) {
+            Logger.info("SURPRISE MOTHERFUCKER!");
         } else if (opCode == 0xD8) {
             ch.detune = s8(payload, ch.pc);
             ch.pc = ch.pc + 1;
@@ -680,11 +716,54 @@ public class AKAOSequence {
         } else if (opCode == 0xD9) {
             ch.detune += s8(payload, ch.pc);
             ch.pc += 1;
+        } else if (opCode == 0xE0) {
+            ch.sustain = true;
         } else {
             Logger.error("Unimplemented AKAO Command: 0x" + Integer.toHexString(opCode).toUpperCase() + " - Pointer Cursor: " + ch.pc + ", Channel Index: " + getIndex(ch));
             ch.pc = ch.pc + opLength(opCode) - 1;
         }
 
+    }
+
+    public int peekNextNote(AKAOChannel ch) {
+        int p = ch.pc;
+        int top = ch.loopTop;
+        while (true) {
+            int code = u8(payload, p);
+            if (code < 0x9A) {
+                if (code >= 0x8F) ch.legato &= ~5;
+                return code;
+            }
+
+            if (code < 0xA0) return 0xA0;
+            if (code == 0xFC) {
+                int sub = u8(payload, p + 1);
+                int n = u8(lengths, 96 + sub);
+                if (n != 0) p += 1 + n;
+                else if (sub == 0x06) p = (p + 4) + s16LE(payload, p + 2);
+                else p += 1 + extLength(sub);
+            } else if (code == 0xC9) {
+                int n = u8(payload, p + 1);
+                if (n == 0) n = 256;
+                if (ch.loopCounts[top] + 1 == n) {
+                    p += 2;
+                    top = (top - 1) & 3;
+                } else p = ch.loopPcs[top];
+            } else if (code == 0xCB || code == 0xCD || code == 0xD1 || code == 0xDB) {
+                ch.legato = ch.legato & ~5;
+                p += 1;
+            } else if (code == 0xCA) {
+                if (ch.keyOffPending) {
+                    ch.legato &= ~5;
+                    return 0xA0;
+                }
+                p = ch.loopPcs[top];
+            } else if (u8(lengths, code - 0xA0) != 0) p += u8(lengths, code - 0xA0);
+            else {
+                ch.legato &= ~5;
+                return 0xA0;
+            }
+        }
     }
 
     public int channelVolume(AKAOChannel ch) {
@@ -880,15 +959,18 @@ public class AKAOSequence {
                 boolean hit;
                 if ((mask & 0x0FFFFFFF) != 0)
                     hit = (ch.tag & mask) != 0;
-                else if (mask == 0) hit = ( ch.handle == (id & 0xFFFF));
+                else if (mask == 0) hit = (ch.handle == (id & 0xFFFF));
                 else {
                     Logger.error("stopStreams: voice index/longest-running mode not ported");
                     return;
                 }
 
                 if (hit) {
-                    keyOff(ch);
-                    ch.ended = true;
+                    if (ch.sustain) ch.keyOffPending = true;
+                    else {
+                        keyOff(ch);
+                        ch.ended = true;
+                    }
                     stopped = stopped + 1;
                 }
             }
