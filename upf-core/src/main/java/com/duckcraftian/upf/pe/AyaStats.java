@@ -108,7 +108,7 @@ public class AyaStats {
             peReadyFlash = 0xF0;
         }
 
-        Logger.debug("Aya Stats | HP: " + curHp + "/" + maxHp + ", Offense: " + offense + ", Defense: " + defense + ", Max Attack: " + maxAtk + ", ATB Rate: " + peRate + ", ATB Step: " + peStep + ", ATB ACC: " + peAcc + ", ATB Gauge: " + peReadyFlash);
+        Logger.debug("Aya Stats | HP: " + curHp + "/" + maxHp + ", Offense: " + offense + ", Defense: " + defense + ", Max Attack: " + maxAtk + ", ATB Rate: " + atbRechargeRate + ", ATB Per Tick: " + atbPerTick + ", ATB Gauge: " + atbGauge);
         Logger.debug("Action Stats | Power Bonus: " + actionPowerBonus + ", Range: " + actionRange + ", Id: " + actionId + ", Attack Word: " + actionAttackWord + ", Turn Word: " + actionTurnWord);
     }
 

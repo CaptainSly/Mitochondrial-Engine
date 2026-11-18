@@ -247,10 +247,8 @@ public class PERenderer implements IDisposable {
     }
 
     public void upload(Room room) {
-        for (PSXImage image : room.images()) {
-            Logger.debug("VRAM Upload | X: " + image.x() + ", Y: " + image.y() + ", W: " + image.width() + ", H: " + image.height() + ", Pixels length: " + image.pixels().length);
+        for (PSXImage image : room.images())
             upload(image);
-        }
 
         upload(room.tiles());
         upload(room.models(), room.viewports().get(0));

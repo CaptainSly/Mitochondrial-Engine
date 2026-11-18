@@ -3,16 +3,18 @@ package com.duckcraftian.upf.engine;
 import com.duckcraftian.upf.UPF;
 import com.duckcraftian.upf.impl.IDisposable;
 import com.duckcraftian.upf.pe.AyaStats;
+import com.duckcraftian.upf.pe.effects.EffectAssets;
+import com.duckcraftian.upf.pe.effects.EffectProgram;
 import com.duckcraftian.upf.pe.ParasiteEve;
 import com.duckcraftian.upf.pe.audio.PEAudio;
 import com.duckcraftian.upf.pe.disc.PERipper;
 import com.duckcraftian.upf.pe.disc.RoomParser;
+import com.duckcraftian.upf.pe.effects.ProcessManager;
 import com.duckcraftian.upf.pe.gfx.*;
 import com.duckcraftian.upf.pe.rooms.PSXViewport;
 import com.duckcraftian.upf.pe.rooms.Room;
 import com.duckcraftian.upf.pe.rooms.RoomLoader;
 import com.duckcraftian.upf.pe.script.ScriptVM;
-import com.duckcraftian.upf.ps1.PSX;
 import com.duckcraftian.upf.ps1.data_types.PSXImage;
 import com.duckcraftian.upf.ps1.disc.DiscFileSystem;
 import com.duckcraftian.upf.ps1.video.MoviePlayer;
@@ -27,12 +29,12 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 import static com.duckcraftian.upf.pe.ParasiteEve.AYA_STATS;
 import static com.duckcraftian.upf.pe.ParasiteEve.PEAUDIO;
 import static com.duckcraftian.upf.pe.disc.SquareImageParser.convertBytesToImages;
+import static com.duckcraftian.upf.pe.disc.SquareImageParser.findKeyedAssetTable;
 import static com.duckcraftian.upf.serialization.UPDHSerializer.getStreamedData;
 import static com.duckcraftian.upf.system.DataTypeHelper.s16LE;
 import static com.duckcraftian.upf.system.DataTypeHelper.u16LE;
@@ -106,6 +108,20 @@ public class Game implements IDisposable {
             byte[] weaponEffectCodes = getStreamedData(imageFile, "battle/weaponEffectCodes");
             byte[] actionAnimRows = getStreamedData(imageFile, "battle/actionAnimRows");
             byte[] actionOffenseScale = getStreamedData(imageFile, "battle/actionOffenseScale");
+            byte[] fxTaskProgramsExe = getStreamedData(imageFile, "common/fxTaskProgramsExe");
+            byte[] fxTaskProgramsPe = getStreamedData(imageFile, "common/fxTaskProgramsPe");
+            byte[] startupResources = getStreamedData(imageFile, "common/startupResources");
+
+            EffectProgram.loadAll(fxTaskProgramsExe, fxTaskProgramsPe);
+            ProcessManager.loadExePrograms();
+            EffectAssets.load(startupResources);
+
+            Logger.debug("startupResourceTables[0]=" + EffectAssets.startupResourceTables[0]);
+            Logger.debug("startupResourceTables[1]=" + EffectAssets.startupResourceTables[1]);
+            Logger.debug("findKeyedAssetTable(blob, 0x6DEAE684L): " + findKeyedAssetTable(startupResources, 0x6DEAE684L));
+            Logger.debug("findKeyedAssetTable(blob, 0x5AB32104L): " + findKeyedAssetTable(startupResources, 0x5AB32104L));
+            Logger.debug("findKeyedAssetTable(blob, 0x57E8EB04L): " + findKeyedAssetTable(startupResources, 0x57E8EB04L));
+            Logger.debug("findKeyedAssetTable(blob, 0x12345678L): " + findKeyedAssetTable(startupResources, 0x12345678L));
 
             byte[] windowBounds = getStreamedData(imageFile, "ui/windowModeBounds");
             for (int i = 0; i < 8; i++) {
@@ -136,7 +152,9 @@ public class Game implements IDisposable {
 
     public void loadMap(String mapName) {
         try {
+            ProcessManager.roomTeardown();
             room = RoomLoader.loadRoom(imageFile, mapName);
+            ProcessManager.roomSetup();
             viewports = room.viewports();
             camera = new PECamera(viewports.get(0));
             PEAUDIO.camera = camera;
@@ -256,6 +274,9 @@ public class Game implements IDisposable {
         ScriptVM.runAll();
 
         ScriptVM.updateBattle();
+        ProcessManager.runBatch();
+        ProcessManager.runPrimary();
+
         PEHud.opaque.clear();
         PEHud.semi.clear();
 

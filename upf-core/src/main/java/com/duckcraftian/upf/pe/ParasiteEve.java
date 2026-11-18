@@ -26,6 +26,11 @@ public class ParasiteEve {
     public static final long BATTLE_ACTION_ANIM_ROWS_RAM = 0x800106A4L;
     public static final long BATTLE_ACTION_OFFENSE_SCALE_RAM = 0x800106D4L;
 
+    public static final long FX_PROGRAMS_RAM = 0x800E1044L;
+    public static final long FX_PROGRAMS_BYTES = 0x1160L;
+    public static final long FX_DISC_BASE = 0x801ED7F8L;
+    public static final long[] FX_DISC_PROGRAM_RAM = {0x801F1BD8L, 0x801F1C58L, 0x801F1D00L, 0x801F1D8CL, 0x801F1E18L, 0x801F1EA4L, 0x801F1EF0L};
+
     public static final long WINDOW_MODE_BOUNDS_RAM = 0x80010E38L;
 
     public static final long AKAO_LENGTHS_RAM = 0x8009B85CL;
@@ -119,6 +124,9 @@ public class ParasiteEve {
     public static final int ClearMotionVectors = 101;
     public static final int StartEffectProcess = 106;
     public static final int SendEffectProcessCommand = 107;
+    public static final int QueryEffectProcess = 108;
+    public static final int SetEffectProcessState = 109;
+    public static final int GetEffectProcessState = 110;
     public static final int MakeCombatant = 111;
     public static final int SetAttackEffectFull = 112;
     public static final int SetBackgroundLayerPosition = 113;
@@ -147,7 +155,9 @@ public class ParasiteEve {
     public static final int Noop145 = 145;
     public static final int GetBattleModeState = 148;
     public static final int ClearBattleModeState = 149;
+    public static final int StopEffectProcess = 151;
     public static final int StopActorEffects = 152;
+    public static final int StopAllEffectProcesses = 153;
     public static final int PlayBackgroundAnimFromTo = 154;
     public static final int DrawActorLit = 155;
     public static final int WaitForFade = 156;
@@ -178,6 +188,8 @@ public class ParasiteEve {
     public static final int SetFloorPolygon = 227;
     public static final int DispatchScriptCmd = 237;
     public static final int OpenNameEntryMenu = 239;
+
+    // Process Manager OpCodes
 
     public static int mapFromToken(int t) {
         return ((t >> 17) & 31) * 100 + ((t >> 12) & 31) * 10 + ((t >> 7) & 31);

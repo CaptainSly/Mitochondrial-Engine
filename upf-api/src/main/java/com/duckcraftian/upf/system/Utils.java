@@ -19,6 +19,10 @@ public class Utils {
         return HexFormat.of().formatHex(bytes);
     }
 
+    public static String toHex(String string) {
+        return toHex(string.getBytes());
+    }
+
     public static String stringMultiplier(String str, int multiplier) {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < multiplier; i++) {

@@ -13,6 +13,20 @@ import static com.duckcraftian.upf.system.DataTypeHelper.u32LE;
 
 public class SquareImageParser {
 
+    public static int findKeyedAssetTable(byte[] blob, long key) {
+        long dirOffset = u32LE(blob, 4);
+        long keysWord = u32LE(blob, (int) (dirOffset + 8));
+        long count = keysWord >> 22;
+        long tableOff = keysWord & 0x3FFFFF;
+        for (int i = 0; i < count; i++) {
+            long recordBase = tableOff + 12 * i;
+            if (u32LE(blob, (int) (recordBase + 8)) == key)
+                return (int) (u32LE(blob, (int) (recordBase + 4)) & 0xFFFFFF);
+        }
+
+        return -1;
+    }
+
     public static List<PSXImage> readVramUploads(byte[] container) {
         long dirOffset = u32LE(container, 4);
         long timsWord = u32LE(container, (int) (dirOffset + 0x28));

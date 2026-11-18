@@ -1,6 +1,7 @@
 package com.duckcraftian.upf.pe.script;
 
 import com.duckcraftian.upf.pe.disc.RoomParser;
+import com.duckcraftian.upf.pe.effects.ProcessManager;
 import com.duckcraftian.upf.pe.gfx.*;
 import com.duckcraftian.upf.pe.rooms.Collision;
 import com.duckcraftian.upf.ps1.PSX;
@@ -172,7 +173,6 @@ public class ScriptVM {
     private static int sceneFlags;
     private static int current;
     private static int pendingRoom = 0;
-    private static int processSlotCounter = 0;
 
     private static final int BATTLE_RUN_MODE = 5;
 
@@ -351,6 +351,7 @@ public class ScriptVM {
             ScriptVM vm = actors.get(i);
             if ((vm.entityFlags & 0x10) == 0) continue;
             if (vm.type == 0) moveLock &= ~0xD;
+            ProcessManager.freeOwner(vm);
             actors.remove(i);
         }
 
@@ -667,21 +668,31 @@ public class ScriptVM {
         };
 
         handlers[StartEffectProcess] = _ -> {
-            int command = get(0);
-            if (command >= 192) {
-                set(1, -7);
-                return true;
-            }
-
-            set(1, processSlotCounter);
-            processSlotCounter = (processSlotCounter + 1) % 22;
+            set(1, ProcessManager.startProcess(get(0), this));
             return true;
         };
 
         handlers[SendEffectProcessCommand] = _ -> {
             // PUSSY PUSSY PUSSY MARIJUANA!
+            ProcessManager.sendCmd(get(0), 0, get(1), get(2), get(3), get(4), this);
             return true;
         };
+
+        handlers[QueryEffectProcess] = _ -> {
+            ProcessManager.sendCmd(get(0), 1, get(1), 2, 3, 4, this);
+            return true;
+        };
+
+        handlers[SetEffectProcessState] = _ -> {
+            ProcessManager.setGetState(get(0), 0, get(1), this);
+            return true;
+        };
+
+        handlers[GetEffectProcessState] = _ -> {
+            ProcessManager.setGetState(get(0), 1, 1, this);
+            return true;
+        };
+
 
         handlers[InitiateBattle] = _ -> {
             if (battleStartPhase == 0) {
@@ -1128,6 +1139,11 @@ public class ScriptVM {
         };
         handlers[ClearBattleModeState] = _ -> {
             battleModeState = 0;
+            return true;
+        };
+
+        handlers[StopEffectProcess] = _ -> {
+            ProcessManager.stop(get(0), this, 0);
             return true;
         };
 
@@ -1961,8 +1977,13 @@ public class ScriptVM {
             ScriptVM target;
             if (get(0) == 0) target = getPlayer();
             else target = getActor(get(0), get(1));
-            Logger.error("StopActorEffects process manager not implemented. Nothing to stop");
+            ProcessManager.freeOwner(target);
 
+            return true;
+        };
+
+        handlers[StopAllEffectProcesses] = _ -> {
+            ProcessManager.stopAllBoth();
             return true;
         };
 

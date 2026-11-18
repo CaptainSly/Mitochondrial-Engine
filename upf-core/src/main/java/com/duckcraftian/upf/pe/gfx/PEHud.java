@@ -128,7 +128,6 @@ public class PEHud {
     public static void setATBFlash(int phase) {
         atbLeft = leftOf(phase, ATB_LEFT_N, ATB_RIGHT_N, ATB_MID);
         atbRight = rightOf(phase, ATB_LEFT_N, ATB_RIGHT_N, ATB_MID);
-        Logger.debug("ATB Flash | phase : " + phase + ", ATB LEFT: " + Integer.toHexString(atbLeft) + ", ATB RIGHT: " + Integer.toHexString(atbRight));
     }
 
 

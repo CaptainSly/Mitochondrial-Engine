@@ -263,13 +263,21 @@ public class PERipper {
         entries.put("common/dataPack", pack);
         Logger.debug("PACK SIZE: " + entries.get("common/dataPack").length);
 
+        byte[] startupResources = fs1.readSectors(pe, boundaries[3], boundaries[4] - boundaries[3]);
         byte[] effectSprites = fs1.readSectors(pe, boundaries[5], boundaries[6] - boundaries[5]); //r05
         byte[] commonSounds = fs1.readSectors(pe, boundaries[7], boundaries[8] - boundaries[7]);
         byte[] ui = fs1.readSectors(pe, boundaries[9], boundaries[10] - boundaries[9]);
         byte[] battleHud = fs1.readSectors(pe, boundaries[11], boundaries[12] - boundaries[11]); //r11
         byte[] objects = fs1.readSectors(pe, boundaries[12], boundaries[13] - boundaries[12]);
         byte[] scene = fs1.readSectors(pe, boundaries[39], boundaries[40] - boundaries[39]);
+        byte[] fxTaskPrograms = fs1.readSectors(pe, boundaries[69], boundaries[70] - boundaries[69]);
         byte[] fontBlob = fs1.readSectors(pe, boundaries[72], boundaries[73] - boundaries[72]);
+
+        entries.put("common/startupResources", startupResources);
+        Logger.debug("Startup Resources Size: " + startupResources.length);
+
+        entries.put("common/fxTaskProgramsPe", fxTaskPrograms);
+        Logger.debug("FX PE Programs Size: " + fxTaskPrograms.length);
 
         entries.put("sound/common", commonSounds);
         Logger.debug("Common Sounds Size: " + commonSounds.length);
@@ -334,6 +342,9 @@ public class PERipper {
         entries.put("sound/akao/lfo", Arrays.copyOfRange(exe, akaoLFOAt, (int) (akaoLFOAt + AKAO_LFO_BYTES)));
         Logger.debug("LFO Size: " + entries.get("sound/akao/lfo").length);
 
+        int fxProgramsAt = (int) (FX_PROGRAMS_RAM - loadAddress) + 0x800;
+        entries.put("common/fxTaskProgramsExe", Arrays.copyOfRange(exe, fxProgramsAt, (int) (fxProgramsAt + FX_PROGRAMS_BYTES)));
+        Logger.debug("FX Exe Programs Size: " + entries.get("common/fxTaskProgramsExe").length);
 
         int weaponAt = (int) ((WEAPON_EFFECT_CODES_RAM - loadAddress) + 0x800);
         entries.put("battle/weaponEffectCodes", Arrays.copyOfRange(exe, weaponAt, weaponAt + 6));
