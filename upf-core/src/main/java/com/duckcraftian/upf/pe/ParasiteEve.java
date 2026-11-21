@@ -38,6 +38,8 @@ public class ParasiteEve {
     public static final long AKAO_PAN_TABLE_RAM = 0x8009B8F8L;
     public static final long AKAO_LFO_RAM = 0x8009BAF8L;
 
+    public static final long FX_ROOM_OVERLAY_BASE = 0x8018EFF0L;
+
     public static final long SCENE_OBJECT_MODELKEY = 0xC4B5BA04L;
 
     public static final long NORMAL_TABLE_BYTES = 240 * 8;
@@ -188,8 +190,6 @@ public class ParasiteEve {
     public static final int SetFloorPolygon = 227;
     public static final int DispatchScriptCmd = 237;
     public static final int OpenNameEntryMenu = 239;
-
-    // Process Manager OpCodes
 
     public static int mapFromToken(int t) {
         return ((t >> 17) & 31) * 100 + ((t >> 12) & 31) * 10 + ((t >> 7) & 31);

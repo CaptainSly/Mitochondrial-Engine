@@ -3,6 +3,11 @@ package com.duckcraftian.upf.pe.effects;
 import com.duckcraftian.upf.pe.script.ScriptVM;
 import org.tinylog.Logger;
 
+import java.util.Arrays;
+
+import static com.duckcraftian.upf.pe.ParasiteEve.FX_ROOM_OVERLAY_BASE;
+import static com.duckcraftian.upf.system.DataTypeHelper.u32LE;
+
 public class ProcessManager {
 
     public static final int[] slotState = new int[22];
@@ -23,6 +28,33 @@ public class ProcessManager {
     public static void loadExePrograms() {
         for (int i = 0; i < 23; i++)
             fxPrograms[i] = EffectProgram.EXE_PROGRAMS[i];
+    }
+
+    public static void loadRoomPrograms(byte[] container) {
+        long dirOffset = u32LE(container, 4);
+        long listWord = u32LE(container, (int) (dirOffset + 4));
+        long count = listWord >> 22;
+        long listAt = listWord & 0x3FFFFF;
+        for (int i = 0; i < count; i++) {
+            long recordAt = listAt + 12 * i;
+            long size = u32LE(container, (int) recordAt);
+            long slotWord = u32LE(container, (int) (recordAt + 4));
+            long pointer = u32LE(container, (int) (recordAt + 8));
+
+            long slot = slotWord >> 24;
+            long dataAt = slotWord & 0xFFFFFF;
+            if (slot >= 0x55) {
+                int index = (int) (slot - 0x55);
+                if (fxPrograms[index] == null) {
+                    byte[] overlay = Arrays.copyOfRange(container, (int) dataAt, (int) (dataAt + size));
+                    fxPrograms[index] = EffectProgram.parse(overlay, FX_ROOM_OVERLAY_BASE, pointer);
+                    Logger.debug("Loaded Program Index: " + index +  ", fxPrograms[index].script.length: " + fxPrograms[index].script.length + ", initializeAddress=0x" + Integer.toHexString(fxPrograms[32].initializeAddress));
+                }
+            }
+        }
+
+        Logger.debug("Loaded " + count + " Programs");
+
     }
 
     public static void resetSlot(int slot) {

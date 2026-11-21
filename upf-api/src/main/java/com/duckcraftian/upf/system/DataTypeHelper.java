@@ -32,6 +32,11 @@ public class DataTypeHelper {
         return (short) (b0 | (b1 << 8));
     }
 
+    public static void put16LE(byte[] buffer, int offset, int value) {
+        buffer[offset] = (byte) (value & 0xFF);
+        buffer[offset + 1] = (byte) ((value >> 8) & 0xFF);
+    }
+
     public static long u32LE(byte[] buffer, int offset) {
         long b0 = buffer[offset] & 0xFF;
         long b1 = buffer[offset + 1] & 0xFF;
@@ -40,6 +45,13 @@ public class DataTypeHelper {
 
         long result = b0 | (b1 << 8) | (b2 << 16) | (b3 << 24);
         return result;
+    }
+
+    public static void put32LE(byte[] buffer, int offset, int value) {
+        buffer[offset] = (byte) (value & 0xFF);
+        buffer[offset + 1] = (byte) ((value >> 8) & 0xFF);
+        buffer[offset + 2] = (byte) ((value >> 16) & 0xFF);
+        buffer[offset + 3] = (byte) ((value >> 24) & 0xFF);
     }
 
     public static int s32LE(byte[] buffer, int offset) {

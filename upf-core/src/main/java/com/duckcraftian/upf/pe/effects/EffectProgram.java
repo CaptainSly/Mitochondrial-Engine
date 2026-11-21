@@ -9,7 +9,7 @@ public class EffectProgram {
     public static final EffectProgram[] DISC_PROGRAMS = new EffectProgram[7];
 
     private int[] callbacks;
-    private int[] sizes;
+    int[] sizes;
     int[] script;
 
     int initializeAddress;

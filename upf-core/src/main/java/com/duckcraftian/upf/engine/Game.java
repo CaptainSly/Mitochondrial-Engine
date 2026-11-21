@@ -9,6 +9,7 @@ import com.duckcraftian.upf.pe.ParasiteEve;
 import com.duckcraftian.upf.pe.audio.PEAudio;
 import com.duckcraftian.upf.pe.disc.PERipper;
 import com.duckcraftian.upf.pe.disc.RoomParser;
+import com.duckcraftian.upf.pe.effects.EffectTaskRunner;
 import com.duckcraftian.upf.pe.effects.ProcessManager;
 import com.duckcraftian.upf.pe.gfx.*;
 import com.duckcraftian.upf.pe.rooms.PSXViewport;
@@ -115,6 +116,7 @@ public class Game implements IDisposable {
             EffectProgram.loadAll(fxTaskProgramsExe, fxTaskProgramsPe);
             ProcessManager.loadExePrograms();
             EffectAssets.load(startupResources);
+            ProcessManager.handlers[85] = new EffectTaskRunner();
 
             Logger.debug("startupResourceTables[0]=" + EffectAssets.startupResourceTables[0]);
             Logger.debug("startupResourceTables[1]=" + EffectAssets.startupResourceTables[1]);
@@ -274,6 +276,11 @@ public class Game implements IDisposable {
         ScriptVM.runAll();
 
         ScriptVM.updateBattle();
+        PSXImage pendingEffect = EffectAssets.takePageUpload();
+        if (pendingEffect != null) renderer.upload(pendingEffect);
+
+        EffectTaskRunner.currentView = viewports.get(ScriptVM.viewportIndex);
+
         ProcessManager.runBatch();
         ProcessManager.runPrimary();
 

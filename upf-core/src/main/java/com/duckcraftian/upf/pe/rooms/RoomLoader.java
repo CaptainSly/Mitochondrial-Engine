@@ -3,6 +3,7 @@ package com.duckcraftian.upf.pe.rooms;
 import com.duckcraftian.upf.pe.ParasiteEve;
 import com.duckcraftian.upf.pe.disc.RoomParser;
 import com.duckcraftian.upf.pe.disc.SquareImageParser;
+import com.duckcraftian.upf.pe.effects.ProcessManager;
 import com.duckcraftian.upf.pe.gfx.BackgroundAnimation;
 import com.duckcraftian.upf.pe.gfx.PEModel;
 import com.duckcraftian.upf.pe.script.ScriptVM;
@@ -82,6 +83,7 @@ public class RoomLoader {
             ScriptVM.models = models;
             ScriptVM.sceneObjectModels = sceneModels;
             ScriptVM.loadRoom(container, bankContainer, actionSet);
+            ProcessManager.loadRoomPrograms(container);
             return new Room(tiles, images, viewports, models, background);
         } catch (IOException e) {
             throw new RuntimeException(e);

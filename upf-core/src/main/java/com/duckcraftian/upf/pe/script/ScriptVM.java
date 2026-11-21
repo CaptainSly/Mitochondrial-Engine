@@ -3112,6 +3112,34 @@ public class ScriptVM {
         return null;
     }
 
+    public int getActionMode() {
+        return actionMode;
+    }
+
+    public int getCoreFlags() {
+        return coreFlags;
+    }
+
+    public int[] getEffects() {
+        return effects;
+    }
+
+    public void setCoreFlags(int coreFlags) {
+        this.coreFlags = coreFlags;
+    }
+
+    public int getAttackEffectState() {
+        return effects[((coreFlags >> 21) & 7) * 9];
+    }
+
+    public void setAttackEffectState(int value) {
+        effects[((coreFlags >> 21) & 7) * 9] = value;
+    }
+
+    public static byte[] getRoomContainer() {
+        return CONTAINER;
+    }
+
     public int getFrame() {
         return animFrame >> 16;
     }
