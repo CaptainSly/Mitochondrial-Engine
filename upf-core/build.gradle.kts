@@ -1,15 +1,18 @@
 plugins {
     id("java")
+    application
 }
 
 group = "com.duckcraftian.upf"
-version = "0.1.8-Resonance"
+version = "0.1.9-Resonance"
 
 val lwjglVersion = "3.4.2"
 val jomlVersion = "1.10.9"
 val lwjglNatives = "natives-linux"
 val tinylogVersion = "2.7.0"
 val gsonVersion = "2.14.0"
+
+val engineFolders = listOf("data", "config", "saves", "libs", "mods")
 
 dependencies {
 
@@ -40,6 +43,47 @@ dependencies {
     testImplementation(platform("org.junit:junit-bom:6.0.0"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+application {
+    applicationName = "mitochondrial-engine"
+    mainClass.set("com.duckcraftian.upf.engine.system.Engine")
+    applicationDefaultJvmArgs = listOf(
+        "--enable-native-access=ALL-UNNAMED",
+        "--sun-misc-unsafe-memory-access=allow"
+    )
+}
+
+tasks.installDist {
+    eachFile {
+        if (path.startsWith("lib/")) {
+            path = path.replaceFirst("lib/", "bin/mitochondria/libs/");
+        }
+    }
+
+    includeEmptyDirs = false
+
+    preserve {
+        include("bin/mitochondria/data/**", "bin/mitochondria/saves/**", "bin/mitochondria/config/**", "bin/mitochondria/mods/**")
+    }
+
+    doLast {
+        engineFolders.forEach { destinationDir.resolve("bin/mitochondria/$it").mkdirs()}
+    }
+
+}
+
+tasks.startScripts {
+    doLast {
+        unixScript.writeText(
+            unixScript.readText().replace("\$APP_HOME/lib/", "\$APP_HOME/bin/mitochondria/libs/")
+                .replace("exec \"\$JAVACMD\" \"\$@\"", "cd \"\$APP_HOME/bin\"\nexec \"\$JAVACMD\" \"\$@\"")
+        )
+
+        windowsScript.writeText(
+            windowsScript.readText().replace("%APP_HOME%\\lib\\", "%APP_HOME%\\bin\\mitochondria\\libs\\")
+        )
+    }
 }
 
 tasks.test {

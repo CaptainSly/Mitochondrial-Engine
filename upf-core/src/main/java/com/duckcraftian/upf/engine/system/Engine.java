@@ -27,7 +27,7 @@ public class Engine {
 
     private PluginLoader pluginLoader;
     private EventBus eventBus;
-    private Game game;
+    private EntryPoint game;
 
     private boolean isRunning = false;
 

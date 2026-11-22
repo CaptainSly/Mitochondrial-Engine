@@ -2,8 +2,10 @@ package com.duckcraftian.upf.system;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.Normalizer;
@@ -66,8 +68,23 @@ public class FileUtils {
     }
 
     public static String readString(String fileName) throws URISyntaxException, IOException {
-        File f = resolveAssetFile(fileName);
-        return Files.readString(f.toPath());
+        Path filePath = Path.of(fileName);
+        if (filePath.isAbsolute()) return Files.readString(filePath);
+
+        InputStream stream = Thread.currentThread().getContextClassLoader().getResourceAsStream(fileName);
+        if (stream == null) throw new RuntimeException("Resource Not Found: " + fileName);
+        String text = streamToString(stream);
+        stream.close();
+
+        return text;
+    }
+
+    public static String streamToString(InputStream stream) {
+        try {
+            return new String(stream.readAllBytes(), Charset.forName("UTF-8"));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public static File getLocalFile(String fileName) throws URISyntaxException {

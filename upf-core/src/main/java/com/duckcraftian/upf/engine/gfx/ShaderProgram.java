@@ -29,8 +29,8 @@ public class ShaderProgram implements IDisposable {
         String vertexSource = null;
         String fragmentSource = null;
         try {
-            vertexSource = Files.readString(FileUtils.resolveAssetFile(shaderName + ".vs").toPath());
-            fragmentSource = Files.readString(FileUtils.resolveAssetFile(shaderName + ".fs").toPath());
+            vertexSource = FileUtils.readString(shaderName + ".vs");
+            fragmentSource = FileUtils.readString(shaderName + ".fs");
         } catch (IOException | URISyntaxException e) {
             throw new RuntimeException(e);
         }

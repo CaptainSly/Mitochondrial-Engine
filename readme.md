@@ -40,11 +40,18 @@ The following is implemented and working:
     - Hand Pointer shows up for choices
     - Controller Button Icons (Hasn't been seen in testing yet, but is implemented in)
 - Scripting
-    - A VM that runs the original room scripts: Currently 90 Op Handlers are implemented
+    - A VM that runs the original room scripts: Currently 130+ Op Handlers are implemented
+- Combat 
+    - Battle Effects (In progress)
+    - You can shoot. You can't reload though.
+    - ATB Gauge fills and plays sound when ready
+    - Eve takes damage
+    - Player panel draws
+    - PE Gauge fills and plays sound when ready. 
 - Sound
     - AKAO Music Sequencer, Room Music. Loops, temp and volume slides. 
     - Software SPU Voices. ADPCM, ADSR envelopes, pitch, 4-point Gaussian interpolation, and pitch modulation
-    - Softrware reverb
+    - Software reverb
     - Sound Effects. Per room. Nested Effect sequencer on its own clock. Script effects. Footsteps from animation frames.
     - Script music control. 
     - Registered actor sounds
@@ -70,7 +77,7 @@ Graphics Card: Anything that supports OpenGL 4.6
 # Build Instructions
 
 ## Linux
-To be included
+Run `./gradlew installDist`. The folder that gets created is located inside the `./upf-core/build/install` folder, when we refer to the `./mitochondria` folder we really mean `./upf-core/build/install/mitochondrial-engine/bin/mitochondria` folder. Place you're Parasite Eve discs inside the `./mitochondria/data` folder under the names, `pe_disc_1.bin` and `pe_disc_2.bin`. Execute the file by running `./mitochondrial-engine` The starting map is at `map431` if you want to start it from the beginning cutscene, it's changed in the `Game.java` class inside the `init()` method. The discs can be removed after the game has fully launched and the `pe.udh` file exists. The game runs completely off the `pe.udh` file. 
 
 ## MacOS
 See below
@@ -94,11 +101,11 @@ See below
 
 **Q:** Will there be a MacOS Binary?
 
-**A:** No. The PS1 Shaders are utilizing OpenGL 4.6, and MacOS dropped support for OpenGL during version 4.1.
+**A:** Nope, and I don't plan on making one either. The PS1 Shaders are utilizing OpenGL 4.6 by choice, and MacOS dropped support for OpenGL during version 4.1.
 
 **Q:** Can I use UPF to port a game myself?
 
-**A:** Technically yes. Parasite Eve's code that isn't shared by every PS1 game is contained directly inside a `pe` package in both the `upf-api` and `upf-core` projects. If you delete that, you can create a new package for the game you want to port and get started. UPF provides Jar Plugin Loading, Input, OpenGL Graphic Output. It's currently being built out, with Parasite Eve building out some of the common PS1 foundations. Ports and Plugins/Mods inherit the license as they utilize the `upf-api`. 
+**A:** Technically yes. Parasite Eve's code that isn't shared by every PS1 game is contained directly inside a `pe` package in both the `upf-api` and `upf-core` projects. If you delete that, you can create a new package for the game you want to port and get started. You'll also need to strip the `Game.java` class down to just the EntryPoint skeleton. UPF provides Jar Plugin Loading, Input, OpenGL Graphic Output, and OpenAL Audio Output. It's currently being built out, with Parasite Eve building out some of the common PS1 foundations. Ports and Plugins/Mods inherit the license as they utilize the `upf-api`. 
 
 **Q:** What can I do with modding?
 

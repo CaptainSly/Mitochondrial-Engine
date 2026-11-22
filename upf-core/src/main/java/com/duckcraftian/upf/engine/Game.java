@@ -1,6 +1,7 @@
 package com.duckcraftian.upf.engine;
 
 import com.duckcraftian.upf.UPF;
+import com.duckcraftian.upf.engine.system.EntryPoint;
 import com.duckcraftian.upf.impl.IDisposable;
 import com.duckcraftian.upf.pe.AyaStats;
 import com.duckcraftian.upf.pe.ParasiteEve;
@@ -39,7 +40,7 @@ import static com.duckcraftian.upf.serialization.UPDHSerializer.getStreamedData;
 import static com.duckcraftian.upf.system.DataTypeHelper.s16LE;
 import static com.duckcraftian.upf.system.DataTypeHelper.u16LE;
 
-public class Game implements IDisposable {
+public class Game implements EntryPoint {
 
     private PERenderer renderer;
     private List<PSXViewport> viewports;
@@ -67,6 +68,7 @@ public class Game implements IDisposable {
     private float accumulator = 0;
     private final float TICK = 1f / 30;
 
+    @Override
     public void init() {
         viewports = new ArrayList<>();
         renderer = new PERenderer();
@@ -83,8 +85,8 @@ public class Game implements IDisposable {
             } catch (URISyntaxException | IOException e) {
                 throw new RuntimeException(e);
             } finally {
-                dfs.onDispose();
-                dfs2.onDispose();
+                if (dfs != null) dfs.onDispose();
+                if (dfs2 != null) dfs2.onDispose();
             }
         }
 
@@ -188,6 +190,7 @@ public class Game implements IDisposable {
         }
     }
 
+    @Override
     public void update(float delta) {
 
         if (ScriptVM.takeBattleTextureLoading())
@@ -352,6 +355,7 @@ public class Game implements IDisposable {
         renderer.upload(room.models(), viewports.get(ScriptVM.viewportIndex));
     }
 
+    @Override
     public void render() {
 
         if (moviePlayer != null) {
@@ -386,6 +390,7 @@ public class Game implements IDisposable {
         return movies[idx];
     }
 
+    @Override
     public void resize(int width, int height) {
 
     }
