@@ -29,6 +29,10 @@ public class ParasiteEve {
     public static final long FX_PROGRAMS_RAM = 0x800E1044L;
     public static final long FX_PROGRAMS_BYTES = 0x1160L;
     public static final long FX_DISC_BASE = 0x801ED7F8L;
+    public static final long FX_ROOM_OVERLAY_BASE = 0x8018EFF0L;
+    public static final long FX_DRAW_TABLES_RAM = 0x800E11E4L;
+    public static final long FX_EMBER_TRACK_RAM = 0x800E17E0L;
+    public static final long FX_CONSTANTS_RAM = 0x800C2268L;
     public static final long[] FX_DISC_PROGRAM_RAM = {0x801F1BD8L, 0x801F1C58L, 0x801F1D00L, 0x801F1D8CL, 0x801F1E18L, 0x801F1EA4L, 0x801F1EF0L};
 
     public static final long WINDOW_MODE_BOUNDS_RAM = 0x80010E38L;
@@ -37,8 +41,6 @@ public class ParasiteEve {
     public static final long AKAO_NOTE_LENGTHS_RAM = 0x8009B8DCL;
     public static final long AKAO_PAN_TABLE_RAM = 0x8009B8F8L;
     public static final long AKAO_LFO_RAM = 0x8009BAF8L;
-
-    public static final long FX_ROOM_OVERLAY_BASE = 0x8018EFF0L;
 
     public static final long SCENE_OBJECT_MODELKEY = 0xC4B5BA04L;
 

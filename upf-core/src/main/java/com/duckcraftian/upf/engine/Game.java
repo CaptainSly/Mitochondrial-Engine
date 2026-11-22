@@ -3,12 +3,12 @@ package com.duckcraftian.upf.engine;
 import com.duckcraftian.upf.UPF;
 import com.duckcraftian.upf.impl.IDisposable;
 import com.duckcraftian.upf.pe.AyaStats;
-import com.duckcraftian.upf.pe.effects.EffectAssets;
-import com.duckcraftian.upf.pe.effects.EffectProgram;
 import com.duckcraftian.upf.pe.ParasiteEve;
 import com.duckcraftian.upf.pe.audio.PEAudio;
 import com.duckcraftian.upf.pe.disc.PERipper;
 import com.duckcraftian.upf.pe.disc.RoomParser;
+import com.duckcraftian.upf.pe.effects.EffectAssets;
+import com.duckcraftian.upf.pe.effects.EffectProgram;
 import com.duckcraftian.upf.pe.effects.EffectTaskRunner;
 import com.duckcraftian.upf.pe.effects.ProcessManager;
 import com.duckcraftian.upf.pe.gfx.*;
@@ -35,7 +35,6 @@ import java.util.List;
 import static com.duckcraftian.upf.pe.ParasiteEve.AYA_STATS;
 import static com.duckcraftian.upf.pe.ParasiteEve.PEAUDIO;
 import static com.duckcraftian.upf.pe.disc.SquareImageParser.convertBytesToImages;
-import static com.duckcraftian.upf.pe.disc.SquareImageParser.findKeyedAssetTable;
 import static com.duckcraftian.upf.serialization.UPDHSerializer.getStreamedData;
 import static com.duckcraftian.upf.system.DataTypeHelper.s16LE;
 import static com.duckcraftian.upf.system.DataTypeHelper.u16LE;
@@ -112,18 +111,17 @@ public class Game implements IDisposable {
             byte[] fxTaskProgramsExe = getStreamedData(imageFile, "common/fxTaskProgramsExe");
             byte[] fxTaskProgramsPe = getStreamedData(imageFile, "common/fxTaskProgramsPe");
             byte[] startupResources = getStreamedData(imageFile, "common/startupResources");
+            byte[] fxDrawTables = getStreamedData(imageFile, "common/fxDrawTables");
+            byte[] fxEmberColorTrack = getStreamedData(imageFile, "common/fxEmberColorTrack");
+            byte[] fxConstants = getStreamedData(imageFile, "common/fxConstants");
 
             EffectProgram.loadAll(fxTaskProgramsExe, fxTaskProgramsPe);
             ProcessManager.loadExePrograms();
             EffectAssets.load(startupResources);
+            EffectAssets.drawTable = fxDrawTables;
+            EffectAssets.fxConstants = fxConstants;
+            EffectAssets.emberColorTrack = fxEmberColorTrack;
             ProcessManager.handlers[85] = new EffectTaskRunner();
-
-            Logger.debug("startupResourceTables[0]=" + EffectAssets.startupResourceTables[0]);
-            Logger.debug("startupResourceTables[1]=" + EffectAssets.startupResourceTables[1]);
-            Logger.debug("findKeyedAssetTable(blob, 0x6DEAE684L): " + findKeyedAssetTable(startupResources, 0x6DEAE684L));
-            Logger.debug("findKeyedAssetTable(blob, 0x5AB32104L): " + findKeyedAssetTable(startupResources, 0x5AB32104L));
-            Logger.debug("findKeyedAssetTable(blob, 0x57E8EB04L): " + findKeyedAssetTable(startupResources, 0x57E8EB04L));
-            Logger.debug("findKeyedAssetTable(blob, 0x12345678L): " + findKeyedAssetTable(startupResources, 0x12345678L));
 
             byte[] windowBounds = getStreamedData(imageFile, "ui/windowModeBounds");
             for (int i = 0; i < 8; i++) {
@@ -162,6 +160,13 @@ public class Game implements IDisposable {
             PEAUDIO.camera = camera;
 
             renderer.setCameraPosition(camera.getCamX(), camera.getCamY());
+
+
+            byte[] objectPalettes = getStreamedData(imageFile, "images/common/objectPalettes");
+            for (PSXImage image : convertBytesToImages(objectPalettes))
+                renderer.upload(image);
+
+
             renderer.upload(room);
 
             Logger.debug("Loading map: " + mapName);
@@ -281,6 +286,7 @@ public class Game implements IDisposable {
 
         EffectTaskRunner.currentView = viewports.get(ScriptVM.viewportIndex);
 
+        EffectTaskRunner.effectVertices.clear();
         ProcessManager.runBatch();
         ProcessManager.runPrimary();
 

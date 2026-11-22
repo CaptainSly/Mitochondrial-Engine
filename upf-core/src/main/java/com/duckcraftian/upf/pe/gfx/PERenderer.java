@@ -6,6 +6,7 @@ import com.duckcraftian.upf.engine.gfx.FramebufferQuad;
 import com.duckcraftian.upf.engine.gfx.ShaderProgram;
 import com.duckcraftian.upf.engine.gfx.TexturedQuad;
 import com.duckcraftian.upf.impl.IDisposable;
+import com.duckcraftian.upf.pe.effects.EffectTaskRunner;
 import com.duckcraftian.upf.pe.rooms.BackgroundTile;
 import com.duckcraftian.upf.pe.rooms.PSXViewport;
 import com.duckcraftian.upf.pe.rooms.Room;
@@ -45,6 +46,7 @@ public class PERenderer implements IDisposable {
     private PSXTriangleBatch semiBatch;
     private PSXTriangleBatch triangleBatch;
     private PSXTriangleBatch shadowBatch;
+    private PSXTriangleBatch additiveBatch;
     private PSXTriangleBatch textBatch;
     private PSXTriangleBatch hudBatch;
     private PSXTriangleBatch hudSemiBatch;
@@ -81,11 +83,13 @@ public class PERenderer implements IDisposable {
         polygonShader.createUniform("vram");
         polygonShader.createUniform("scroll");
         polygonShader.createUniform("opacity");
+        polygonShader.createUniform("additive");
 
         tileTexture = new PSXTexture();
         triangleBatch = new PSXTriangleBatch(8);
         semiBatch = new PSXTriangleBatch(8);
         shadowBatch = new PSXTriangleBatch(8);
+        additiveBatch = new PSXTriangleBatch(8);
         textBatch = new PSXTriangleBatch(7);
         hudBatch = new PSXTriangleBatch(8);
         hudSemiBatch = new PSXTriangleBatch(8);
@@ -148,6 +152,16 @@ public class PERenderer implements IDisposable {
                 shadowBatch.draw();
                 glDepthMask(true);
                 glBlendEquation(GL_FUNC_ADD);
+                glDisable(GL_BLEND);
+
+                polygonShader.set("additive", 1);
+                glEnable(GL_BLEND);
+                glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+                glDepthMask(false);
+                additiveBatch.draw();
+                polygonShader.set("additive", 0);
+                glDepthMask(true);
+                glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
                 glDisable(GL_BLEND);
 
                 tileTexture.unbind();
@@ -258,6 +272,8 @@ public class PERenderer implements IDisposable {
         List<Integer> all = new ArrayList<>();
         List<Integer> allSemi = new ArrayList<>();
         List<Integer> allShadow = new ArrayList<>();
+        GTE.writeControl(27, -4194);
+        GTE.writeControl(28, 0x01400000);
         GTE.writeControl(29, 0x155);
         GTE.writeControl(30, 0x100);
 
@@ -300,6 +316,32 @@ public class PERenderer implements IDisposable {
             for (int value : model.buildTriangles(ot, screen, lit, allSemi))
                 all.add(value);
         }
+
+        List<Integer> effectAdditive = new ArrayList<>();
+        for (int t = 0; t < (EffectTaskRunner.effectVertices.size() / 24); t++) {
+            int base = t * 24;
+            int semi = (EffectTaskRunner.effectVertices.get(base + 7) >> 24) & 1;
+            int pageWord = EffectTaskRunner.effectVertices.get(base + 4);
+            int abr = (pageWord == -1) ? (EffectTaskRunner.effectVertices.get(base + 5) & 3) : ((pageWord >> 5) & 3);
+            List<Integer> target;
+            if (semi == 0) target = all;
+            else if (abr == 0) target = allSemi;
+            else if (abr == 2) target = allShadow;
+            else target = effectAdditive;
+
+            for (int i = 0; i < 24; i++) {
+                int value = EffectTaskRunner.effectVertices.get(base + i);
+                int r, g, b;
+                if (abr == 3 && semi == 1 && (i % 8) == 7) {
+                    r = (value & 0xFF) >> 2;
+                    g = ((value >> 8) & 0xFF) >> 2;
+                    b = ((value >> 16) & 0xFF) >> 2;
+                    value = r | (g << 8) | (b << 16);
+                }
+                target.add(value);
+            }
+        }
+        additiveBatch.upload(Utils.intListToArray(effectAdditive));
 
         int[] tris = new int[all.size()];
         for (int i = 0; i < all.size(); i++)

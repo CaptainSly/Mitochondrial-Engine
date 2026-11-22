@@ -14,6 +14,8 @@ public class EffectAssets {
     public static int currentEffectPage;
     public static PSXImage pendingPage;
 
+    public static byte[] drawTable, fxConstants, emberColorTrack;
+
     public static void load(byte[] blob) {
         startupResourceBlob = blob;
         startupResourceTables[0] = findKeyedAssetTable(blob, 0x57D40D84L);

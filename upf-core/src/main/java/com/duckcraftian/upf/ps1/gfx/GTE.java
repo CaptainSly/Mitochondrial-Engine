@@ -7,6 +7,9 @@ public class GTE {
     public static final int DATA_COUNT = 32;
     public static final int CONTROL_COUNT = 32;
 
+    private static final int[] MATRIX_AT = {0, 8, 16};
+    private static final int[] ADD_AT = {5, 13, 21};
+
     private int[] data;
     private int[] control;
 
@@ -51,6 +54,66 @@ public class GTE {
                 rtp(0);
                 rtp(1);
                 rtp(2);
+                break;
+            case PSX.OP_MVMVA:
+                int mx = (command >> 17) & 3;
+                int v = (command >> 15) & 3;
+                int cv = (command >> 13) & 3;
+
+                int m = MATRIX_AT[mx];
+
+                long vx, vy, vz;
+                if (v == 3) {
+                    vx = (short) data[9];
+                    vy = (short) data[10];
+                    vz = (short) data[11];
+                } else {
+                    vx = (short) data[2 * v];
+                    vy = (short) (data[2 * v] >> 16);
+                    vz = (short) data[2 * v + 1];
+                }
+
+                long rt11 = (short) control[m];
+                long rt12 = (short) (control[m] >> 16);
+                long rt13 = (short) control[m + 1];
+                long rt21 = (short) (control[m + 1] >> 16);
+                long rt22 = (short) control[m + 2];
+                long rt23 = (short) (control[m + 2] >> 16);
+                long rt31 = (short) control[m + 3];
+                long rt32 = (short) (control[m + 3] >> 16);
+                long rt33 = (short) control[m + 4];
+
+                long tx = 0;
+                long ty = 0;
+                long tz = 0;
+
+                if (cv != 3) {
+                    int a = ADD_AT[cv];
+                    tx = control[a];
+                    ty = control[a + 1];
+                    tz = control[a + 2];
+                }
+
+                mac1 = macSum(1, tx, rt11 * vx, rt12 * vy, rt13 * vz);
+                mac2 = macSum(2, ty, rt21 * vx, rt22 * vy, rt23 * vz);
+                mac3 = macSum(3, tz, rt31 * vx, rt32 * vy, rt33 * vz);
+
+                long low = lm == 1 ? 0 : -0x8000;
+                long ir1 = Math.clamp(mac1, low, 0x7FFF);
+                long ir2 = Math.clamp(mac2, low, 0x7FFF);
+                long ir3 = Math.clamp(mac3, low, 0x7FFF);
+
+                if (ir1 != mac1) setFlag(24);
+                if (ir2 != mac2) setFlag(23);
+                if (ir3 != mac3) setFlag(22);
+
+                data[25] = (int) mac1;
+                data[26] = (int) mac2;
+                data[27] = (int) mac3;
+                data[9] = (int) ir1;
+                data[10] = (int) ir2;
+                data[11] = (int) ir3;
+
                 break;
         }
 

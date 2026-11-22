@@ -1,5 +1,10 @@
 package com.duckcraftian.upf.ps1;
 
+import com.duckcraftian.upf.ps1.gfx.GTE;
+import org.tinylog.Logger;
+
+import java.util.Arrays;
+
 public class PSXMath {
 
     public static int[] rotMatrixYXZ(int ax, int ay, int az) {
@@ -26,6 +31,11 @@ public class PSXMath {
         return matrix;
     }
 
+    public static void loadAverageCol(byte[] first, int firstAt, byte[] second, int secondAt, int firstScale, int secondScale, byte[] out, int outAt) {
+        for (int i = 0; i < 3; i++)
+            out[outAt + i] = (byte) (((first[firstAt + i] & 0xFF) * firstScale + (second[secondAt + i] & 0xFF) * secondScale) >> 12);
+    }
+
     public static int fixedMul(int a, int b) {
         return (int) (((long) a * b) >> 16);
     }
@@ -35,6 +45,30 @@ public class PSXMath {
         if (d == 0) return (a >= 0 ? -1 : 1) << 8;
 
         return (a / d) << 8;
+    }
+
+    public static int[] mulRotMatrix(int[] matrix) {
+        for (int col = 0; col < 3; col++) {
+            PSX.GTE.writeData(0, ((matrix[3 + col] << 16) | (matrix[col] & 0xFFFF)));
+            PSX.GTE.writeData(1, matrix[6 + col]);
+            PSX.GTE.execute(0x4A486012);
+            matrix[col] = PSX.GTE.readData(9);
+            matrix[3 + col] = PSX.GTE.readData(10);
+            matrix[6 + col] = PSX.GTE.readData(11);
+        }
+
+        return matrix;
+    }
+
+    public static int[] scaleMatrix(int[] matrix, int sx, int sy, int sz) {
+        int[] scale = {sx, sy, sz};
+        for (int row = 0; row < 3; row++) {
+            for (int col = 0; col < 3; col++) {
+                matrix[3 * row + col] = (short) ((matrix[3 * row + col] * scale[col]) >> 12);
+            }
+        }
+
+        return matrix;
     }
 
     public static int rcos(int angle) {

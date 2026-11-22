@@ -3,9 +3,14 @@ package com.duckcraftian.upf.pe.effects;
 import com.duckcraftian.upf.pe.rooms.PSXViewport;
 import com.duckcraftian.upf.pe.script.ScriptVM;
 import com.duckcraftian.upf.ps1.PSX;
+import com.duckcraftian.upf.ps1.PSXMath;
 import org.tinylog.Logger;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import static com.duckcraftian.upf.pe.disc.SquareImageParser.findKeyedAssetTable;
+import static com.duckcraftian.upf.ps1.PSX.*;
 import static com.duckcraftian.upf.system.DataTypeHelper.*;
 
 public class EffectTaskRunner implements ProcessCommand {
@@ -16,6 +21,15 @@ public class EffectTaskRunner implements ProcessCommand {
     public static final int RepeatEffectScript = 3;
     public static final int WaitEffectScript = 4;
     public static final int HoldOwnerActor = 5;
+
+    // Fan Sweep Program Variables
+    public static final int FanSweepController = 0;
+    public static final int FanSweepProgram = 7;
+    public static final int FanSweepSpark = 8;
+    public static final int FanSweepEmber = 9;
+
+    public static final int[] fanSweepAnchor = new int[3];
+    public static int fanSweepTrailPool;
 
     public static int currentProcess;
 
@@ -36,13 +50,15 @@ public class EffectTaskRunner implements ProcessCommand {
     public static final int[] texturePageWord = new int[4];
     public static final int[] effectModelAt = new int[6];
 
+    public static final List<Integer> effectVertices = new ArrayList<>();
+
     public static PSXViewport currentView;
 
     public static int currentAge;
     public static int currentTask;
 
     public static int effectImageVariant;
-
+    public static int renderPalette, renderCellLayout, renderTpage, renderShape, renderDepth, renderCellWidth, renderCellHeight;
 
     public static final EffectOp[] scriptOps = new EffectOp[6];
     public static final EffectCallback[][] effectCallbacks = new EffectCallback[104][16];
@@ -118,14 +134,150 @@ public class EffectTaskRunner implements ProcessCommand {
             return true;
         };
 
+        effectCallbacks[FanSweepProgram][FanSweepSpark] = (mode, spark, argument) -> {
+            byte[] a = arena[currentProcess];
+            if (mode == 1) {
+                put16LE(a, spark + 4, u16LE(a, spark + 4) + 1);
+                int y = (currentAge * 700) / 36 - 700 + fanSweepAnchor[1];
+                int x = fanSweepAnchor[0] + (PSXMath.rcos(s16LE(a, spark + 2)) * s16LE(a, spark + 12)) / 4096;
+                int z = fanSweepAnchor[2] + (PSXMath.rsin(s16LE(a, spark + 2)) * s16LE(a, spark + 12)) / 4096;
+
+                put16LE(a, spark + 8, y);
+                put16LE(a, spark + 6, x);
+                put16LE(a, spark + 10, z);
+                put16LE(a, spark + 2, u16LE(a, spark + 2) + 0x80);
+                if ((PSX.rand() & 7) == 0) {
+                    int point = poolAlloc(fanSweepTrailPool);
+                    if (point != -1) {
+                        put16LE(a, point, s16LE(a, spark + 6));
+                        put16LE(a, point + 2, s16LE(a, spark + 8));
+                        put16LE(a, point + 4, s16LE(a, spark + 10));
+                    }
+                }
+                if (currentAge < 0x24) return 0;
+                return 1;
+            }
+
+            if (mode == 2) {
+                int st = s16LE(a, spark);
+                int timer = s16LE(a, spark + 4);
+                int size, alpha;
+                if (st == 0) {
+                    size = PSXMath.rsin((timer << 10) / 12);
+                    alpha = 0x40;
+                    if (timer >= 12) {
+                        put16LE(a, spark + 4, 0);
+                        put16LE(a, spark, 1);
+                    }
+                } else if (st == 1) {
+                    size = 0x1000;
+                    alpha = 0x40;
+                    if (timer >= 12) {
+                        put16LE(a, spark + 4, 0);
+                        put16LE(a, spark, 2);
+                    }
+                } else {
+                    size = 0x1000;
+                    alpha = PSXMath.rcos((timer << 10) / 12) / 64;
+                    put16LE(a, spark + 12, s16LE(a, spark + 12) + timer * 4);
+                }
+                int[] position = {s16LE(a, spark + 6), s16LE(a, spark + 8), s16LE(a, spark + 10)};
+                size = size * 3 / 2;
+                int[] spin = {0, 0, currentAge << 7, 0};
+                int kind = renderPalette;
+                int row = u16LE(EffectAssets.drawTable, 0x20 + 2 * kind) + 3;
+                if (kind == 4 && effectImageVariant != 0) row = u16LE(EffectAssets.drawTable, 0x20 + 2 * kind) + 7;
+                int[] color = {u8(EffectAssets.fxConstants, 0x6C), u8(EffectAssets.fxConstants, 0x6D), u8(EffectAssets.fxConstants, 0x6E)};
+                drawEffectShape(position, spin, size, size, 0x24, PSX.getClut(0, row), 1, alpha, color);
+                return 0;
+            }
+
+            return 0;
+        };
+
+        effectCallbacks[FanSweepProgram][FanSweepEmber] = (mode, state, _) -> {
+            byte[] a = arena[currentProcess];
+            if (mode == 1) {
+                put16LE(a, state, s16LE(a, state) + (PSX.rand() & 7) - 3);
+                put16LE(a, state + 2, s16LE(a, state + 2) + (PSX.rand() & 3) - 7);
+                put16LE(a, state + 4, s16LE(a, state + 4) + (PSX.rand() & 7) - 3);
+                if (currentAge < 0x12) return 0;
+                return 1;
+            }
+
+            if (mode == 2) {
+                int[] position = {s16LE(a, state), s16LE(a, state + 2), s16LE(a, state + 4)};
+                byte[] color = new byte[4];
+                sampleColorTrack(EffectAssets.emberColorTrack, currentAge, color);
+                int[] sample = {color[0] & 0xFF, color[1] & 0xFF, color[2] & 0xFF, 0};
+                drawTileAndHalo(position, sample, 0x80, 1);
+                return 0;
+            }
+
+            return 0;
+        };
+
+        effectCallbacks[FanSweepProgram][FanSweepController] = (mode, payload, argument) -> {
+            byte[] a = arena[currentProcess];
+            int end = taskEnd[currentProcess][currentTask];
+
+            if (mode == 0) {
+                put32LE(a, payload, PSX.rand());
+                int handles = poolOpen(end, 0x10, 0x18, FanSweepSpark);
+                handles += poolOpenInTask(payload + 4, handles, 8, 0x12, FanSweepEmber);
+                return handles;
+            }
+
+            if (mode == 1) {
+                if (currentAge < 0x20 && (currentAge & 1) != 0) {
+                    int spark = poolAlloc(end);
+                    if (spark != -1) {
+                        put16LE(a, spark + 2, s32LE(a, payload));
+                        put16LE(a, spark + 12, 0xC8);
+                        put16LE(a, spark, 0);
+                        put16LE(a, spark + 4, 0);
+                        put32LE(a, payload, s32LE(a, payload) - 0x555);
+
+                    }
+                }
+
+                if (currentAge >= 0x46) return 1;
+                poolUpdate(s32LE(a, payload + 4));
+                fanSweepTrailPool = s32LE(a, payload + 4);
+                return 0;
+            }
+
+            if (mode == 2) {
+                GTE.loadRotation(currentView.rotation());
+                GTE.loadTranslation(currentView.translation());
+                renderDepth = 8;
+                poolDraw(s32LE(a, payload + 4));
+
+                ScriptVM player = ScriptVM.getPlayer();
+                fanSweepAnchor[0] = player.getPosX() >> 16;
+                fanSweepAnchor[1] = player.getPosY() >> 16;
+                fanSweepAnchor[2] = player.getPosZ() >> 16;
+                renderCellWidth = 0x20;
+                renderCellHeight = 0x20;
+                renderTpage = texturePageWord[u16LE(EffectAssets.drawTable, 18)];
+                renderPalette = 1;
+                EffectAssets.selectEffectPage(1);
+                renderCellLayout = 1;
+                renderShape = 0;
+                return 0;
+            }
+
+            return 0;
+        };
+
     }
 
     @Override
     public void init() {
 
         for (int i = 0; i < 2; i++) {
-            texturePageWord[2 * i] = PSX.getTPage(i, 0, 0x380, 0x100);
-            texturePageWord[2 * i + 1] = PSX.getTPage(i, 0, 0x340, 0x100);
+            texturePageWord[2 * i] = getTPage(i, 0, 0x380, 0x100);
+            texturePageWord[2 * i + 1] = getTPage(i, 0, 0x340, 0x100);
         }
 
         byte[] blob = EffectAssets.startupResourceBlob;
@@ -196,8 +348,8 @@ public class EffectTaskRunner implements ProcessCommand {
 
         for (int i = 0; i < 8; i++) {
             if (taskId[slot][i] != 0xFFFF) {
-                PSX.GTE.loadRotation(currentView.rotation());
-                PSX.GTE.loadTranslation(currentView.translation());
+                GTE.loadRotation(currentView.rotation());
+                GTE.loadTranslation(currentView.translation());
                 currentTask = i;
                 currentAge = taskAge[slot][i];
                 callEffect(taskId[slot][i], 2, taskStart[slot][i], argument[slot]);
@@ -267,6 +419,138 @@ public class EffectTaskRunner implements ProcessCommand {
 
             key += 4;
         }
+    }
+
+    public static void drawEffectShape(int[] position, int[] rotation, int scaleX, int scaleY, int texture, int clut, int page, int intensity, int[] color) {
+        if (rotation == null) rotation = new int[]{0, 0, 0, 0};
+        int tpageWord = renderTpage;
+        if (page != 0xFF) tpageWord = renderTpage | getTPage(0, page, 0, 0);
+        int r, g, b;
+        if (color == null) {
+            r = intensity;
+            g = intensity;
+            b = intensity;
+        } else {
+            r = intensity * (color[0] & 0xFF) / 128;
+            g = intensity * (color[1] & 0xFF) / 128;
+            b = intensity * (color[2] & 0xFF) / 128;
+        }
+        int rgb = packRGBColor(r, g, b);
+        if (page != 0xFF) rgb |= 0x01000000;
+
+        int u, v;
+        if (renderCellLayout != 0) {
+            u = texture & 0xF;
+            v = 0;
+            if (u >= 8) {
+                u -= 8;
+                v = 0x20;
+            }
+
+            u <<= 4;
+            v += (texture / 16) * 16;
+        } else {
+            u = (texture & 0xF) << 4;
+            v = (texture / 16) * 16;
+        }
+        if (renderPalette == 4 && effectImageVariant != 0) v += 0x60;
+        int width = renderCellWidth;
+        int height = renderCellHeight;
+        int sx = scaleX * (width >> 4);
+        int sy = scaleY * (height >> 4);
+
+        GTE.loadRotation(currentView.rotation());
+        GTE.loadTranslation(currentView.translation());
+        GTE.writeData(0, ((position[1] << 16) | (position[0] & 0xFFFF)));
+        GTE.writeData(1, position[2]);
+        GTE.execute(CMD_MVMVA);
+
+        int[] translation = {GTE.readData(25), GTE.readData(26), GTE.readData(27)};
+        int[] matrix = PSXMath.rotMatrixYXZ(rotation[0], rotation[1], rotation[2]);
+        PSXMath.scaleMatrix(matrix, sx, sy, 0x1000);
+        if (rotation[3] == 1) PSXMath.mulRotMatrix(matrix);
+        GTE.loadRotation(matrix);
+        GTE.loadTranslation(translation);
+
+        int quads = u16LE(EffectAssets.drawTable, 0x2C + 2 * renderShape);
+        int first = (int) (u32LE(EffectAssets.drawTable, 0x1D8 + 4 * renderShape) - 0x800E11E4);
+
+        for (int q = 0; q < quads; q++) {
+            long at = first + 32 * q;
+            for (int k = 0; k < 3; k++) {
+                GTE.writeData(2 * k, ((s16LE(EffectAssets.drawTable, (int) (at + 8 * k + 2)) << 16) | (s16LE(EffectAssets.drawTable, (int) (at + 8 * k)) & 0xFFFF)));
+                GTE.writeData(2 * k + 1, s16LE(EffectAssets.drawTable, (int) (at + 8 * k + 4)));
+            }
+
+            GTE.execute(0x4A280030);
+            int sxy0 = GTE.readData(12);
+            int sxy1 = GTE.readData(13);
+            int sxy2 = GTE.readData(14);
+            if (GTE.readData(24) == 0) break;
+            int depth = GTE.readData(19) >> 2;
+            GTE.writeData(0, ((s16LE(EffectAssets.drawTable, (int) (at + 26)) << 16) | (s16LE(EffectAssets.drawTable, (int) (at + 24)) & 0xFFFF)));
+            GTE.writeData(1, s16LE(EffectAssets.drawTable, (int) (at + 28)));
+            GTE.execute(0x4A180001);
+            int sxy3 = GTE.readData(14);
+            depth -= renderDepth;
+            if (depth >= 0 && depth < 0x1000) {
+                pushVertex(sxy0, u, v, tpageWord, clut, depth, rgb);
+                pushVertex(sxy1, u + width - 1, v, tpageWord, clut, depth, rgb);
+                pushVertex(sxy2, u, v + height - 1, tpageWord, clut, depth, rgb);
+                pushVertex(sxy1, u + width - 1, v, tpageWord, clut, depth, rgb);
+                pushVertex(sxy3, u + width - 1, v + height - 1, tpageWord, clut, depth, rgb);
+                pushVertex(sxy2, u, v + height - 1, tpageWord, clut, depth, rgb);
+            }
+        }
+    }
+
+
+    public static void pushVertex(int sxy, int u, int v, int tpageWord, int clut, int depth, int rgb) {
+        int x = sxy & 0xFFFF;
+        if (x >= 0x8000) x -= 0x10000;
+        int y = (sxy >> 16) & 0xFFFF;
+        if (y >= 0x8000) y -= 0x10000;
+
+        effectVertices.add(x);
+        effectVertices.add(y);
+        effectVertices.add(u);
+        effectVertices.add(v);
+        effectVertices.add(tpageWord);
+        effectVertices.add(clut);
+        effectVertices.add(depth);
+        effectVertices.add(rgb);
+    }
+
+    public static void sampleColorTrack(byte[] track, int time, byte[] out) {
+        int count = s32LE(track, 4);
+        int keyAt = 0;
+        if (s32LE(track, 0) == 0) {
+            count = 0;
+            int total = 0;
+            keyAt = 8;
+            while (true) {
+                int length = u8(track, keyAt + 3);
+                if (length == 0) break;
+                put16LE(track, keyAt + 6, total);
+                total += length;
+                count += 1;
+                put16LE(track, keyAt + 4, length);
+                keyAt += 8;
+            }
+            put32LE(track, 0, total);
+            put32LE(track, 4, count);
+        }
+
+        if (time > s32LE(track, 0)) time = s32LE(track, 0);
+        keyAt = 8 + (count * 8 - 8);
+        for (int i = 0; i < count; i++) {
+            if (time >= u16LE(track, keyAt + 6)) break;
+            keyAt -= 8;
+        }
+
+        int length = u16LE(track, keyAt + 4);
+        int fraction = ((time - u16LE(track, keyAt + 6)) << 12) / length;
+        PSXMath.loadAverageCol(track, keyAt, track, keyAt + 8, 4096 - fraction, fraction, out, 0);
     }
 
     public static int spawn(int slot, int id) {
@@ -348,6 +632,43 @@ public class EffectTaskRunner implements ProcessCommand {
                 }
             }
         }
+    }
+
+    public static void drawTileAndHalo(int[] position, int[] color, int scale, int abr) {
+        GTE.writeData(0, ((position[1] << 16) | (position[0] & 0xFFFF)));
+        GTE.writeData(1, position[2]);
+        GTE.execute(0x4A180001);
+        int sxy = GTE.readData(14);
+        int depth = (GTE.readData(19) >> 2) - renderDepth;
+        if (depth < 0 || depth >= 0x1000) return;
+        int r = (color[0] * scale / 128) & 0xFF;
+        int g = (color[1] * scale / 128) & 0xFF;
+        int b = (color[2] * scale / 128) & 0xFF;
+        int x = sxy & 0xFFFF;
+        if (x >= 0x8000) x -= 0x10000;
+        int y = (sxy >> 16) & 0xFFFF;
+        if (y >= 0x8000) y -= 0x10000;
+        int blend = 0;
+        int glowSemi = 0x01000000;
+        if (abr == 0xFF) glowSemi = 0;
+        else blend = abr & 3;
+
+        int glowRGB = (r >> 2) | ((g >> 2) << 8) | ((b >> 2) << 16) | glowSemi;
+        int coreRGB = r | (g << 8) | (b << 16) | 0x01000000;
+
+        pushVertex(packXY(x - 1, y - 1), 0, 0, -1, blend, depth, glowRGB);
+        pushVertex(packXY(x + 2, y - 1), 0, 0, -1, blend, depth, glowRGB);
+        pushVertex(packXY(x - 1, y + 2), 0, 0, -1, blend, depth, glowRGB);
+        pushVertex(packXY(x + 2, y - 1), 0, 0, -1, blend, depth, glowRGB);
+        pushVertex(packXY(x + 2, y + 2), 0, 0, -1, blend, depth, glowRGB);
+        pushVertex(packXY(x - 1, y + 2), 0, 0, -1, blend, depth, glowRGB);
+
+        pushVertex(packXY(x, y), 0, 0, -1, blend, depth, coreRGB);
+        pushVertex(packXY(x + 1, y), 0, 0, -1, blend, depth, coreRGB);
+        pushVertex(packXY(x, y + 1), 0, 0, -1, blend, depth, coreRGB);
+        pushVertex(packXY(x + 1, y), 0, 0, -1, blend, depth, coreRGB);
+        pushVertex(packXY(x + 1, y + 1), 0, 0, -1, blend, depth, coreRGB);
+        pushVertex(packXY(x, y + 1), 0, 0, -1, blend, depth, coreRGB);
     }
 
     public static int callEffect(int id, int mode, int state, int argument) {
@@ -465,6 +786,10 @@ public class EffectTaskRunner implements ProcessCommand {
 
         currentAge = savedAge;
         return active;
+    }
+
+    private static int packXY(int x, int y) {
+        return ((y & 0xFFFF) << 16) | (x & 0xFFFF);
     }
 
 }

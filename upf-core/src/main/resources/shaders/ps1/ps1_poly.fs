@@ -2,6 +2,7 @@
 
 uniform usampler2D vram;
 uniform float opacity;
+uniform int additive;
 
 flat in ivec2 fragPageClut;
 in vec2 texelPos;
@@ -11,7 +12,7 @@ out vec4 color;
 
 void main() {
     if (fragPageClut.x == -1) {
-        color = vec4(vertColor, opacity);
+        color = vec4(vertColor, (additive == 1) ? 0.0 : opacity);
         return;
     }
     ivec2 texel = ivec2(texelPos);
@@ -37,6 +38,7 @@ void main() {
     uint paletteWord = texelFetch(vram, ivec2(clutX + int(index), clutY), 0).r;
 
     float alpha = ((paletteWord & 0x8000u) != 0u) ? opacity : 1.0;
+    if (additive == 1) alpha = ((paletteWord & 0x8000u) != 0u) ? 0.0 : 1.0;
 
     if (paletteWord == 0u)
         discard;

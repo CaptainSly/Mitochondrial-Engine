@@ -264,6 +264,7 @@ public class PERipper {
         Logger.debug("PACK SIZE: " + entries.get("common/dataPack").length);
 
         byte[] startupResources = fs1.readSectors(pe, boundaries[3], boundaries[4] - boundaries[3]);
+        byte[] objectPalettes = fs1.readSectors(pe, boundaries[4], boundaries[5] - boundaries[4]);
         byte[] effectSprites = fs1.readSectors(pe, boundaries[5], boundaries[6] - boundaries[5]); //r05
         byte[] commonSounds = fs1.readSectors(pe, boundaries[7], boundaries[8] - boundaries[7]);
         byte[] ui = fs1.readSectors(pe, boundaries[9], boundaries[10] - boundaries[9]);
@@ -272,6 +273,9 @@ public class PERipper {
         byte[] scene = fs1.readSectors(pe, boundaries[39], boundaries[40] - boundaries[39]);
         byte[] fxTaskPrograms = fs1.readSectors(pe, boundaries[69], boundaries[70] - boundaries[69]);
         byte[] fontBlob = fs1.readSectors(pe, boundaries[72], boundaries[73] - boundaries[72]);
+
+        entries.put("images/common/objectPalettes", convertImagesToBytes(readVramUploads(objectPalettes)));
+        Logger.debug("Object Palettes Images: " + readVramUploads(objectPalettes).size());
 
         entries.put("common/startupResources", startupResources);
         Logger.debug("Startup Resources Size: " + startupResources.length);
@@ -361,6 +365,18 @@ public class PERipper {
         int windowsBoundsAt = (int) ((WINDOW_MODE_BOUNDS_RAM - loadAddress) + 0x800);
         entries.put("ui/windowModeBounds", Arrays.copyOfRange(exe, windowsBoundsAt, windowsBoundsAt + 16));
         Logger.debug("Window Mode Bounds Size: " + entries.get("ui/windowModeBounds").length);
+
+        int drawTablesAt = (int) ((FX_DRAW_TABLES_RAM - loadAddress) + 0x800);
+        entries.put("common/fxDrawTables", Arrays.copyOfRange(exe, drawTablesAt, (int) (drawTablesAt + 0x1F0L)));
+        Logger.debug("FX Draw Table Size: " + entries.get("common/fxDrawTables").length);
+
+        int emberTrackAt = (int) ((FX_EMBER_TRACK_RAM - loadAddress) + 0x800);
+        entries.put("common/fxEmberColorTrack", Arrays.copyOfRange(exe, emberTrackAt, (int) (emberTrackAt  + 0x28L)));
+        Logger.debug("FX Ember Color Track Size: " + entries.get("common/fxEmberColorTrack").length);
+
+        int constantsAt = (int) ((FX_CONSTANTS_RAM - loadAddress) + 0x800);
+        entries.put("common/fxConstants", Arrays.copyOfRange(exe, constantsAt, (int) (constantsAt + 0x74L)));
+        Logger.debug("FX Constant Size: " + entries.get("common/fxConstants").length);
 
         int soundDirAt = (int) (SOUND_DIR_RAM - loadAddress) + 0x800;
         long baseLBA = u32LE(exe, soundDirAt);
