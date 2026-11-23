@@ -105,7 +105,7 @@ See below
 
 **Q:** Can I use UPF to port a game myself?
 
-**A:** Technically yes. Parasite Eve's code that isn't shared by every PS1 game is contained directly inside a `pe` package in both the `upf-api` and `upf-core` projects. If you delete that, you can create a new package for the game you want to port and get started. You'll also need to strip the `Game.java` class down to just the EntryPoint skeleton. UPF provides Jar Plugin Loading, Input, OpenGL Graphic Output, and OpenAL Audio Output. It's currently being built out, with Parasite Eve building out some of the common PS1 foundations. Ports and Plugins/Mods inherit the license as they utilize the `upf-api`. 
+**A:** Yes! Check out [UPF](https://github.com/CaptainSly/Untitled-Porting-Framework) to get started. 
 
 **Q:** What can I do with modding?
 
