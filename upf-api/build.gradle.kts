@@ -19,4 +19,5 @@ dependencies {
     implementation("org.joml", "joml", jomlVersion)
 
     implementation("org.tinylog:tinylog-api:$tinylogVersion")
+    implementation("org.tinylog:tinylog-impl:${tinylogVersion}")
 }

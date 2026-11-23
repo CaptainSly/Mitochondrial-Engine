@@ -15,8 +15,7 @@ import java.util.function.IntConsumer;
 import static com.duckcraftian.upf.pe.ParasiteEve.*;
 import static com.duckcraftian.upf.pe.gfx.BackgroundAnimation.*;
 import static com.duckcraftian.upf.ps1.PSXMath.*;
-import static com.duckcraftian.upf.system.DataTypeHelper.u32LE;
-import static com.duckcraftian.upf.system.DataTypeHelper.u8;
+import static com.duckcraftian.upf.system.DataTypeHelper.*;
 
 public class ScriptVM {
 
@@ -392,6 +391,13 @@ public class ScriptVM {
 
     public static List<ScriptVM> getActors() {
         return actors;
+    }
+
+    public int[][] currentPose() {
+        PEModel model = models.get(type);
+        int[] rot = modelMatrix();
+        int[] at = {posX >> 16, posY >> 16, posZ >> 16};
+        return model.pose(getAnimation(), getFrame(), rot, at);
     }
 
     public int[] modelMatrix() {
@@ -2326,8 +2332,13 @@ public class ScriptVM {
                 if (actor != getPlayer() && actor.hasCombatant && (actor.coreFlags & 0x6000) == 0x2000)
                     stepEnemyMovement(actor);
 
+            if (battleModeState != 6) return;
             PEHud.updateGaugeColors();
             battleFrame += 1;
+        }
+
+        for (ScriptVM actor : getActors()) {
+            if (actor != getPlayer() && actor.hasCombatant) actor.updateEnemy();
         }
 
         if (battleModeState != 6) return;
@@ -2861,6 +2872,57 @@ public class ScriptVM {
         }
     }
 
+    public void updateEnemy() {
+        if (fields[60] < fields[44]) fields[44] = fields[60];
+        if ((gameStateFlags & 0x100) == 0) {
+            if ((fields[43] & 0xFFFF) == 0) {
+                int flags = coreFlags;
+                if ((flags & 0xE) != 0) {
+                    coreFlags = (flags & ~0xE) | (((((flags >> 1) & 7) - 1) & 7) * 2);
+                    if ((coreFlags & 0x180E) == 0) {
+                        entityFlags &= ~0x1000;
+                        setAttackEffectState(4);
+                        coreFlags &= 0xC0FFFFFF;
+                    }
+                }
+
+                flags = coreFlags;
+                if ((flags & 0x1800) != 0) {
+                    coreFlags = (flags & ~0x1800) | (((((flags >> 11) & 3) - 1) & 3) << 11);
+                    if ((coreFlags & 0x180E) == 0) {
+                        entityFlags &= ~0x1000;
+                        setAttackEffectState(4);
+                        coreFlags &= 0xC0FFFFFF;
+                    }
+                }
+            }
+
+            int charge = fields[43] & 0xFFFF;
+            int step = fields[62] & 0xFFFF;
+            if (charge < 0x2328) {
+                int nextCharge = (charge + step) & 0xFFFF;
+                fields[43] = nextCharge;
+                if ((coreFlags & 1) != 0) fields[43] = (nextCharge - (step * 2) / 5) & 0xFFFF;
+            } else {
+                fields[43] = 0x2328;
+                if ((entityFlags & 0x1000) != 0) fields[43] = 0;
+            }
+
+            int damageFlags = coreFlags;
+            if ((damageFlags & 0x10) != 0) {
+                int ticks = (damageFlags >> 5) & 0x1F;
+                if (ticks >= 0x1E) {
+                    fields[44] -= toS16(fields[69]);
+                    coreFlags &= ~0x3E0;
+                } else {
+                    coreFlags = (damageFlags & ~0x3E0) | (((ticks + 1) & 0x1F) << 5);
+                }
+            }
+        }
+
+
+    }
+
     public void controller() {
         boolean battle = (gameStateFlags & 2) != 0;
         int dir = pad & 0x78;
@@ -2925,6 +2987,10 @@ public class ScriptVM {
         fadeFrame = fadeFrame + 1;
     }
 
+    public static int getRoomFloorY() {
+        return roomFloorY;
+    }
+
     private void move(int base, int newMode) {
         boolean battle = (gameStateFlags & 2) != 0;
         int mode = newMode;
@@ -2986,6 +3052,14 @@ public class ScriptVM {
         motionX = (int) (((long) c * mx + (long) sn * mz) >> 12);
         motionY = 0;
         motionZ = (int) (((long) -sn * mx + (long) c * mz) >> 12);
+    }
+
+    public int getSoundTag() {
+        return fields[2];
+    }
+
+    public void orEntityFlags(int mask) {
+        entityFlags |= mask;
     }
 
     public void advanceAnim() {

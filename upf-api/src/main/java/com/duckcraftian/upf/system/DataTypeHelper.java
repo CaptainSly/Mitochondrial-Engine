@@ -32,6 +32,12 @@ public class DataTypeHelper {
         return (short) (b0 | (b1 << 8));
     }
 
+    public static int toS16(int v) {
+        int low = v & 0xFFFF;
+        if (low >= 0x8000) return low - 0x10000;
+        return low;
+    }
+
     public static void put16LE(byte[] buffer, int offset, int value) {
         buffer[offset] = (byte) (value & 0xFF);
         buffer[offset + 1] = (byte) ((value >> 8) & 0xFF);

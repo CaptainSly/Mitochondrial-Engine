@@ -1,9 +1,6 @@
 package com.duckcraftian.upf.ps1;
 
-import com.duckcraftian.upf.ps1.gfx.GTE;
-import org.tinylog.Logger;
-
-import java.util.Arrays;
+import static com.duckcraftian.upf.system.DataTypeHelper.toS16;
 
 public class PSXMath {
 
@@ -45,6 +42,23 @@ public class PSXMath {
         if (d == 0) return (a >= 0 ? -1 : 1) << 8;
 
         return (a / d) << 8;
+    }
+
+    public static int[] averageShorts(int[] first, int[] second, int firstWeight, int secondWeight) {
+        int[] out = {0, 0, 0};
+        for (int k = 0; k < 3; k++) {
+            out[k] = toS16(((first[k] * firstWeight) >> 12) + ((second[k] * secondWeight) >> 12));
+        }
+
+        return out;
+    }
+
+    public static int ratan2(int y, int x) {
+        return (int) Math.round(Math.atan2(y, x) * 2048 / Math.PI);
+    }
+
+    public static int squareRoot0(long n) {
+        return (int) Math.floor(Math.sqrt(n));
     }
 
     public static int[] mulRotMatrix(int[] matrix) {

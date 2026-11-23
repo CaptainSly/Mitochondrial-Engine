@@ -303,6 +303,9 @@ public class ProcessManager {
         if (slot == -1) return -3;
         slotState[slot] = 1;
         slotCommand[slot] = original;
+
+        Logger.debug("Effect Process Started: Command=" + original + ", slot=" + slot);
+
         slotOwnerKind[slot] = 0;
         slotLiveSlots[slot] = 0;
         slotTicks[slot] = 0;

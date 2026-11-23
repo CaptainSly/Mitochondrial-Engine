@@ -11,6 +11,8 @@ public class EffectProgram {
     private int[] callbacks;
     int[] sizes;
     int[] script;
+    byte[] progData;
+    long progBase;
 
     int initializeAddress;
     private int scriptAddress;
@@ -34,6 +36,8 @@ public class EffectProgram {
     public static EffectProgram parse(byte[] data, long base, long programAddress) {
         int at = (int) (programAddress - base);
         EffectProgram program = new EffectProgram();
+        program.progData = data;
+        program.progBase = base;
         for (int k = 0; k < 8; k++) {
             program.callbacks[k] = (int) u32LE(data, at + 4 * k);
             program.sizes[k] = u16LE(data, at + 0x20 + 2 * k);
