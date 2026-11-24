@@ -112,13 +112,15 @@ See below
 **A:** When the port is functional, and has been modernized you should be able to create custom items, weapons, armors, skills, enemies, etc. But currently, nothing. The current scope right now is to port the code, then once it's functional, modernize the code so it's no longer using PS1 style functionality, and uses more modern game dev approach. Allowing for finer grain control over the data, while still functioning the way the game played on the PS1. 
 
 # License
-"Copyright (C) 2026 Azraein". The license will be moved to GPLv3 in the future.
+"Copyright (C) 2026 Azraein".
 
 "Parasite Eve" Game Assets are not covered by the license and are not redistributed.
 
 Do not use the names "Mitochondrial Engine" or "UPF" as your own in forks. 
 
 The license may be subjected to changes. The Parasite Eve decomp is still choosing a license, and when they update their license, some code in the project may be subject to their new license. 
+
+Parasite Eve belongs to Square Enix.
 
 # References
 
