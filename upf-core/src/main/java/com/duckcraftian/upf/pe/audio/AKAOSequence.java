@@ -326,6 +326,7 @@ public class AKAOSequence {
         if (op >= 0x8F) {
             keyOff(channel);
             channel.legato &= ~2;
+            channel.portamentoDuration = 0;
             return;
         }
 
@@ -334,28 +335,41 @@ public class AKAOSequence {
             else {
                 int note = op / 11 + channel.octave * 12;
                 if (channel.rangePending) selectByRange(channel, note);
-                channel.currentNote = note;
-                if ((channel.legato & 2) != 0) legatoNote(idx, note + channel.transpose);
-                else noteOn(idx, note + channel.transpose);
+
+                int startNote = 0;
+                if (channel.portamentoDuration != 0 && channel.portamentoPreviousNote != 0) {
+                    channel.slideDuration = channel.portamentoDuration;
+                    channel.slideDelta = channel.transpose + note - channel.portamentoPreviousNote - channel.portamentoPreviousTranspose;
+                    channel.currentNote = channel.portamentoPreviousNote - (channel.transpose - channel.portamentoPreviousTranspose);
+
+                    startNote = channel.portamentoPreviousNote + channel.portamentoPreviousTranspose;
+                    Logger.debug("Portamento idx: " + idx + ", startNote: " + startNote + ", note: " + (note + channel.transpose) + ", slideDur: " + channel.slideDuration);
+                } else {
+                    channel.currentNote = note;
+                    startNote = note + channel.transpose;
+                }
+
+                if ((channel.legato & 2) != 0) legatoNote(idx, startNote);
+                else noteOn(idx, startNote);
             }
-            startSlide(idx);
-        } else {
-            startSlide(idx);
         }
 
+        startSlide(idx);
+
         channel.legato = (channel.legato & ~2) | ((channel.legato & 1) << 1);
+        channel.portamentoPreviousNote = channel.currentNote;
+        channel.portamentoPreviousTranspose = channel.transpose;
     }
 
     public void startSlide(int idx) {
         AKAOChannel ch = channels[idx];
         if (ch.slideDelta == 0) return;
-        int delta = ch.slideDelta;
+        ch.currentNote = ch.currentNote + ch.slideDelta;
         ch.slideDelta = 0;
 
         if (ch.voice < 0) return;
         AKAOInstrument instrument = instruments[ch.instrument];
-        ch.noteUsed += delta;
-        int target = pitchFor(instrument.bank(), instrument.recordOffset(), ch.noteUsed, ch.detune);
+        int target = pitchFor(instrument.bank(), instrument.recordOffset(), ch.currentNote + ch.transpose, ch.detune);
         int diff = (target << 16) - ((ch.basePeriod << 16) + ch.slideAcc);
 
         ch.slideStep = diff / ch.slideDuration;
@@ -406,7 +420,6 @@ public class AKAOSequence {
         AKAOInstrument instrument = instruments[ch.instrument];
         int period = pitchFor(instrument.bank(), instrument.recordOffset(), note, ch.detune);
         ch.basePeriod = period;
-        ch.noteUsed = note;
         ch.slideAcc = 0;
         restartLFOs(ch, period);
         applyVolume(ch);
@@ -434,7 +447,6 @@ public class AKAOSequence {
         voices[v].setFm(ch.fm);
         ch.voice = v;
         ch.basePeriod = period;
-        ch.noteUsed = note;
         ch.slideAcc = 0;
         ch.slideSteps = 0;
 
@@ -624,6 +636,18 @@ public class AKAOSequence {
         } else if (opCode == 0xB2) {
             ch.releaseRate = u8(payload, ch.pc);
             ch.pc++;
+        } else if (opCode == 0xB3) {
+            ch.attackOverride = -1;
+            ch.sustainRateOverride = -1;
+            ch.sustainModeOverride = -1;
+            ch.releaseRate = -1;
+
+            if (ch.voice >= 0) {
+                AKAOInstrument instrument = instruments[ch.instrument];
+                int[] words = adsrWords(instrument.bank(), instrument.recordOffset(), -1, -1, -1);
+                voices[ch.voice].setAdsr(words[0], words[1]);
+            }
+
         } else if (opCode == 0xB4) {
             ch.lfoOn = true;
             if (nested) {
@@ -646,6 +670,10 @@ public class AKAOSequence {
             ch.lfoPos = lfoStart[ch.lfoSelector];
             ch.lfoCounter = ch.lfoDelay;
             ch.lfoPhase = 1;
+        } else if (opCode == 0xB6) {
+            ch.lfoOn = false;
+            ch.lfoValue = 0;
+            applyPitch(ch);
         } else if (opCode == 0xB8) {
             ch.vlfoOn = true;
             if (nested) {
@@ -669,7 +697,17 @@ public class AKAOSequence {
             ch.vlfoPhase = 1;
         } else if (opCode == 0xB9) {
             ch.vlfoTarget = u8(payload, ch.pc) << 8;
-            ch.pc = ch.pc + 1;
+            ch.pc += 1;
+        } else if (opCode == 0xBA) {
+            ch.vlfoOn = false;
+            ch.vlfoValue = 0;
+            applyVolume(ch);
+        } else if (opCode == 0xC0) {
+            ch.transpose = s8(payload, ch.pc);
+            ch.pc += 1;
+        } else if (opCode == 0xC1) {
+            ch.transpose += s8(payload, ch.pc);
+            ch.pc += 1;
         } else if (opCode == 0xC2) {
             ch.reverb = true;
             if (ch.voice >= 0)
@@ -706,6 +744,16 @@ public class AKAOSequence {
         } else if (opCode == 0xD8) {
             ch.detune = s8(payload, ch.pc);
             ch.pc = ch.pc + 1;
+        } else if (opCode == 0xDA) {
+            ch.portamentoDuration = u8(payload, ch.pc);
+            if (ch.portamentoDuration == 0) ch.portamentoDuration = 256;
+
+            ch.portamentoPreviousNote = 0;
+            ch.portamentoPreviousTranspose = 0;
+            ch.legato = 1;
+            ch.pc += 1;
+        } else if (opCode == 0xDB) {
+            ch.portamentoDuration = 0;
         } else if (opCode == 0xDD) {
             int duration = u8(payload, ch.pc);
             if (duration == 0) duration = 256;
@@ -731,7 +779,10 @@ public class AKAOSequence {
         while (true) {
             int code = u8(payload, p);
             if (code < 0x9A) {
-                if (code >= 0x8F) ch.legato &= ~5;
+                if (code >= 0x8F) {
+                    ch.legato &= ~5;
+                    ch.portamentoDuration = 0;
+                }
                 return code;
             }
 
@@ -751,16 +802,19 @@ public class AKAOSequence {
                 } else p = ch.loopPcs[top];
             } else if (code == 0xCB || code == 0xCD || code == 0xD1 || code == 0xDB) {
                 ch.legato = ch.legato & ~5;
+                ch.portamentoDuration = 0;
                 p += 1;
             } else if (code == 0xCA) {
                 if (ch.keyOffPending) {
                     ch.legato &= ~5;
+                    ch.portamentoDuration = 0;
                     return 0xA0;
                 }
                 p = ch.loopPcs[top];
             } else if (u8(lengths, code - 0xA0) != 0) p += u8(lengths, code - 0xA0);
             else {
                 ch.legato &= ~5;
+                ch.portamentoDuration = 0;
                 return 0xA0;
             }
         }

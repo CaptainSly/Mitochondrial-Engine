@@ -33,7 +33,9 @@ public class AKAOChannel {
     int handle;
     int streamVolume;
     int basePeriod;
-    int noteUsed;
+    int portamentoDuration;
+    int portamentoPreviousNote;
+    int portamentoPreviousTranspose;
     int detune;
     int slideAcc;
     int slideStep;

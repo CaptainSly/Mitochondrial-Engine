@@ -202,6 +202,11 @@ public class SpuVoice {
         else if (phase == RELEASE && level == 0) phase = OFF;
     }
 
+    public void setAdsr(int newAdsr1, int newAdsr2) {
+        adsr1 = newAdsr1;
+        adsr2 = newAdsr2;
+    }
+
     public void setPitch(int pitch) {
         this.pitch = pitch;
     }

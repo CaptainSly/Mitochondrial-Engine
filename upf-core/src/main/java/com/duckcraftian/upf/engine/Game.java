@@ -342,8 +342,10 @@ public class Game implements EntryPoint {
 
         camera.step();
 
-        for (ScriptVM vm : ScriptVM.getActors())
-            vm.advanceAnim();
+        if ((ScriptVM.gameStateFlags & 4) == 0) {
+            for (ScriptVM vm : ScriptVM.getActors())
+                vm.advanceAnim();
+        }
 
         ScriptVM player = ScriptVM.getPlayer();
         if ((player != null) && camera.canFollow() && !ScriptVM.cameraFrozen) {

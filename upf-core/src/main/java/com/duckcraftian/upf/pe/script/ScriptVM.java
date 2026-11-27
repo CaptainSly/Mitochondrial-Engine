@@ -346,6 +346,8 @@ public class ScriptVM {
         padRelease = padOld & ~pad;
         padOld = pad;
 
+        if ((gameStateFlags & 4) != 0) return;
+
         for (int i = 0; i < actors.size(); i++) {
             ScriptVM vm = actors.get(i);
             if ((vm.entityFlags & 0x10) == 0) continue;
@@ -367,6 +369,9 @@ public class ScriptVM {
             if ((vm.type == 0) && (moveLock & 1) == 0) vm.controller();
             vm.integrate();
         }
+
+        ScriptVM player = getPlayer();
+        if ((moveLock & 4) != 0 && player != null) player.applyArenaWall();
 
         for (ScriptVM actor : actors)
             actor.updatePosition();
@@ -2202,6 +2207,127 @@ public class ScriptVM {
         return dirty;
     }
 
+    public static int findTouchedWallEdge(int x, int z, int radius) {
+        int last = wallPolygonStart + 8 * (wallPolygonCount - 1);
+        int prevX = s16LE(CONTAINER, last + 2);
+        int prevZ = s16LE(CONTAINER, last + 6);
+
+        for (int i = 0; i < wallPolygonCount; i++) {
+            int startX = prevX;
+            int startZ = prevZ;
+            int at = wallPolygonStart + 8 * i;
+            int endX = s16LE(CONTAINER, at + 2);
+            int endZ = s16LE(CONTAINER, at + 6);
+            prevX = endX;
+            prevZ = endZ;
+
+            boolean outside = (endX < x - radius && startX < x - radius) ||
+                    (x + radius < endX && x + radius < startX) ||
+                    (endZ < z - radius && startZ < z - radius) ||
+                    (z + radius < endZ && z + radius < startZ);
+
+            if (!outside) {
+                int edgeX = startX - endX;
+                int edgeZ = startZ - endZ;
+                int length = PSXMath.squareRoot0(edgeX * edgeX + edgeZ * edgeZ);
+                int offsetX = x - endX;
+                int offsetZ = z - endZ;
+                int away = Math.abs((offsetZ * edgeX - offsetX * edgeZ) / length);
+
+                if (away <= radius) {
+                    int[] unit = PSXMath.vectorNormal(edgeX, 0, edgeZ);
+                    int measure = fixedMul(unit[0] << 4, offsetX << 16) + fixedMul(unit[2] << 4, offsetZ << 16);
+                    boolean touching = true;
+
+                    if (measure < 0) {
+                        measure = offsetX * offsetX + offsetZ * offsetZ;
+                        if (measure > radius * radius) touching = false;
+                    }
+
+                    if (touching && length < (measure >> 16)) {
+                        int fromStart = (x - startX) * (x - startX) + (z - startZ) * (z - startZ);
+                        if (fromStart > radius * radius) touching = false;
+                    }
+
+                    if (touching) return i;
+
+                }
+
+            }
+        }
+
+        return -1;
+    }
+
+    private void slideAlongArenaWall(int edge, int radius) {
+        int endAt = wallPolygonStart + 8 * edge;
+        int previous = edge - 1;
+        if (edge <= 0) previous = wallPolygonCount - 1;
+
+        int startAt = wallPolygonStart + 8 * previous;
+        int endX = s16LE(CONTAINER, endAt + 2);
+        int endZ = s16LE(CONTAINER, endAt + 6);
+        int startX = s16LE(CONTAINER, startAt + 2);
+        int startZ = s16LE(CONTAINER, startAt + 6);
+
+        int[] unit = PSXMath.vectorNormal(endX - startX, 0, endZ - startZ);
+
+        int unitX = unit[0] << 4;
+        int unitZ = unit[2] << 4;
+
+        int along = fixedMul(unitX, posX - baseX) + fixedMul(unitZ, posZ - baseZ);
+
+        int x = fixedMul(unitX, along) + baseX;
+        int z = fixedMul(unitZ, along) + baseZ;
+
+        int backX = startX - endX;
+        int backZ = startZ - endZ;
+        int length = PSXMath.squareRoot0(backX * backX + backZ * backZ);
+
+        int away = Math.abs((((z >> 16) - endZ) * backX - ((x >> 16) - endX) * backZ) / length);
+        if (away > radius) {
+            posX = x;
+            posZ = z;
+            return;
+        }
+
+        int step = 0;
+        while (true) {
+            for (int dir = 0; dir < 4; dir++) {
+                int tryX = x;
+                int tryZ = z;
+                if (dir == 0) tryX += (step << 16);
+                if (dir == 1) tryX -= (step << 16);
+                if (dir == 2) tryZ += (step << 16);
+                if (dir == 3) tryZ -= (step << 16);
+
+                away = Math.abs((((tryZ >> 16) - endZ) * backX - ((tryX >> 16) - endX) * backZ) / length);
+
+                if (away > radius) {
+                    posX = tryX;
+                    posZ = tryZ;
+                    return;
+                }
+            }
+
+            step += 1;
+        }
+    }
+
+    public void applyArenaWall() {
+        int radius = hitRadius * moveSpeed / 4096;
+        int edge = findTouchedWallEdge(posX >> 16, posZ >> 16, radius);
+        if (edge < 0) return;
+
+        slideAlongArenaWall(edge, radius);
+        int still = findTouchedWallEdge(posX >> 16, posZ >> 16, radius);
+        if (still >= 0) {
+            posX = baseX;
+            posY = baseY;
+            posZ = baseZ;
+        }
+    }
+
     public static void checkAutoFadeIn() {
         if (!justLoaded) return;
         justLoaded = false;
@@ -2437,8 +2563,10 @@ public class ScriptVM {
             }
         }
 
-        for (ScriptVM actor : getActors()) {
-            if (actor != getPlayer() && actor.hasCombatant) actor.updateEnemy();
+        if (battleModeState == 0 || battleModeState == 6) {
+            for (ScriptVM actor : getActors()) {
+                if (actor != getPlayer() && actor.hasCombatant) actor.updateEnemy();
+            }
         }
 
         if (battleModeState != 6) return;
@@ -2633,6 +2761,7 @@ public class ScriptVM {
         holdEnd = AYA_STATS.animMode[3];
         shotFired = false;
         moveLock |= 1;
+        gameStateFlags |= 4;
         turnLocked = true;
         Logger.debug("Target Count: " + targetCount + ", Turn Slot: " + turnSlot + ", Actions Left: " + actionsLeft);
         PEAUDIO.stopSfx(0, 0xFF);
@@ -2663,7 +2792,7 @@ public class ScriptVM {
         if ((word & 0x3FF) != 0) {
             shotFired = true;
             AYA_STATS.actionAttackWord = (word & ~0x3FF) | (((word & 0x3FF) - 1) & 0x3FF);
-            Logger.info("I'M ALL SHOT UP!");
+            // I'M ALL SHOT UP!
             Logger.debug("Fire | Mode: " + getPlayer().actionMode + ", Ammo Before: " + (word & 0x3FF) + ", Ammo After: " + (AYA_STATS.actionAttackWord & 0x3FF));
             return;
         }
@@ -2731,6 +2860,7 @@ public class ScriptVM {
                     return 1;
                 }
 
+                // Bitch can't reload a fuckin hand gun? Shame.
                 Logger.error("No-Ammo Path not Ported");
                 player.setActionMode(IDLE_MODE);
                 return 1;
@@ -2749,6 +2879,7 @@ public class ScriptVM {
     public static int stepTurn() {
         if (turnSlot == 0) {
             finishTurn();
+            gameStateFlags &= ~4;
             return 0;
         }
 
@@ -2775,6 +2906,7 @@ public class ScriptVM {
 
             actionsLeft = 0;
         } else if (mode == 0x40) {
+            // TODO This needs fixed ASAP. PS1 RAND is implemented
             Logger.error("Random Target Mode (Turn Word 0x40) Not Ported Yet. Needs Bios RAND");
             actionsLeft = 0;
         } else {
@@ -3020,10 +3152,6 @@ public class ScriptVM {
             }
         }
 
-
-        if (debugTick % 30 == 0)
-            Logger.debug("Charge Fields: fields[43]: " + (fields[43] & 0xFFFF) + ", fields[62]: " + (fields[62] & 0xFFFF) + ", entityFlags: " + (entityFlags & 0x1000) + ", coreFlags: 0x" + Integer.toHexString(coreFlags).toUpperCase() + ", gameStateFlags: " + Integer.toHexString(gameStateFlags).toUpperCase());
-
     }
 
     public void controller() {
@@ -3100,10 +3228,10 @@ public class ScriptVM {
 
         if (battle) mode = BATTLE_RUN_MODE;
 
-        if (entityMode != newMode) {
+        if (actionMode != mode)
             setActionMode(mode);
-            entityMode = newMode;
-        }
+
+        entityMode = newMode;
 
         int s = fixedMul(base, moveFactor);
         s = fixedMul(s, moveSpeed << 4);

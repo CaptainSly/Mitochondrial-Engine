@@ -53,6 +53,18 @@ public class PSXMath {
         return out;
     }
 
+    public static int[] vectorNormal(int x, int y, int z) {
+        int v = x * x + y * y + z * z;
+        int e = Integer.numberOfLeadingZeros(v) & ~1;
+        int shift = (31 - e) >> 1;
+        int m = 0;
+         if (e >= 24) m = v << (e - 24);
+         else m = v >> (24 - e);
+
+         int scale = (int) Math.floor(4096 / Math.sqrt((double) m / 64.0));
+         return new int[]{ (x * scale) >> shift, (y * scale) >> shift, (z * scale) >> shift};
+    }
+
     public static int ratan2(int y, int x) {
         return (int) Math.round(Math.atan2(y, x) * 2048 / Math.PI);
     }
