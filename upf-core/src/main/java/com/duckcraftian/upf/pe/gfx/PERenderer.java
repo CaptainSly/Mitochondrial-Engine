@@ -78,6 +78,7 @@ public class PERenderer implements IDisposable {
         blitShader = new ShaderProgram("shaders/ps1/ps1_blit");
         blitShader.createUniform("screen");
         blitShader.createUniform("fade");
+        blitShader.createUniform("fadeBlend");
 
         polygonShader = new ShaderProgram("shaders/ps1/ps1_poly");
         polygonShader.createUniform("vram");
@@ -215,8 +216,13 @@ public class PERenderer implements IDisposable {
         glViewport(x, y, w, h);
         blitShader.begin();
         blitShader.set("screen", 0);
+
+        int blend = ScriptVM.fadeBlend;
+        if (ScriptVM.fadeEnds && ScriptVM.fadeFrame >= ScriptVM.fadeDuration) blend = 2;
+
         fadeColor.set(ScriptVM.fadeLevel[0] / 255.0f, ScriptVM.fadeLevel[1] / 255.0f, ScriptVM.fadeLevel[2] / 255.0f);
         blitShader.set("fade", fadeColor);
+        blitShader.set("fadeBlend", blend);
         screen.draw();
         blitShader.end();
     }
@@ -237,6 +243,7 @@ public class PERenderer implements IDisposable {
             blitShader.set("screen", 0);
             fadeColor.set(0, 0, 0);
             blitShader.set("fade", fadeColor);
+            blitShader.set("fadeBlend", 2);
             quad.draw();
         }
         blitShader.end();

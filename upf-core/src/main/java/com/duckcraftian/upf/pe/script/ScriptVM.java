@@ -1,5 +1,6 @@
 package com.duckcraftian.upf.pe.script;
 
+import com.duckcraftian.upf.pe.AyaStats;
 import com.duckcraftian.upf.pe.disc.RoomParser;
 import com.duckcraftian.upf.pe.effects.ProcessManager;
 import com.duckcraftian.upf.pe.gfx.*;
@@ -62,6 +63,9 @@ public class ScriptVM {
     public static boolean loadBattleTextures = false;
 
     public static int menuDimLevel;
+
+    public static int fadeBlend = 2;
+    public static boolean fadeEnds = false;
 
     public static int messageBank;
     public static int menuChoice = -1;
@@ -204,6 +208,10 @@ public class ScriptVM {
     private static int queueCursor;
     private static int holdLead, holdFrames, holdReaim, holdEnd;
     private static int hitTimer, evasionStatus, evasionReaction;
+
+    private int deathPhase, deathFadeStep, deathFadeFrames;
+    private int entityTintR, entityTintG, entityTintB;
+
     private static boolean actionCommitted;
     private static boolean shotFired;
     private static final int[] AIM_MODES = {6, 8, 10};
@@ -646,6 +654,15 @@ public class ScriptVM {
             combatantId = combatantCounter;
             for (int i = 0; i < 256; i++)
                 fields[i] = 0;
+
+            fields[94] = 1;
+            fields[95] = 1;
+            deathPhase = 0;
+            deathFadeStep = 0;
+            deathFadeFrames = 0;
+            entityTintR = 128;
+            entityTintG = 128;
+            entityTintB = 128;
 
             for (int i = 0; i < 54; i++) effects[i] = 0;
             for (int r = 0; r < 6; r++) {
@@ -1119,11 +1136,14 @@ public class ScriptVM {
         };
 
         handlers[FadeSceneToBlack] = _ -> {
+            fadeBlend = 2;
+            fadeEnds = false;
             startFade(255, 255, 255, get(0));
             return true;
         };
 
         handlers[FadeSceneIn] = _ -> {
+            fadeEnds = true;
             startFade(0, 0, 0, get(0));
             return true;
         };
@@ -1318,6 +1338,10 @@ public class ScriptVM {
         };
 
         handlers[FadeSceneToColor] = _ -> {
+            int mode = get(4) & 0xFFFF;
+            if (mode >= 4) mode = 1;
+            fadeBlend = mode;
+            fadeEnds = false;
             startFade(get(1), get(2), get(3), get(0));
             return true;
         };
@@ -2576,6 +2600,11 @@ public class ScriptVM {
             }
         }
 
+        if (battleModeState == 2) {
+            stepBattleWin();
+            return;
+        }
+
         if (battleModeState == 8) {
             updateBattleEnd();
             return;
@@ -2658,24 +2687,160 @@ public class ScriptVM {
         }
         player.setActionMode(pose);
 
+        closeBattle();
+        battleModeState = 12;
+        resetPlayerAfterBattle();
+
+        Logger.debug("Battle End: " + AYA_STATS.weaponLoaded + ", 0x" + Integer.toHexString(gameStateFlags).toUpperCase() + ", 0x" + Integer.toHexString(moveLock).toUpperCase());
+    }
+
+    public void freeCombatant() {
+        slotUsed[slot] = false;
+        hasCombatant = false;
+    }
+
+    public void stepEnemyDeath() {
+        if (deathPhase == 0) {
+            enemyCount -= 1;
+            deathPhase = 1;
+        }
+
+        if (deathPhase == 1) {
+            if ((fields[95] & 0xFF) != 0) {
+                int frame = (animFrame / 0x10000) & 0xFFFF;
+                int waitFrame = fields[64] & 0xFF;
+                int kind = (byte) fields[42];
+
+                if (frame < waitFrame && actionMode == 0 && kind < 2) return;
+
+                entityFlags |= 0x1100;
+                motionX = 0;
+                motionY = 0;
+                motionZ = 0;
+                deathFadeStep = 0;
+                deathPhase = 2;
+            } else deathPhase = 3;
+
+            PEAUDIO.stopSfx(0, 1 << slot);
+        } else if (deathPhase == 2) {
+            int color = (128 - deathFadeStep * 16) & 0xFF;
+
+            for (ScriptVM actor : getActors()) {
+                if (actor == this || (!actor.hasCombatant && actor.parent == this)) {
+                    actor.entityTintR = color;
+                    actor.entityTintG = 128;
+                    actor.entityTintB = color;
+                }
+            }
+
+            if (color == 0) {
+                deathFadeFrames = 22;
+                deathFadeStep = 0;
+                deathPhase = 3;
+            } else {
+                if (deathFadeStep == 0 && (fields[94] & 0xFF) != 0)
+                    PEAUDIO.playSfxAt(fields[52] & 0xFFFF, posX >> 16, posY >> 16, posZ >> 16);
+                deathFadeStep += 1;
+            }
+        } else if (deathPhase == 3) {
+            if ((fields[95] & 0xFF) != 0 && deathFadeFrames > 0) {
+                deathFadeFrames -= 1;
+                return;
+            }
+
+            entityFlags |= 0x410;
+            freeCombatant();
+
+            for (ScriptVM actor : getActors()) {
+                if (!actor.hasCombatant && actor.parent == this) actor.entityFlags |= 0x10;
+            }
+
+            Logger.debug("Enemy Reward Screen Not Ported: " + (fields[40] & 0xFFFF) + ", enemyCount: " + enemyCount);
+
+            if (enemyCount == 0) {
+                boolean anyLeft = false;
+                for (ScriptVM actor : getActors()) {
+                    if (actor != getPlayer() && actor.hasCombatant) anyLeft = true;
+                }
+
+                if (!anyLeft && AYA_STATS.curHp > 0) startBattleWin();
+            }
+        }
+    }
+
+    private void startBattleWin() {
+        ScriptVM player = getPlayer();
+        resetPlayerAfterBattle();
+        battleModeState = 2;
+        battleStepEnd = 0;
+        moveLock |= 1;
+        player.motionX = 0;
+        player.motionY = 0;
+        player.motionZ = 0;
+        player.entityFlags &= ~0x100;
+        sceneFlags |= 0x8000;
+
+        if ((gameStateFlags & 0x1800) == 0) {
+            player.setActionMode(20);
+            PEAUDIO.playCommonSfxAt(0x45B, player.posX >> 16, player.posY >> 16, player.posZ >> 16);
+        }
+    }
+
+    private static void stepBattleWin() {
+        ScriptVM player = getPlayer();
+
+        if (battleStepEnd == 0) {
+            if ((player.animFrame / 0x10000) != 0 && (gameStateFlags & 0x800) == 0) return;
+            player.entityFlags |= 0x100;
+            ProcessManager.stopAllBoth();
+            Logger.error("Results screen not ported");
+            battleStepEnd = 1;
+        } else if (battleStepEnd == 1) {
+            player.entityFlags &= ~0x100;
+            battleStepEnd = 2;
+        } else if (battleStepEnd == 2) {
+            if (player.animLastFrame == player.animPrev / 0x10000) {
+                int pose = 21;
+                if ((gameStateFlags & 0x1800) != 0) {
+                    pose = 24;
+                    gameStateFlags &= ~0x1800;
+                }
+                player.setActionMode(pose);
+                battleStepEnd = 3;
+            }
+        } else {
+            closeBattle();
+            battleModeState = 9;
+            sceneFlags &= ~0x8000;
+            Logger.debug("Battle Won | Weapon Loaded: " + AYA_STATS.weaponLoaded + ", 0x" + Integer.toHexString(gameStateFlags).toUpperCase() + ", moveLock: 0x" + Integer.toHexString(moveLock).toUpperCase());
+        }
+    }
+
+    private static void closeBattle() {
         queueCursor = 0;
         queueCount = 0;
-        turnLocked = false;
-        readySeeded = false;
         gameStateFlags &= ~0x102;
         enemyCount = 0;
         moveLock &= ~0x10;
         AYA_STATS.weaponLoaded = AYA_STATS.actionAttackWord & 0x3FF;
-        battleModeState = 12;
+    }
+
+    private static void resetPlayerAfterBattle() {
+        ScriptVM player = getPlayer();
 
         if (AYA_STATS.curHp > AYA_STATS.maxHp) AYA_STATS.curHp = AYA_STATS.maxHp;
         player.fields[7] = 4;
         AYA_STATS.atbGauge = 0;
+        queueCursor = 0;
+        queueCount = 0;
         battleEscapeFlag = 0;
         AYA_STATS.stateFlags &= 0xC0000000;
-
-        Logger.debug("Battle End: " + AYA_STATS.weaponLoaded + ", 0x" + Integer.toHexString(gameStateFlags).toUpperCase() + ", 0x" + Integer.toHexString(moveLock).toUpperCase());
+        moveLock &= ~0x10;
+        gameStateFlags &= ~0x100;
+        turnLocked = false;
+        readySeeded = false;
     }
+
 
     private static void resolveHitOnTimer() {
         hitTimer += 1;
@@ -3250,7 +3415,24 @@ public class ScriptVM {
                 }
             }
         }
+        if (fields[44] <= 0 && (gameStateFlags & 0x100) == 0) {
+            int kind = fields[42] & 0xFF;
+            boolean settled = (coreFlags & 0x6000) == 0;
 
+            if (kind == 1) {
+                if (settled) {
+                    entityFlags |= 0x10;
+                    freeCombatant();
+                }
+            } else if (kind == 3) {
+                Logger.error("Combatant Kind 3 death not ported");
+            } else if (kind != 4 || settled) {
+                motionX = 0;
+                motionY = 0;
+                motionZ = 0;
+                stepEnemyDeath();
+            }
+        }
     }
 
     public void controller() {

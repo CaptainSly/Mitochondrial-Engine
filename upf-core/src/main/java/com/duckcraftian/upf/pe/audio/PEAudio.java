@@ -8,7 +8,6 @@ import org.tinylog.Logger;
 
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.Arrays;
 
 import static com.duckcraftian.upf.system.DataTypeHelper.*;
 
@@ -173,6 +172,12 @@ public class PEAudio {
         return playSfxFrom(common, commonBase, key, tag, pan, volume);
     }
 
+
+    public int playCommonSfxAt(int key, int x, int y, int z) {
+        int[] panVolume = camera.soundPosition(x, y, z);
+        return playCommonSfx(key, 0, panVolume[0], panVolume[1]);
+    }
+
     public int playActionSound(int slotNumber, int x, int y, int z) {
         if (actionSet == null) return -1;
         long dirOffset = u32LE(actionSet, 4);
@@ -283,4 +288,5 @@ public class PEAudio {
     public void setCDVolume(int i) {
         source.setMovieVolume(i);
     }
+
 }
