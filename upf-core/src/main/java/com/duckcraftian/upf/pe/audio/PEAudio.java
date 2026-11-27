@@ -24,8 +24,9 @@ public class PEAudio {
     public int[][] soundEvents;
     public byte[] roomContainer;
     public byte[] common;
+    public byte[] actionSet;
 
-    public int dynCount, stepSlot, commonBase;
+    public int dynCount, stepSlot, commonBase, actionBase;
     public PECamera camera;
 
     public AKAOAudioSource source;
@@ -48,12 +49,18 @@ public class PEAudio {
         sfxCounter = 0;
     }
 
-    public void loadRoomSfx(byte[] container) throws IOException {
+    public void loadRoomSfx(byte[] container, byte[] newActionSet) throws IOException {
         roomContainer = container;
-        byte[] combined = new byte[container.length + common.length];
+        actionSet = newActionSet;
+        int actionLength = 0;
+        if (actionSet != null) actionLength = actionSet.length;
+
+        byte[] combined = new byte[container.length + common.length + actionLength];
         System.arraycopy(container, 0, combined, 0, container.length);
         System.arraycopy(common, 0, combined, container.length, common.length);
         commonBase = container.length;
+        actionBase = container.length + common.length;
+        if (actionSet != null) System.arraycopy(actionSet, 0, combined, actionBase, actionLength);
 
         soundEvents = new int[20][6];
 
@@ -166,12 +173,27 @@ public class PEAudio {
         return playSfxFrom(common, commonBase, key, tag, pan, volume);
     }
 
+    public int playActionSound(int slotNumber, int x, int y, int z) {
+        if (actionSet == null) return -1;
+        long dirOffset = u32LE(actionSet, 4);
+        long word = u32LE(actionSet, (int) (dirOffset + 0x2C));
+        long count = word >> 22;
+        if (slotNumber >= count) return -1;
+
+        long record = (word & 0x3FFFFF) + 12 * slotNumber;
+        long snippet = u32LE(actionSet, (int) (record + 4)) & 0xFFFFFF;
+        int[] panVolume = camera.soundPosition(x, y, z);
+        Logger.debug("ACTION Sound | slotNumber: " + slotNumber + ", " + (u16LE(actionSet, (int) (record + 10))));
+        return startSfx(actionSet, actionBase, snippet, 0, panVolume[0], panVolume[1]);
+    }
+
     public int playSfxFrom(byte[] container, int base, int key, int tag, int pan, int volume) {
         long dirOffset = u32LE(container, 4);
         long word = u32LE(container, (int) (dirOffset + 0x2C));
         long count = word >> 22;
         long tableOff = word & 0x3FFFFF;
         long snippet = -1;
+
         for (int i = 0; i < count; i++) {
             long record = tableOff + 12 * i;
             if (u16LE(container, (int) (record + 10)) == key) {
@@ -181,6 +203,10 @@ public class PEAudio {
         }
 
         if (snippet < 0) return -1;
+        return startSfx(container, base, snippet, tag, pan, volume);
+    }
+
+    public int startSfx(byte[] container, int base, long snippet, int tag, int pan, int volume) {
         long first = -1;
         long second = -1;
         int o0 = u16LE(container, (int) (snippet + 4));

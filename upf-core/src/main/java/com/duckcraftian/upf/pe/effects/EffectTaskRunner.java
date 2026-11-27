@@ -769,8 +769,6 @@ public class EffectTaskRunner implements ProcessCommand {
                     firstDepth = effectVertices.get(startSize + 6);
                 }
 
-                Logger.debug("BEAM | Current Process: " + currentProcess + ", CurrentAge: " + currentAge + ", position[0]: " + position[0] + ", position[1]: " + position[1] + ", position[2]: " + position[2] + ", added: " + added + ", firstX: " + firstX + ", firstY: " + firstY + ", firstDepth: " + firstDepth);
-
             }
 
             return 0;

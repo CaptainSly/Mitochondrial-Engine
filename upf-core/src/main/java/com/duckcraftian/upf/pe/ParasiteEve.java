@@ -159,6 +159,7 @@ public class ParasiteEve {
     public static final int Noop145 = 145;
     public static final int GetBattleModeState = 148;
     public static final int ClearBattleModeState = 149;
+    public static final int StartBattleEndPhase = 150;
     public static final int StopEffectProcess = 151;
     public static final int StopActorEffects = 152;
     public static final int StopAllEffectProcesses = 153;

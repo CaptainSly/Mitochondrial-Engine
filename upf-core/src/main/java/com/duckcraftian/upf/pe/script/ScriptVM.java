@@ -58,6 +58,7 @@ public class ScriptVM {
     public static int battleEscapeFlag = 0;
     public static int menuUnlockMask = 61;
     public static int battleStartPhase = 0;
+    public static int battleStepEnd = 0;
     public static boolean loadBattleTextures = false;
 
     public static int menuDimLevel;
@@ -292,7 +293,7 @@ public class ScriptVM {
         actors.clear();
 
         try {
-            PEAUDIO.loadRoomSfx(container);
+            PEAUDIO.loadRoomSfx(container, actionSet);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -727,6 +728,7 @@ public class ScriptVM {
                 loadBattleTextures = true;
                 gameStateFlags |= 2;
                 battleModeState = 0;
+                battleStepEnd = 0;
                 ScriptVM player = getPlayer();
                 AYA_STATS.recalc();
                 AYA_STATS.battleStartReset();
@@ -1167,6 +1169,11 @@ public class ScriptVM {
 
         handlers[StopEffectProcess] = _ -> {
             ProcessManager.stop(get(0), this, 0);
+            return true;
+        };
+
+        handlers[StartBattleEndPhase] = _ -> {
+            battleModeState = 8;
             return true;
         };
 
@@ -2569,6 +2576,11 @@ public class ScriptVM {
             }
         }
 
+        if (battleModeState == 8) {
+            updateBattleEnd();
+            return;
+        }
+
         if (battleModeState != 6) return;
 
         queueCursor = 0;
@@ -2590,6 +2602,79 @@ public class ScriptVM {
             PEAUDIO.stopSfx(0, 0xFF);
         }
 
+    }
+
+    public static void updateBattleEnd() {
+        ScriptVM player = getPlayer();
+        player.motionX = 0;
+        player.motionY = 0;
+        player.motionZ = 0;
+
+        int idle = player.fields[7];
+        if (player.actionMode != idle) player.setActionMode(idle);
+
+        if (battleStepEnd == 0) {
+            moveLock |= 1;
+            boolean ready = true;
+
+            for (ScriptVM actor : getActors()) {
+                if (actor != player && actor.hasCombatant) {
+                    int kind = actor.fields[42] & 0xFF;
+
+                    if (kind != 1) {
+                        if (actor.actionMode != 2 && actor.actionMode != 3) {
+                            if (actor.animLastFrame == actor.animPrev / 0x10000) {
+                                int enemyIdle = (byte) actor.fields[47];
+                                actor.setActionMode(enemyIdle);
+                            } else if (actor.animStep != 0x10000) actor.animStep = 0x10000;
+                        }
+
+                        if ((actor.coreFlags & 0x6000) != 0) {
+                            Logger.info("Mr. Stark I don't feel so good.");
+                            Logger.error("Enemy Death/Fade at battle end not ported");
+                        }
+                    }
+                }
+            }
+
+            if (ready) {
+                PEAUDIO.stopSfx(0, 0xFF);
+                ProcessManager.stopAllBoth();
+                battleStepEnd = 1;
+            }
+        } else finishBattle();
+    }
+
+    public static void finishBattle() {
+        ScriptVM player = getPlayer();
+        for (int i = 0; i < slotUsed.length; i++) {
+            slotUsed[i] = false;
+        }
+
+        int pose = 21;
+        if ((gameStateFlags & 0x1800) != 0) {
+            pose = 24;
+            gameStateFlags &= ~0x1800;
+        }
+        player.setActionMode(pose);
+
+        queueCursor = 0;
+        queueCount = 0;
+        turnLocked = false;
+        readySeeded = false;
+        gameStateFlags &= ~0x102;
+        enemyCount = 0;
+        moveLock &= ~0x10;
+        AYA_STATS.weaponLoaded = AYA_STATS.actionAttackWord & 0x3FF;
+        battleModeState = 12;
+
+        if (AYA_STATS.curHp > AYA_STATS.maxHp) AYA_STATS.curHp = AYA_STATS.maxHp;
+        player.fields[7] = 4;
+        AYA_STATS.atbGauge = 0;
+        battleEscapeFlag = 0;
+        AYA_STATS.stateFlags &= 0xC0000000;
+
+        Logger.debug("Battle End: " + AYA_STATS.weaponLoaded + ", 0x" + Integer.toHexString(gameStateFlags).toUpperCase() + ", 0x" + Integer.toHexString(moveLock).toUpperCase());
     }
 
     private static void resolveHitOnTimer() {
@@ -2718,7 +2803,8 @@ public class ScriptVM {
         ScriptVM target = queueActors[queueCursor];
 
         if (player.actionMode == 12) {
-            Logger.error("Action Mode 12: Out of Ammo, not ported yet");
+            if ((player.animPrev >> 16) != player.animLastFrame) return;
+            player.setActionMode(AIM_MODES[aimCategory(target)]);
             return;
         }
 
@@ -2791,6 +2877,11 @@ public class ScriptVM {
 
         if ((word & 0x3FF) != 0) {
             shotFired = true;
+            if ((AYA_STATS.stateFlags & 0x100000) == 0) {
+                ScriptVM player = getPlayer();
+                PEAUDIO.playActionSound(0, player.posX >> 16, player.posY >> 16, player.posZ >> 16);
+            }
+
             AYA_STATS.actionAttackWord = (word & ~0x3FF) | (((word & 0x3FF) - 1) & 0x3FF);
             // I'M ALL SHOT UP!
             Logger.debug("Fire | Mode: " + getPlayer().actionMode + ", Ammo Before: " + (word & 0x3FF) + ", Ammo After: " + (AYA_STATS.actionAttackWord & 0x3FF));
@@ -2861,8 +2952,12 @@ public class ScriptVM {
                 }
 
                 // Bitch can't reload a fuckin hand gun? Shame.
-                Logger.error("No-Ammo Path not Ported");
-                player.setActionMode(IDLE_MODE);
+                // Reports are in that the bitch finally learned how to reload a magazine.
+                if (AYA_STATS.reloadWeapon() != 0) {
+                    player.setActionMode(12);
+                    PEAUDIO.playActionSound(1, player.posX >> 16, player.posY >> 16, player.posZ >> 16);
+                }
+
                 return 1;
         }
 
@@ -2919,6 +3014,10 @@ public class ScriptVM {
     }
 
     private static void finishTurn() {
+        boolean hasShot = false;
+        for (int i = 0; i < queueCount; i++) if (queueCommand[i] == 1 || queueCommand[i] == 2) hasShot = true;
+        if (hasShot && AYA_STATS.actionId != 8 && (AYA_STATS.actionAttackWord & 0x3FF) == 0) AYA_STATS.reloadWeapon();
+
         Logger.error("Battle Dispatch Entity Effect not ported yet");
         AYA_STATS.atbGauge = 0;
         PEHud.resetGaugeColors();

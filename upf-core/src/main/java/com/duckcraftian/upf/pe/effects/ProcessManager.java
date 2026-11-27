@@ -254,12 +254,6 @@ public class ProcessManager {
         if ((ScriptVM.gameStateFlags & 0x80) == 0) return;
         for (int i = 0; i < 11; i++) startSlot(i);
 
-        frozenCheckFrames += 1;
-        if ((ScriptVM.gameStateFlags & 0x104) != 0 && frozenCheckFrames % 30 == 0) {
-            for (int slot = 0; slot < 11; slot++)
-                Logger.debug("117 Frozen Slot: " + slot + ", slotTicks: " + slotTicks + ", flags: 0x" + Integer.toHexString(ScriptVM.gameStateFlags).toUpperCase());
-        }
-
         if ((ScriptVM.gameStateFlags & 4) != 0) return;
         for (int slot = 0; slot < 11; slot++) {
             int command = slotCommand[slot];

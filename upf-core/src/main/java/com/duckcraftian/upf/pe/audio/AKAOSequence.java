@@ -343,7 +343,6 @@ public class AKAOSequence {
                     channel.currentNote = channel.portamentoPreviousNote - (channel.transpose - channel.portamentoPreviousTranspose);
 
                     startNote = channel.portamentoPreviousNote + channel.portamentoPreviousTranspose;
-                    Logger.debug("Portamento idx: " + idx + ", startNote: " + startNote + ", note: " + (note + channel.transpose) + ", slideDur: " + channel.slideDuration);
                 } else {
                     channel.currentNote = note;
                     startNote = note + channel.transpose;

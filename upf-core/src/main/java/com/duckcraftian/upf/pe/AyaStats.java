@@ -15,6 +15,9 @@ public class AyaStats {
 
     public static int stateFlags, level;
 
+    public static int weaponLoaded = -1;
+    public static int handgunReserve;
+
     public static int actionPowerBonus, actionRange, actionId, actionAttackWord, actionTurnWord;
     public static int hitTrigger;
 
@@ -47,8 +50,14 @@ public class AyaStats {
         int kind = u8(dataPack, row + 6);
         int attack = Math.min(u8(dataPack, row + 7) + s16LE(dataPack, row + 0x0E), 999);
         int rangeStat = Math.min(u8(dataPack, row + 8) + s16LE(dataPack, row + 0x10), 999);
+
         int power = Math.min(u8(dataPack, row + 9) + s16LE(dataPack, row + 0x12), 999);
-        int ammo = u16LE(dataPack, row + 0x0A);
+        if (weaponLoaded < 0) {
+            weaponLoaded = u16LE(dataPack, row + 0x0A);
+            handgunReserve = u16LE(dataPack, ITEM_TABLE_OFFSET + 0x0A);
+        }
+
+        int ammo = weaponLoaded;
         int tailCount = u8(dataPack, row + 0x14);
 
         int category = 0;
@@ -72,6 +81,21 @@ public class AyaStats {
             animMode[i] = u8(actionAnimRows, rowAt + i);
 
         hitTrigger = u8(actionAnimRows, rowAt + 4);
+    }
+
+    public static int reloadWeapon() {
+        int loaded = actionAttackWord & 0x3FF;
+        int capacity = (actionAttackWord >> 10) & 0x3FF;
+        int amount = capacity - loaded;
+        if (amount >= handgunReserve) amount = handgunReserve;
+
+        handgunReserve -= amount;
+        loaded += amount;
+        weaponLoaded = loaded;
+        actionAttackWord = (actionAttackWord & ~0x3FF) | loaded;
+
+        Logger.debug("Reload | amount: " + amount + ", loaded: " + loaded + ", handgunReserve: " + handgunReserve + ", capacity: " + capacity);
+        return amount;
     }
 
     private static int getTurn(int tailCount, int row) {
