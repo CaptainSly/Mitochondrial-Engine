@@ -25,6 +25,8 @@ public class ProcessManager {
 
     public static boolean programsLoadedFlag;
 
+    private static int frozenCheckFrames = 0;
+
     public static void loadExePrograms() {
         for (int i = 0; i < 23; i++)
             fxPrograms[i] = EffectProgram.EXE_PROGRAMS[i];
@@ -48,7 +50,7 @@ public class ProcessManager {
                 if (fxPrograms[index] == null) {
                     byte[] overlay = Arrays.copyOfRange(container, (int) dataAt, (int) (dataAt + size));
                     fxPrograms[index] = EffectProgram.parse(overlay, FX_ROOM_OVERLAY_BASE, pointer);
-                    Logger.debug("Loaded Program Index: " + index +  ", fxPrograms[index].script.length: " + fxPrograms[index].script.length + ", initializeAddress=0x" + Integer.toHexString(fxPrograms[32].initializeAddress));
+                    Logger.debug("Loaded Program Index: " + index + ", fxPrograms[index].script.length: " + fxPrograms[index].script.length + ", initializeAddress=0x" + Integer.toHexString(fxPrograms[index].initializeAddress));
                 }
             }
         }
@@ -251,6 +253,13 @@ public class ProcessManager {
     public static void runPrimary() {
         if ((ScriptVM.gameStateFlags & 0x80) == 0) return;
         for (int i = 0; i < 11; i++) startSlot(i);
+
+        frozenCheckFrames += 1;
+        if ((ScriptVM.gameStateFlags & 0x104) != 0 && frozenCheckFrames % 30 == 0) {
+            for (int slot = 0; slot < 11; slot++)
+                Logger.debug("117 Frozen Slot: " + slot + ", slotTicks: " + slotTicks + ", flags: 0x" + Integer.toHexString(ScriptVM.gameStateFlags).toUpperCase());
+        }
+
         if ((ScriptVM.gameStateFlags & 4) != 0) return;
         for (int slot = 0; slot < 11; slot++) {
             int command = slotCommand[slot];

@@ -31,14 +31,15 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import static com.duckcraftian.upf.pe.ParasiteEve.AYA_STATS;
 import static com.duckcraftian.upf.pe.ParasiteEve.PEAUDIO;
 import static com.duckcraftian.upf.pe.disc.SquareImageParser.convertBytesToImages;
+import static com.duckcraftian.upf.pe.disc.SquareImageParser.findKeyedAssetTable;
 import static com.duckcraftian.upf.serialization.UPDHSerializer.getStreamedData;
-import static com.duckcraftian.upf.system.DataTypeHelper.s16LE;
-import static com.duckcraftian.upf.system.DataTypeHelper.u16LE;
+import static com.duckcraftian.upf.system.DataTypeHelper.*;
 
 public class Game implements EntryPoint {
 
@@ -372,6 +373,32 @@ public class Game implements EntryPoint {
             byte[] data = getStreamedData(imageFile, "images/battle/textures");
             List<PSXImage> images = convertBytesToImages(data);
             images.forEach(renderer::upload);
+
+            // Room Effect Images, cause ya know, kinda need them fuckers loaded to display them...
+            byte[] container = ScriptVM.getRoomContainer();
+            long key = 0x73DECD80L;
+            while (true) {
+                int at = findKeyedAssetTable(container, key);
+                if (at == -1) break;
+
+                long source = u32LE(container, at + 4);
+                long geometry = u32LE(container, at + 8);
+
+                int start = (int) (at + (source & 0xFFFFFF));
+                int height = (int) ((source >> 24) & 0xFF);
+                if (height == 0) height = 256;
+
+                int width = (int) (geometry & 0x3FF);
+                int x = (int) ((geometry >> 10) & 0x7FF);
+                int y = (int) (geometry >> 21);
+
+                byte[] pixels = Arrays.copyOfRange(container, start, start + (width * 2 * height));
+                renderer.upload(new PSXImage(x, y, width, height, pixels));
+                Logger.debug("ROOM FX Image: " + (u8(container, at + 3)) + ", x: " + x + ", y: " + y + ", width: " + width + ", height: " + height);
+
+                key += 4;
+            }
+
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

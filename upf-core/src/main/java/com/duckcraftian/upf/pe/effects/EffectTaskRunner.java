@@ -410,6 +410,7 @@ public class EffectTaskRunner implements ProcessCommand {
         effectCallbacks[RoomM005Program][RoomM005CrossFlare] = (mode, payload, argument) -> {
 
             if (mode == 0) {
+                Logger.debug("117 Flare Created: " + currentProcess);
                 roomSound(0x5F8, ownerSoundTag(), 0x80, 0x7F);
                 roomSound(0x5F9, 0x80, 0x80, 0x7F);
                 return 0;
@@ -533,6 +534,7 @@ public class EffectTaskRunner implements ProcessCommand {
             int pool = taskEnd[currentProcess][currentTask];
 
             if (mode == 0) {
+                Logger.debug("117 BEACON Created: " + currentProcess);
                 int[] offset = {
                         programShort(0x8018F010L, 0),
                         programShort(0x8018F010L, 1),
@@ -633,6 +635,9 @@ public class EffectTaskRunner implements ProcessCommand {
             }
 
             if (mode == 2) {
+
+                int startSize = effectVertices.size();
+
                 int[] position = {
                         s16LE(a, beacon),
                         s16LE(a, beacon + 2),
@@ -753,6 +758,19 @@ public class EffectTaskRunner implements ProcessCommand {
                 programPutShort(0x80190BA0L, 1, rotation[1]);
                 programPutShort(0x80190BA0L, 2, 0);
 
+                int added = (effectVertices.size() - startSize) / 8;
+                int firstX = 0;
+                int firstY = 0;
+                int firstDepth = 0;
+
+                if (added > 0) {
+                    firstX = effectVertices.get(startSize + 0);
+                    firstY = effectVertices.get(startSize + 1);
+                    firstDepth = effectVertices.get(startSize + 6);
+                }
+
+                Logger.debug("BEAM | Current Process: " + currentProcess + ", CurrentAge: " + currentAge + ", position[0]: " + position[0] + ", position[1]: " + position[1] + ", position[2]: " + position[2] + ", added: " + added + ", firstX: " + firstX + ", firstY: " + firstY + ", firstDepth: " + firstDepth);
+
             }
 
             return 0;
@@ -803,6 +821,7 @@ public class EffectTaskRunner implements ProcessCommand {
 
             if (ProcessManager.slotCommand[slot] == 117) {
                 Logger.debug("M005 Effect Trigger Slot: " + slot + ", arg2: " + arg2);
+                Logger.debug("GameStateFlags: 0x" + Integer.toHexString(ScriptVM.gameStateFlags).toUpperCase());
                 if (arg2 == 1) variables[slot][0] = 1;
                 argument[slot] = 0x80190B80;
                 return 0;

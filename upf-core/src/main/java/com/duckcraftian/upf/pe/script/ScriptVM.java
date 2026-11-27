@@ -641,6 +641,18 @@ public class ScriptVM {
             for (int i = 0; i < 256; i++)
                 fields[i] = 0;
 
+            for (int i = 0; i < 54; i++) effects[i] = 0;
+            for (int r = 0; r < 6; r++) {
+                effects[r * 9 + 4] = 0x10000;
+                effects[r * 9 + 5] = 0x10000;
+            }
+
+            for (int i = 0; i < 24; i++) {
+                if (i < 8) effectParams[i] = 255;
+                else effectParams[i] = 0;
+            }
+
+            fields[47] = 2;
             fields[110] = 10;
             coreFlags = 0;
             if ((entityFlags & 0x2000) == 0) {
@@ -1262,6 +1274,25 @@ public class ScriptVM {
             }
 
             return true;
+        };
+
+        handlers[RunEntityCommand] = _ -> {
+            int recordIndex = get(0) & 0xFF;
+            int oldMode = actionMode;
+            int oldState = getAttackEffectState();
+
+            int result = stepActorAction(recordIndex);
+
+            int newState = getAttackEffectState();
+            if (actionMode != oldMode || newState != oldState || result != 0)
+                Logger.debug("RunEntityCommand | Action RecordIndex: " + recordIndex + ", " + oldMode + " -> actionMode: " + actionMode + ", " + oldState + " -> newState: " + newState + ", " + result);
+
+            set(1, result);
+            if (result != 0) return true;
+
+            node.active = 1;
+            node.cursor -= 16;
+            return false;
         };
 
         handlers[IsInRectangle] = _ -> {
@@ -2049,6 +2080,74 @@ public class ScriptVM {
         targetAngle[j] = tempAngle;
     }
 
+    private int stepActorAction(int recordIndex) {
+        if (!hasCombatant || (gameStateFlags & 2) == 0) return 1;
+
+        ScriptVM actor = this;
+        int kind = fields[42];
+        if ((kind == 2 || kind == 4) && parent != null) actor = parent;
+
+        if (recordIndex >= 6) return 0;
+
+        int result = 0;
+        int prevFrame = actor.animPrev >> 16;
+        int curFrame = actor.animFrame >> 16;
+        int nextFrame = curFrame;
+
+        if (actor.animPrev > actor.animFrame) nextFrame = curFrame + actor.animLastFrame + 1;
+
+        boolean finished = actor.animLastFrame >= prevFrame && actor.animLastFrame < nextFrame;
+
+        int base = ((coreFlags >> 21) & 7) * 9;
+        int mode = actor.actionMode;
+
+        if (mode == 0 || mode == 1) {
+        } else if (mode == 6 || mode == 8 || mode == 10 || mode == 12 || mode == 14) {
+            if (finished) {
+                actor.setActionMode(effects[base + 3]);
+                PEAUDIO.playSfxAt(fields[51] & 0xFFFF, actor.posX >> 16, actor.posY >> 16, actor.posZ >> 16);
+                actor.animStep = effects[base + 5];
+                effects[base] = 1;
+            }
+        } else if (mode == 7 || mode == 9 || mode == 11 || mode == 13 || mode == 15) {
+            if (finished && (coreFlags & 0x40000000) == 0) {
+                actor.setActionMode(fields[47]);
+                actor.animStep = 0x10000;
+                if (recordIndex < 3) {
+                    result = 1;
+                    effects[base] = 4;
+                }
+            }
+
+            if (kind == 0 && (coreFlags & 0x6000) != 0) {
+                if (effects[base] < 2) effects[base] = 4;
+                result = 2;
+            }
+
+            if (recordIndex < 3 && (effects[base + 7] == 1 || effects[base + 7] == 3)) {
+                if (effects[base + 8] < (actor.animFrame >> 16) && effects[base + 8] >= prevFrame) effects[base] = 3;
+            }
+        } else {
+            if (effects[recordIndex * 9] == 0) {
+                coreFlags = (coreFlags & 0xFF1FFFFF) | ((recordIndex & 7) << 21);
+                coreFlags &= 0x3FFFFFFF;
+                base = recordIndex * 9;
+                actor.setActionMode(effects[base + 2]);
+                actor.animStep = effects[base + 4];
+            }
+        }
+
+        base = ((coreFlags >> 21) & 7) * 9;
+        if (effects[base] == 4 || effects[recordIndex * 9] == 4) {
+            actor.setActionMode(fields[47]);
+            actor.animStep = 0x10000;
+            result = 1;
+            effects[base] = 0;
+        }
+
+        return result;
+    }
+
     public void updateBodySphere() {
         PEModel model = models.get(type);
         PEAnimation anim = getAnimation();
@@ -2332,9 +2431,10 @@ public class ScriptVM {
                 if (actor != getPlayer() && actor.hasCombatant && (actor.coreFlags & 0x6000) == 0x2000)
                     stepEnemyMovement(actor);
 
-            if (battleModeState != 6) return;
-            PEHud.updateGaugeColors();
-            battleFrame += 1;
+            if (battleModeState == 6) {
+                PEHud.updateGaugeColors();
+                battleFrame += 1;
+            }
         }
 
         for (ScriptVM actor : getActors()) {
@@ -2921,6 +3021,9 @@ public class ScriptVM {
         }
 
 
+        if (debugTick % 30 == 0)
+            Logger.debug("Charge Fields: fields[43]: " + (fields[43] & 0xFFFF) + ", fields[62]: " + (fields[62] & 0xFFFF) + ", entityFlags: " + (entityFlags & 0x1000) + ", coreFlags: 0x" + Integer.toHexString(coreFlags).toUpperCase() + ", gameStateFlags: " + Integer.toHexString(gameStateFlags).toUpperCase());
+
     }
 
     public void controller() {
@@ -3055,7 +3158,8 @@ public class ScriptVM {
     }
 
     public int getSoundTag() {
-        return fields[2];
+        if (!hasCombatant) return 0x80;
+        return 1 << slot;
     }
 
     public void orEntityFlags(int mask) {
