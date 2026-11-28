@@ -2,7 +2,6 @@ package com.duckcraftian.upf.engine;
 
 import com.duckcraftian.upf.UPF;
 import com.duckcraftian.upf.engine.system.EntryPoint;
-import com.duckcraftian.upf.impl.IDisposable;
 import com.duckcraftian.upf.pe.AyaStats;
 import com.duckcraftian.upf.pe.ParasiteEve;
 import com.duckcraftian.upf.pe.audio.PEAudio;
@@ -19,7 +18,7 @@ import com.duckcraftian.upf.pe.rooms.RoomLoader;
 import com.duckcraftian.upf.pe.script.ScriptVM;
 import com.duckcraftian.upf.ps1.data_types.PSXImage;
 import com.duckcraftian.upf.ps1.disc.DiscFileSystem;
-import com.duckcraftian.upf.ps1.video.MoviePlayer;
+import com.duckcraftian.upf.pe.gfx.video.PEMoviePlayer;
 import com.duckcraftian.upf.system.Utils;
 import com.duckcraftian.upf.utils.Input;
 import org.lwjgl.sdl.SDLScancode;
@@ -45,7 +44,7 @@ public class Game implements EntryPoint {
 
     private PERenderer renderer;
     private List<PSXViewport> viewports;
-    private MoviePlayer moviePlayer;
+    private PEMoviePlayer moviePlayer;
     private String[] movies;
 
     private PECamera camera;
@@ -182,7 +181,7 @@ public class Game implements EntryPoint {
     public void playMovie(String name, boolean canSkip, boolean blocking) {
         Logger.debug("Playing Movie: " + name);
         try {
-            moviePlayer = new MoviePlayer();
+            moviePlayer = new PEMoviePlayer();
             moviePlayer.start(getStreamedData(imageFile, "movies/" + name), PEAUDIO.source, canSkip);
             moviePlayer.blocking = blocking;
             ScriptVM.movieElapsed = moviePlayer.elapsed();

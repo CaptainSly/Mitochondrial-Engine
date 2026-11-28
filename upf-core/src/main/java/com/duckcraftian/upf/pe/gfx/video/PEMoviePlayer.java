@@ -1,16 +1,20 @@
-package com.duckcraftian.upf.ps1.video;
+package com.duckcraftian.upf.pe.gfx.video;
 
 import com.duckcraftian.upf.engine.gfx.TexturedQuad;
 import com.duckcraftian.upf.impl.IDisposable;
 import com.duckcraftian.upf.pe.audio.AKAOAudioSource;
 import com.duckcraftian.upf.pe.gfx.PERenderer;
+import com.duckcraftian.upf.ps1.video.BSDecoder;
+import com.duckcraftian.upf.ps1.video.Mdec;
+import com.duckcraftian.upf.ps1.video.MovieAudio;
+import com.duckcraftian.upf.ps1.video.StrDemux;
 import org.lwjgl.system.MemoryUtil;
 import org.tinylog.Logger;
 
 import java.nio.ByteBuffer;
 import java.util.List;
 
-public class MoviePlayer implements IDisposable {
+public class PEMoviePlayer implements IDisposable {
 
     public static final int FMV_RGBA_SIZE = 320 * 240 * 4;
 
